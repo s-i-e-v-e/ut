@@ -13,7 +13,7 @@ const Lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", 
 const Upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 const Digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const Whitespace = [" ", "\t", "\n"];
-
+const UniSym = ["(", ")", "{", "}", ":", ";"];
 type ReadToken = (cs: CharacterStream) => Token;
 
 function toMap(xs: string[]) {
@@ -46,6 +46,10 @@ const LexerDispatch = (() => {
 
     for (const x of Whitespace) {
         d[x] = readWhitespace;
+    }
+
+    for (const x of UniSym) {
+        d[x] = readSymbol;
     }
 
     d['"'] = readString;
@@ -191,6 +195,12 @@ function readNumber(cs: CharacterStream) {
     }
     mustBeSeparator(cs, loc, true);
     return cs.token(type, loc);
+}
+
+function readSymbol(cs: CharacterStream) {
+    const loc = cs.loc();
+    const c = cs.next();
+    return cs.token(c.codePointAt(0) as TokenType, loc);
 }
 
 export default function lex(cs: CharacterStream) {

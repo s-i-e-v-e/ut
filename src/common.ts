@@ -26,7 +26,7 @@ export interface Location {
 
 export enum TokenType {
     TK_WHITESPACE = 128,
-    TK_COMMENT = 129,
+    TK_COMMENT,
     TK_ID,
     TK_TYPE,
     TK_STRING_LITERAL,

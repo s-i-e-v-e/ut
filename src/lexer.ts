@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {CharacterStream, Dictionary, Location, Token, TokenType} from "./common.ts";
-import * as Raise from "./error.ts";
+import * as Errors from "./errors.ts";
 
 const Lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
 const Upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
@@ -58,57 +58,77 @@ function mustBeSeparator(cs: CharacterStream, loc: Location, tokenIsNumber?: boo
     if (IDChar[c]) {
         cs.next();
         if (tokenIsNumber) {
-            Raise.invalidNumber(cs.lexeme(loc, cs.loc()));
+            Errors.raiseInvalidNumber(cs.lexeme(loc, cs.loc()));
         }
         else {
-            Raise.invalidToken(cs.lexeme(loc, cs.loc()));
+            Errors.raiseInvalidToken(cs.lexeme(loc, cs.loc()));
         }
     }
 }
 
 function readWhitespace(cs: CharacterStream) {
     const loc = cs.loc();
-    while (WhitespaceChar[cs.next()]) {}
-    cs.back();
+    while (!cs.eof() && WhitespaceChar[cs.next()]) {}
+    if (!cs.eof()) cs.back();
     return cs.token(TokenType.TK_WHITESPACE, loc);
 }
 
 function readComment(cs: CharacterStream) {
     const loc = cs.loc();
     const delimiter = cs.next(); // = /
-    const d2 = cs.next();
-    if (d2 === "/") {
-        while (cs.next() !== "\n") {}
-        return cs.token(TokenType.TK_COMMENT, loc);
-    }
-    else if (d2 === "*") {
-        // parse till next matching */
-        for (;;) {
-            const c = cs.next();
-            if (c === "*") {
-                if (cs.next() === "/") {
-                    return cs.token(TokenType.TK_COMMENT, loc);
+    try {
+        const d2 = cs.next();
+        if (d2 === "/") {
+            while (cs.next() !== "\n") {}
+            return cs.token(TokenType.TK_COMMENT, loc);
+        }
+        else if (d2 === "*") {
+            // parse till next matching */
+            for (;;) {
+                const c = cs.next();
+                if (c === "*") {
+                    if (cs.next() === "/") {
+                        return cs.token(TokenType.TK_COMMENT, loc);
+                    }
                 }
-            }
-            else if (c === "/") {
-                if (cs.peek() === "*") {
-                    cs.back();
-                    readComment(cs);
+                else if (c === "/") {
+                    if (cs.peek() === "*") {
+                        cs.back();
+                        readComment(cs);
+                    }
                 }
             }
         }
+        else {
+            cs.back();
+            return cs.token(delimiter.codePointAt(0) as TokenType, loc);
+        }
     }
-    else {
-        cs.back();
-        return cs.token(delimiter.codePointAt(0) as TokenType, loc);
+    catch (e) {
+        if (e instanceof Errors.EOF) {
+            Errors.raiseUnbalancedComment(cs.lexeme(loc, cs.loc()));
+        }
+        else {
+            throw e;
+        }
     }
 }
 
 function readString(cs: CharacterStream) {
     const loc = cs.loc();
     const delimiter = cs.next();
-    while (cs.next() !== delimiter) {}
-    return cs.token(TokenType.TK_STRING_LITERAL, loc);
+    try {
+        while (cs.next() !== delimiter) {}
+        return cs.token(TokenType.TK_STRING_LITERAL, loc);
+    }
+    catch (e) {
+        if (e instanceof Errors.EOF) {
+            Errors.raiseUnterminatedString(cs.lexeme(loc, cs.loc()));
+        }
+        else {
+            throw e;
+        }
+    }
 }
 
 function readID(cs: CharacterStream) {
@@ -140,10 +160,10 @@ function readNumber(cs: CharacterStream) {
             case "o": type = TokenType.TK_OCTAL_NUMBER_LITERAL; Char = OctDigits; break;
             default: {
                 if (Char[x]) {
-                    Raise.invalidDecimalNumber(cs.lexeme(loc, cs.loc()));
+                    Errors.raiseInvalidDecimalNumber(cs.lexeme(loc, cs.loc()));
                 }
                 else {
-                    Raise.invalidNumber(cs.lexeme(loc, cs.loc()));
+                    Errors.raiseInvalidNumber(cs.lexeme(loc, cs.loc()));
                 }
             }
         }
@@ -154,7 +174,7 @@ function readNumber(cs: CharacterStream) {
             case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: {
                 // must at least be be one of 0xN | 0oN | 0bN
                 if (!Char[cs.next()]) {
-                    Raise.invalidNumber(cs.lexeme(loc, cs.loc()));
+                    Errors.raiseInvalidNumber(cs.lexeme(loc, cs.loc()));
                 }
             }
         }
@@ -186,7 +206,7 @@ export default function lex(cs: CharacterStream) {
             ts.data.push(tk);
         }
         else {
-            throw new Error(`<${c}>`);
+            Errors.raiseDebug(`<${c}>`);
         }
     }
     return ts;

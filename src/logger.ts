@@ -11,6 +11,10 @@ export function info(msg: string) {
     console.log(msg);
 }
 
-export function error(e: Error) {
-    panic(e.message);
+export function error(e: Error): never {
+    return panic(e.message);
+}
+
+export function debug(e: Error): never {
+    return panic(e.message);
 }

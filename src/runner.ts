@@ -6,14 +6,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import parse from "./parser.ts";
-import * as logger from "./logger.ts";
+import * as Logger from "./logger.ts";
+import * as os from "./os.ts";
 
 export default async function run(path: string) {
-    const f = {
-        path: path,
-        fsPath: await Deno.realPath(path),
-        contents: await Deno.readTextFile(path),
-    };
-    logger.info(`Running: ${path} [${f.fsPath}]`);
+    const f = await os.readSourceFile(path);
+    Logger.info(`Running: ${path} [${f.fsPath}]`);
     parse(f);
 }

@@ -6,10 +6,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    SourceFile
+    CharacterStream, Dictionary,
+    SourceFile, Token, TokenType, Location
 } from "./common.ts"
-import * as logger from "./logger.ts";
+import * as Logger from "./logger.ts";
+import lex from "./lexer.ts";
 
 export default function parse(f: SourceFile) {
-    logger.info(`Parsing: ${f.path}`);
+    Logger.info(`Parsing: ${f.path}`);
+    const cs = CharacterStream.build(f.contents);
+    const ts = lex(cs);
+    console.log(ts);
 }

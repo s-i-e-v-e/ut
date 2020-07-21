@@ -6,7 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {CharacterStream, Dictionary, Location, Token, TokenType} from "./common.ts";
-import * as Errors from "./errors.ts";
+import Ut from "./util/mod.ts";
+const Errors = Ut.errors;
 
 const Lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
 const Upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
@@ -106,7 +107,7 @@ function readComment(cs: CharacterStream) {
     }
     catch (e) {
         if (e instanceof Errors.EOF) {
-            Errors.raiseUnbalancedComment(cs.lexeme(loc, cs.loc()));
+            return Errors.raiseUnbalancedComment(cs.lexeme(loc, cs.loc()));
         }
         else {
             throw e;
@@ -123,7 +124,7 @@ function readString(cs: CharacterStream) {
     }
     catch (e) {
         if (e instanceof Errors.EOF) {
-            Errors.raiseUnterminatedString(cs.lexeme(loc, cs.loc()));
+            return Errors.raiseUnterminatedString(cs.lexeme(loc, cs.loc()));
         }
         else {
             throw e;

@@ -9,8 +9,9 @@ import {
     CharacterStream, Dictionary,
     SourceFile, Token, TokenType, Location
 } from "./common.ts"
-import * as Logger from "./logger.ts";
+import Ut from "./util/mod.ts";
 import lex from "./lexer.ts";
+const Logger = Ut.logger;
 
 export default function parse(f: SourceFile) {
     Logger.info(`Parsing: ${f.path}`);

@@ -6,11 +6,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import parse from "./parser.ts";
-import * as Logger from "./logger.ts";
-import * as os from "./os.ts";
+import Ut from "./util/mod.ts";
+const Logger = Ut.logger;
 
 export default async function run(path: string) {
-    const f = await os.readSourceFile(path);
-    Logger.info(`Running: ${path} [${f.fsPath}]`);
-    parse(f);
+    try {
+        const f = await Ut.os.readSourceFile(path);
+        Logger.info(`Running: ${path} [${f.fsPath}]`);
+        parse(f);
+    }
+    catch (e) {
+        Logger.error(e)
+    }
 }

@@ -11,7 +11,8 @@ import {
 } from "https://deno.land/std/testing/asserts.ts";
 import lex from "../lexer.ts";
 import {CharacterStream, TokenType} from "../common.ts";
-import {enableThrowError, InvalidNumber, InvalidToken, UnbalancedComment, UnterminatedString} from "../errors.ts";
+import Ut from "../util/mod.ts";
+const Errors = Ut.errors;
 
 function buildCharacterStream(x: string) {
     return CharacterStream.build(x+"\n");
@@ -51,81 +52,61 @@ Deno.test("Binary Number", () => {
 });
 
 Deno.test("Incomplete Hexadecimal Number", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream("0x"));
-    }, InvalidNumber);
-    enableThrowError(false);
+    }, Errors.InvalidNumber);
 });
 
 Deno.test("Incomplete Octal Number", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream("0o"));
-    }, InvalidNumber);
-    enableThrowError(false);
+    }, Errors.InvalidNumber);
 });
 
 Deno.test("Incomplete Binary Number", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream("0b"));
-    }, InvalidNumber);
-    enableThrowError(false);
+    }, Errors.InvalidNumber);
 });
 
 Deno.test("Invalid Number", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream("0B"));
-    }, InvalidNumber);
-    enableThrowError(false);
+    }, Errors.InvalidNumber);
 });
 
 Deno.test("Invalid Hexadecimal Number", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream("0xFG"));
-    }, InvalidNumber);
-    enableThrowError(false);
+    }, Errors.InvalidNumber);
 });
 
 Deno.test("Invalid Decimal Number", () => {
-    enableThrowError(true);
     assertThrows(() => {
         lex(buildCharacterStream("012"));
-    }, InvalidNumber);
-    enableThrowError(false);
+    }, Errors.InvalidNumber);
 });
 
 Deno.test("Invalid Octal Number", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream("0o78"));
-    }, InvalidNumber);
-    enableThrowError(false);
+    }, Errors.InvalidNumber);
 });
 
 Deno.test("Invalid Binary Number", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream("0b12"));
-    }, InvalidNumber);
-    enableThrowError(false);
+    }, Errors.InvalidNumber);
 });
 
 Deno.test("Unbalanced comment", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream("/*"));
-    }, UnbalancedComment);
-    enableThrowError(false);
+    }, Errors.UnbalancedComment);
 });
 
 Deno.test("Unterminated string", () => {
-    enableThrowError(true);
     assertThrows((): void => {
         lex(buildCharacterStream('"abc'));
-    }, UnterminatedString);
-    enableThrowError(false);
+    }, Errors.UnterminatedString);
 });

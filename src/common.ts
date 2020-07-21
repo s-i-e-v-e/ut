@@ -5,7 +5,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import * as Errors from "./errors.ts";
+import Ut from "./util/mod.ts";
+const Errors = Ut.errors;
 
 export interface Dictionary<T> {
     [index: string]: T
@@ -90,7 +91,7 @@ export class CharacterStream {
     }
 
     back() {
-        if (!this.old) Errors.raiseDebug();
+        if (!this.old) return Errors.raiseDebug();
         this.index = this.old.index;
         this.character = this.old.character;
         this.line = this.old.line;

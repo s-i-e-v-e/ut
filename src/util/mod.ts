@@ -5,16 +5,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {panic} from "./os.ts";
+import Logger from "./logger.ts";
+import Errors from "./errors.ts";
+import OS from "./os.ts";
 
-export function info(msg: string) {
-    console.log(msg);
-}
-
-export function error(e: Error): never {
-    return panic(e.message);
-}
-
-export function debug(e: Error): never {
-    return panic(e.message);
-}
+export default class Ut {
+    static logger = Logger;
+    static errors = Errors;
+    static os = OS;
+};

@@ -98,6 +98,6 @@ export default class Errors {
     }
 
     static raiseArrayType(t: Token): never {
-        throw new this.ExpectedButFound(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
+        throw new this.ArrayType(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
     }
 }

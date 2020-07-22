@@ -192,10 +192,26 @@ function parseFunction(ts: TokenStream) {
     };
 }
 
+function parseModule(ts: TokenStream) {
+    const xs = new Array<Function>();
+    while (!ts.eof()) {
+        if (ts.nextIs("fn")) {
+            xs.push(parseFunction(ts));
+        }
+        else {
+            Errors.raiseDebug();
+        }
+    }
+
+    return {
+        functions: xs,
+    };
+}
+
 export default function parse(f: SourceFile) {
     Logger.info(`Parsing: ${f.path}`);
     const cs = CharacterStream.build(f.contents, f.fsPath);
     const ts = lex(cs);
-    const fn = parseFunction(ts);
-    console.log(fn);
+    const m = parseModule(ts);
+    console.log(m);
 }

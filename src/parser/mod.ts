@@ -71,11 +71,6 @@ export interface Variable {
 
 export type Parameter = Variable;
 
-export interface Expr {}
-
-export interface LvalueExpr extends Expr {}
-export interface RvalueExpr extends Expr {}
-
 export interface Stmt {}
 
 export interface VarInitStmt extends Stmt {
@@ -83,10 +78,44 @@ export interface VarInitStmt extends Stmt {
     expr: Expr;
 }
 
+export interface VarAssnStmt extends Stmt {
+    id: string;
+    expr: Expr;
+}
+
+export interface FunctionApplicationStmt extends Stmt {
+    fa: FunctionApplication;
+}
+
+export interface Expr {}
+
+export interface LvalueExpr extends Expr {}
+export interface RvalueExpr extends Expr {}
+
+export interface IDExpr extends LvalueExpr {
+    id: string;
+}
+
+/**
+ * note: As function application can return an lvalue, it can
+ * be treated as an lvalue. But this can only be decided after
+ * type-checking. To avoid needless complexity, we treat it as
+ * an rvalue for now.
+ *
+ * There is a simple workaround for:
+ * { foo()(0) = 7; } ----> { let x = foo(); x(0) = 7; }
+ *
+ */
+export interface FunctionApplication extends RvalueExpr {
+    id: string;
+    args: Expr[];
+}
+
 export interface Literal extends RvalueExpr {}
 export interface StringLiteral extends Literal {}
 export interface BooleanLiteral extends Literal {}
 export interface NumberLiteral extends Literal {}
+
 
 export const InternalTypes = [
     "Bit8",

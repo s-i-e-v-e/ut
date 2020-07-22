@@ -58,6 +58,22 @@ export default class TokenStream {
         return this.peek().lexeme === x;
     }
 
+    nextIsLiteral() {
+        switch (this.peek().type) {
+            case TokenType.TK_STRING_LITERAL:
+            case TokenType.TK_BOOLEAN_LITERAL:
+            case TokenType.TK_DECIMAL_NUMBER_LITERAL:
+            case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL:
+            case TokenType.TK_OCTAL_NUMBER_LITERAL:
+            case TokenType.TK_BINARY_NUMBER_LITERAL: {
+                return true;
+            }
+            default: {
+                return false;
+            }
+        }
+    }
+
     consumeIfNextIs(x: string) {
         if (this.nextIs(x)) {
             return this.next();

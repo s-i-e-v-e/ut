@@ -21,6 +21,7 @@ import {
     Struct,
     Variable,
     Parameter,
+    Expr, VarInitStmt,
 } from "./mod.ts";
 
 function parseID(ts: TokenStream) {
@@ -107,7 +108,7 @@ function parseNumber(n: string, radix: number) {
     return sum;
 }
 
-function parseRValue(ts: TokenStream) {
+function parseLiteral(ts: TokenStream) {
     const t = ts.next();
     switch (t.type) {
         case TokenType.TK_STRING_LITERAL: return t.lexeme.substring(1, t.lexeme.length - 1);
@@ -120,9 +121,36 @@ function parseRValue(ts: TokenStream) {
     }
 }
 
+function parseFunctionApplication(ts: TokenStream, id: string) {
+    const xs = new Array<Expr>();
+    ts.nextMustBe("(");
+    while (!ts.nextIs(")")) {
+        xs.push(parseExpr(ts));
+        if (!ts.consumeIfNextIs(",")) break;
+    }
+    ts.nextMustBe(")");
+    return {
+        id: id,
+        args: xs,
+    };
+}
+
+function parseExpr(ts: TokenStream) {
+    if (ts.nextIsLiteral()) return parseLiteral(ts);
+    const id = parseID(ts);
+    if (ts.nextIs("(")) {
+        return parseFunctionApplication(ts, id);
+    }
+    else {
+        return {
+            id: id,
+        }
+    }
+}
+
 function parseVarDef(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boolean): Variable {
     const id = parseID(ts);
-    const type = typeCanBeInferred ? NotInferred : parseInferredType(ts);
+    const type = typeCanBeInferred ? NotInferred : parseInferredType(ts, true);
     return {
         id: id,
         type: type,
@@ -130,13 +158,12 @@ function parseVarDef(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boo
     }
 }
 
-function parseVarInit(ts: TokenStream, isMutable: boolean) {
+function parseVarInit(ts: TokenStream, isMutable: boolean): VarInitStmt {
     const v = parseVarDef(ts, isMutable, true);
     ts.nextMustBe("=");
-    const expr = parseRValue(ts);
+    const expr = parseExpr(ts);
     return {
         var: v,
-        isMutable: isMutable,
         expr: expr,
     }
 }
@@ -151,7 +178,18 @@ function parseBody(ts: TokenStream) {
             xs.push(parseVarInit(ts, true));
         }
         else {
-            Errors.raiseDebug();
+            const id = parseID(ts);
+            if (ts.consumeIfNextIs("=")) {
+                xs.push({
+                    id: id,
+                    expr: parseExpr(ts),
+                });
+            }
+            else {
+                xs.push({
+                    fa: parseFunctionApplication(ts, id),
+                });
+            }
         }
         ts.nextMustBe(";");
     }
@@ -176,12 +214,18 @@ function parseStructMemberList(ts: TokenStream) {
     return parseVariableList(ts, false, false);
 }
 
-function parseInferredType(ts: TokenStream) {
-    if (ts.consumeIfNextIs(":")) {
+function parseInferredType(ts: TokenStream, force: boolean) {
+    if (force) {
+        ts.nextMustBe(":");
         return parseType(ts);
     }
     else {
-        return NotInferred;
+        if (ts.consumeIfNextIs(":")) {
+            return parseType(ts);
+        }
+        else {
+            return NotInferred;
+        }
     }
 }
 
@@ -191,7 +235,7 @@ function parseFunction(ts: TokenStream) {
     ts.nextMustBe("(");
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");
-    const returnType = parseInferredType(ts);
+    const returnType = parseInferredType(ts, false);
     ts.nextMustBe("{");
     const body = parseBody(ts);
     ts.nextMustBe("}");
@@ -242,5 +286,8 @@ export default function parse(f: SourceFile) {
     const cs = CharacterStream.build(f.contents, f.fsPath);
     const ts = lex(cs);
     const m = parseModule(ts);
-    console.log(m);
+
+    m.functions.forEach(x => console.log(x));
+    m.structs.forEach(x => console.log(x));
+
 }

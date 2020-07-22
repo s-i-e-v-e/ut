@@ -15,6 +15,7 @@ import {
     lex,
     Stmt,
     Parameter,
+    Dictionary,
 } from "./mod.ts";
 
 function skipWhiteSpace(ts: TokenStream) {
@@ -46,6 +47,11 @@ function nextIs(x: string, ts: TokenStream) {
 function consume(ts: TokenStream) {
     skipWhiteSpace(ts);
     ts.next();
+}
+
+function next(ts: TokenStream) {
+    skipWhiteSpace(ts);
+    return ts.next();
 }
 
 function nextMustBe(x: string | TokenType, ts: TokenStream) {
@@ -83,16 +89,67 @@ function parseType(ts: TokenStream) {
     return nextMustBe(TokenType.TK_TYPE, ts).lexeme;
 }
 
+const NumGrid: Dictionary<number> = {
+    "0" : 0,
+    "1" : 1,
+    "2" : 2,
+    "3" : 3,
+    "4" : 4,
+    "5" : 5,
+    "6" : 6,
+    "7" : 7,
+    "8" : 8,
+    "9" : 9,
+    "A" : 10,
+    "B" : 11,
+    "C" : 12,
+    "D" : 13,
+    "E" : 14,
+    "F" : 15,
+    "a" : 10,
+    "b" : 11,
+    "c" : 12,
+    "d" : 13,
+    "e" : 14,
+    "f" : 15,
+}
+
+function parseNumber(n: string, radix: number) {
+    n = radix === 10 ? n : n.substring(2);
+    const isKilo = n.endsWith("K");
+    n = isKilo ? n.substring(0, n.length - 1) : n;
+
+    let sum = BigInt(0);
+    for (let i = 0; i < n.length; i += 1) {
+        const d = n.charAt(n.length - i - 1);
+        sum += BigInt(NumGrid[d] * (radix ** i));
+    }
+    sum = isKilo ? sum * BigInt(1024) : sum;
+    return sum;
+}
+
+function parseRValue(ts: TokenStream) {
+    const t = next(ts);
+    switch (t.type) {
+        case TokenType.TK_STRING_LITERAL: return t.lexeme.substring(1, t.lexeme.length - 1);
+        case TokenType.TK_BINARY_NUMBER_LITERAL: return parseNumber(t.lexeme, 2);
+        case TokenType.TK_OCTAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 8);
+        case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 16);
+        case TokenType.TK_DECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 10);
+        default: return Errors.raiseDebug();
+    }
+}
+
 function parseVarDef(ts: TokenStream, isMutable: boolean) {
     const id = parseID(ts);
     const type = parseInferredType(ts);
     nextMustBe("=", ts);
-    nextMustBe("undefined", ts);
+    const expr = parseRValue(ts);
     return {
         id: id,
         type: type,
         isMutable: isMutable,
-        expr: {},
+        expr: expr,
     }
 }
 

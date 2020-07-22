@@ -58,19 +58,6 @@ const LexerDispatch = (() => {
     return d;
 })();
 
-function mustBeSeparator(cs: CharacterStream, loc: Location, tokenIsNumber?: boolean) {
-    const c = cs.peek();
-    if (IDChar[c]) {
-        cs.next();
-        if (tokenIsNumber) {
-            Errors.raiseInvalidNumber(cs.lexeme(loc, cs.loc()));
-        }
-        else {
-            Errors.raiseInvalidToken(cs.lexeme(loc, cs.loc()));
-        }
-    }
-}
-
 function readWhitespace(cs: CharacterStream) {
     const loc = cs.loc();
     while (!cs.eof() && WhitespaceChar[cs.next()]) {}
@@ -140,7 +127,6 @@ function readID(cs: CharacterStream) {
     const loc = cs.loc();
     while (IDChar[cs.next()]) {}
     cs.back();
-    mustBeSeparator(cs, loc);
     return cs.token(TokenType.TK_ID, loc);
 }
 
@@ -148,12 +134,19 @@ function readType(cs: CharacterStream) {
     const loc = cs.loc();
     while (TypeChar[cs.next()]) {}
     cs.back();
-    mustBeSeparator(cs, loc);
     return cs.token(TokenType.TK_TYPE, loc);
 }
 
 function readNumber(cs: CharacterStream) {
     const loc = cs.loc();
+
+    const mustBeSeparator = () => {
+        if (IDChar[cs.peek()]) {
+            cs.next();
+            Errors.raiseInvalidNumber(cs.lexeme(loc, cs.loc()));
+        }
+    }
+
     let Char = DecDigits;
     let type = TokenType.TK_DECIMAL_NUMBER_LITERAL;
     let enableKilobyte = false;
@@ -193,7 +186,7 @@ function readNumber(cs: CharacterStream) {
     if (enableKilobyte && cs.peek() === "K") {
         cs.next();
     }
-    mustBeSeparator(cs, loc, true);
+    mustBeSeparator();
     return cs.token(type, loc);
 }
 

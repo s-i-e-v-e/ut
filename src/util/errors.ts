@@ -12,12 +12,6 @@ export default class Errors {
         }
     }
 
-    static InvalidToken = class extends Error {
-        constructor(msg: string) {
-            super(msg);
-        }
-    }
-
     static EOF = class extends Error {
         constructor(msg: string) {
             super(msg);
@@ -48,10 +42,6 @@ export default class Errors {
 
     static raiseInvalidDecimalNumber(lexeme: string): never {
         throw new this.InvalidNumber(`Decimal numbers cannot have leading zeros: ${lexeme}`);
-    }
-
-    static raiseInvalidToken(lexeme: string): never {
-        throw new this.InvalidToken(`Invalid token: ${lexeme}`);
     }
 
     static raiseUnbalancedComment(lexeme: string): never {

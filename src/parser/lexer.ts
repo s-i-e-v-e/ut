@@ -34,6 +34,7 @@ const OctDigits = toMap(["_", "0", "1", "2", "3", "4", "5", "6", "7"]);
 const IDChar = toMap(["_"].concat(Lower).concat(Upper).concat(Digits));
 const TypeChar = IDChar;
 const WhitespaceChar = toMap(Whitespace);
+const BooleanLiterals = toMap(["true", "false"]);
 
 const LexerDispatch = (() => {
     const d : Dictionary<ReadToken> = {}
@@ -132,7 +133,9 @@ function readID(cs: CharacterStream) {
     const loc = cs.loc();
     while (IDChar[cs.next()]) {}
     cs.back();
-    return cs.token(TokenType.TK_ID, loc);
+    const x = cs.token(TokenType.TK_ID, loc);
+    if (BooleanLiterals[x.lexeme]) x.type = TokenType.TK_BOOLEAN_LITERAL;
+    return x;
 }
 
 function readType(cs: CharacterStream) {

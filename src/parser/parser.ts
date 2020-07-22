@@ -71,6 +71,7 @@ function parseRValue(ts: TokenStream) {
     const t = ts.next();
     switch (t.type) {
         case TokenType.TK_STRING_LITERAL: return t.lexeme.substring(1, t.lexeme.length - 1);
+        case TokenType.TK_BOOLEAN_LITERAL: return t.lexeme === "true";
         case TokenType.TK_BINARY_NUMBER_LITERAL: return parseNumber(t.lexeme, 2);
         case TokenType.TK_OCTAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 8);
         case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 16);

@@ -9,8 +9,18 @@ import Logger from "./logger.ts";
 import Errors from "./errors.ts";
 import OS from "./os.ts";
 
-export default class Ut {
-    static logger = Logger;
-    static errors = Errors;
-    static os = OS;
+export interface Dictionary<T> {
+    [index: string]: T
+}
+
+export interface SourceFile {
+    path: string;
+    fsPath: string;
+    contents: string;
+}
+
+export {
+    Logger,
+    Errors,
+    OS,
 };

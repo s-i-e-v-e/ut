@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import run from "./runner.ts";
-import Ut from "./util/mod.ts";
+import { OS } from "./util/mod.ts";
 
 function help() {
     console.log("ut 0.1");
@@ -23,7 +23,7 @@ async function main(args: string[]) {
         case undefined:
         case "help": help(); break;
         case "run": await run(p1); break;
-        default: Ut.os.panic(`Unknown command: ${cmd}`);
+        default: OS.panic(`Unknown command: ${cmd}`);
     }
 }
 

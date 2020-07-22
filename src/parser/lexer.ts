@@ -5,9 +5,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {CharacterStream, Dictionary, Token, TokenStream, TokenType} from "./common.ts";
-import Ut from "./util/mod.ts";
-const Errors = Ut.errors;
+import {
+    CharacterStream,
+    TokenType,
+    Token,
+    TokenStream,
+    Dictionary,
+    Errors,
+} from "./mod.ts";
 
 const Lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
 const Upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];

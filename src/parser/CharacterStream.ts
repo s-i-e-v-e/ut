@@ -5,45 +5,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import Ut from "./util/mod.ts";
-const Errors = Ut.errors;
+import {
+    Location,
+    TokenType,
+    Errors,
+} from "./mod.ts";
 
-export interface Dictionary<T> {
-    [index: string]: T
-}
-
-export interface SourceFile {
-    path: string;
-    fsPath: string;
-    contents: string;
-}
-
-export interface Location {
-    line: number;
-    character: number;
-    index: number;
-    path: string;
-}
-
-export enum TokenType {
-    TK_WHITESPACE = 128,
-    TK_COMMENT,
-    TK_ID,
-    TK_TYPE,
-    TK_STRING_LITERAL,
-    TK_BINARY_NUMBER_LITERAL,
-    TK_OCTAL_NUMBER_LITERAL,
-    TK_DECIMAL_NUMBER_LITERAL,
-    TK_HEXADECIMAL_NUMBER_LITERAL,
-}
-
-export interface Token {
-    type: TokenType,
-    loc: Location,
-    lexeme: string,
-}
-
-export class CharacterStream {
+export default class CharacterStream {
     private old?: Location;
     private index: number;
     private line: number;
@@ -111,38 +79,5 @@ export class CharacterStream {
 
     static build(data: string, path: string) {
         return new CharacterStream(data, path);
-    }
-}
-
-export class TokenStream {
-    private index: number;
-    public readonly length: number;
-
-    constructor(private readonly xs: Array<Token>) {
-        this.index = 0;
-        this.length = xs.length;
-    }
-
-    eof() {
-        return this.index >= this.xs.length;
-    }
-
-    peek(n?: number) {
-        return this.xs[n ? this.index + n : this.index];
-    }
-
-    next() {
-        if (this.eof()) Errors.raiseEOF();
-        let x = this.peek();
-        this.index += 1;
-        return x;
-    }
-
-    print() {
-        console.log(this.xs);
-    }
-
-    static build(xs: Array<Token>) {
-        return new TokenStream(xs);
     }
 }

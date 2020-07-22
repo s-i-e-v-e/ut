@@ -5,12 +5,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {CharacterStream, SourceFile, Token, TokenStream, TokenType} from "./common.ts"
-import lex from "./lexer.ts";
-import Ut from "./util/mod.ts";
-
-const Logger = Ut.logger;
-const Errors = Ut.errors;
+import {
+    CharacterStream,
+    TokenType,
+    TokenStream,
+    Errors,
+    Logger,
+    SourceFile,
+    lex,
+    Stmt,
+    Parameter,
+} from "./mod.ts";
 
 function skipWhiteSpace(ts: TokenStream) {
     while (true) {
@@ -78,30 +83,6 @@ function parseType(ts: TokenStream) {
     return nextMustBe(TokenType.TK_TYPE, ts).lexeme;
 }
 
-interface Function {
-    id: string;
-    params: Parameter[];
-}
-
-interface Parameter {
-    id: string;
-    type: string;
-}
-
-interface Expr {
-
-}
-
-interface Stmt {
-
-}
-
-interface VarDefStmt extends Stmt {
-    id: string;
-    type: string;
-    expr: Expr;
-}
-
 function parseVarDef(ts: TokenStream, isMutable: boolean) {
     const id = parseID(ts);
     const type = parseInferredType(ts);
@@ -110,6 +91,7 @@ function parseVarDef(ts: TokenStream, isMutable: boolean) {
     return {
         id: id,
         type: type,
+        isMutable: isMutable,
         expr: {},
     }
 }

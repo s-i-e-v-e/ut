@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import Ut from "./mod.ts";
+import { OS } from "./mod.ts";
 
 export default class Logger {
     static info(msg: string) {
@@ -13,10 +13,10 @@ export default class Logger {
     }
 
     static error(e: Error) {
-        return Ut.os.panic(e.message);
+        return OS.panic(e.message);
     }
 
     static debug(e: Error) {
-        return Ut.os.panic(e.message);
+        return OS.panic(e.message);
     }
 }

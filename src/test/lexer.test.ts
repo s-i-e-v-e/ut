@@ -9,10 +9,12 @@ import {
     assertEquals,
     assertThrows,
 } from "https://deno.land/std/testing/asserts.ts";
-import lex from "../lexer.ts";
-import {CharacterStream, TokenType} from "../common.ts";
-import Ut from "../util/mod.ts";
-const Errors = Ut.errors;
+import {
+    CharacterStream,
+    TokenType,
+    Errors,
+    lex,
+} from "../parser/mod.ts";
 
 function buildCharacterStream(x: string) {
     return CharacterStream.build(x+"\n", "<mem>");

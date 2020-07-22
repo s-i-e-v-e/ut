@@ -5,7 +5,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {CharacterStream, Location, Token} from "../common.ts";
+import {
+    CharacterStream,
+    Location,
+    Token,
+} from "../parser/mod.ts";
 
 function buildErrorString(msg: string, loc: Location) {
     const path = loc.path.replaceAll(/\\/g, "/");

@@ -67,7 +67,7 @@ export default class TokenStream {
         }
     }
 
-    nextMustBe(x: string | TokenType) {
+    nextMustBe(x: string | TokenType): Token {
         let t;
         if (typeof x === "string") {
             t = this.next();

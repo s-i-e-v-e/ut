@@ -49,6 +49,11 @@ export interface Function {
     body: Stmt[];
 }
 
+export interface Struct {
+    type: Type;
+    members: Variable[];
+}
+
 export interface Type {
     id: string;
 }
@@ -58,10 +63,13 @@ export interface GenericType extends Type {
     typeParameters: Type[];
 }
 
-export interface Parameter {
+export interface Variable {
     id: string;
     type: Type;
+    isMutable: boolean;
 }
+
+export type Parameter = Variable;
 
 export interface Expr {}
 
@@ -70,9 +78,8 @@ export interface RvalueExpr extends Expr {}
 
 export interface Stmt {}
 
-export interface VarDefStmt extends Stmt {
-    id: string;
-    type: string;
+export interface VarInitStmt extends Stmt {
+    var: Variable;
     expr: Expr;
 }
 

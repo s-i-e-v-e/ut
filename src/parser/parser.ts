@@ -14,11 +14,13 @@ import {
     SourceFile,
     lex,
     Stmt,
-    Parameter,
     Dictionary,
     Type,
     NotInferred,
     Function,
+    Struct,
+    Variable,
+    Parameter,
 } from "./mod.ts";
 
 function parseID(ts: TokenStream) {
@@ -34,7 +36,7 @@ function parseTypeParameters(ts: TokenStream) {
     return xs;
 }
 
-function parseType(ts: TokenStream): Type {
+function parseType(ts: TokenStream) {
     const idx = ts.getIndex();
     if (ts.consumeIfNextIs("[")) {
         const x = {
@@ -118,14 +120,22 @@ function parseRValue(ts: TokenStream) {
     }
 }
 
-function parseVarDef(ts: TokenStream, isMutable: boolean) {
+function parseVarDef(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boolean): Variable {
     const id = parseID(ts);
-    const type = parseInferredType(ts);
-    ts.nextMustBe("=");
-    const expr = parseRValue(ts);
+    const type = typeCanBeInferred ? NotInferred : parseInferredType(ts);
     return {
         id: id,
         type: type,
+        isMutable: isMutable,
+    }
+}
+
+function parseVarInit(ts: TokenStream, isMutable: boolean) {
+    const v = parseVarDef(ts, isMutable, true);
+    ts.nextMustBe("=");
+    const expr = parseRValue(ts);
+    return {
+        var: v,
         isMutable: isMutable,
         expr: expr,
     }
@@ -135,10 +145,10 @@ function parseBody(ts: TokenStream) {
     const xs = new Array<Stmt>();
     while (!ts.nextIs("}")) {
         if (ts.consumeIfNextIs("let")) {
-            xs.push(parseVarDef(ts, false));
+            xs.push(parseVarInit(ts, false));
         }
         else if (ts.consumeIfNextIs("mut")) {
-            xs.push(parseVarDef(ts, true));
+            xs.push(parseVarInit(ts, true));
         }
         else {
             Errors.raiseDebug();
@@ -148,20 +158,22 @@ function parseBody(ts: TokenStream) {
     return xs;
 }
 
-function parseParameters(ts: TokenStream) {
+function parseVariableList(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boolean) {
     const xs = new Array<Parameter>();
     while (ts.peek().lexeme !== ")") {
-        const id = parseID(ts);
-        ts.nextMustBe(":");
-        const type = parseType(ts);
-        xs.push({
-            id: id,
-            type: type
-        });
+        xs.push(parseVarDef(ts, isMutable, typeCanBeInferred));
         if (ts.peek().lexeme === ")") continue;
         ts.nextMustBe(",");
     }
     return xs;
+}
+
+function parseParameterList(ts: TokenStream) {
+    return parseVariableList(ts, false, false);
+}
+
+function parseStructMemberList(ts: TokenStream) {
+    return parseVariableList(ts, false, false);
 }
 
 function parseInferredType(ts: TokenStream) {
@@ -177,7 +189,7 @@ function parseFunction(ts: TokenStream) {
     ts.nextMustBe("fn");
     const id = parseID(ts);
     ts.nextMustBe("(");
-    const xs = parseParameters(ts);
+    const xs = parseParameterList(ts);
     ts.nextMustBe(")");
     const returnType = parseInferredType(ts);
     ts.nextMustBe("{");
@@ -192,11 +204,27 @@ function parseFunction(ts: TokenStream) {
     };
 }
 
+function parseStruct(ts: TokenStream) {
+    ts.nextMustBe("struct");
+    const ty = parseType(ts);
+    ts.nextMustBe("(");
+    const members = parseStructMemberList(ts);
+    ts.nextMustBe(")");
+    return {
+        type: ty,
+        members: members,
+    }
+}
+
 function parseModule(ts: TokenStream) {
     const xs = new Array<Function>();
+    const ys = new Array<Struct>();
     while (!ts.eof()) {
         if (ts.nextIs("fn")) {
             xs.push(parseFunction(ts));
+        }
+        else if (ts.nextIs("struct")) {
+            ys.push(parseStruct(ts));
         }
         else {
             Errors.raiseDebug();
@@ -205,6 +233,7 @@ function parseModule(ts: TokenStream) {
 
     return {
         functions: xs,
+        structs: ys,
     };
 }
 

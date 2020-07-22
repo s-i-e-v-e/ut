@@ -22,6 +22,7 @@ export interface Location {
     line: number;
     character: number;
     index: number;
+    path: string;
 }
 
 export enum TokenType {
@@ -39,7 +40,7 @@ export enum TokenType {
 export interface Token {
     type: TokenType,
     loc: Location,
-    lexeme?: string,
+    lexeme: string,
 }
 
 export class CharacterStream {
@@ -48,7 +49,7 @@ export class CharacterStream {
     private line: number;
     private character: number;
 
-    private constructor(private readonly data: string) {
+    private constructor(private readonly data: string, private readonly path: string) {
         this.index = 0;
         this.line = 1;
         this.character = 1;
@@ -104,15 +105,44 @@ export class CharacterStream {
             line: this.line,
             character: this.character,
             index: this.index,
+            path: this.path,
         };
     }
 
-    static build(data: string) {
-        return new CharacterStream(data);
+    static build(data: string, path: string) {
+        return new CharacterStream(data, path);
     }
 }
 
-export interface TokenStream {
-    index: number;
-    data: [];
+export class TokenStream {
+    private index: number;
+    public readonly length: number;
+
+    constructor(private readonly xs: Array<Token>) {
+        this.index = 0;
+        this.length = xs.length;
+    }
+
+    eof() {
+        return this.index >= this.xs.length;
+    }
+
+    peek(n?: number) {
+        return this.xs[n ? this.index + n : this.index];
+    }
+
+    next() {
+        if (this.eof()) Errors.raiseEOF();
+        let x = this.peek();
+        this.index += 1;
+        return x;
+    }
+
+    print() {
+        console.log(this.xs);
+    }
+
+    static build(xs: Array<Token>) {
+        return new TokenStream(xs);
+    }
 }

@@ -8,6 +8,7 @@
 import parse from "./parser.ts";
 import Ut from "./util/mod.ts";
 const Logger = Ut.logger;
+const Errors = Ut.errors;
 
 export default async function run(path: string) {
     try {
@@ -16,6 +17,11 @@ export default async function run(path: string) {
         parse(f);
     }
     catch (e) {
-        Logger.error(e)
+        if (e instanceof Errors.Debug) {
+            throw e;
+        }
+        else {
+            Logger.error(e)
+        }
     }
 }

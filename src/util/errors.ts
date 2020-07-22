@@ -5,6 +5,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import {CharacterStream, Location, Token} from "../common.ts";
+
+function buildErrorString(msg: string, loc: Location) {
+    const path = loc.path.replaceAll(/\\/g, "/");
+    return `${msg}\tat file:///${path}:${loc.line}:${loc.character}`;
+}
+
 export default class Errors {
     static InvalidNumber = class extends Error {
         constructor(msg: string) {
@@ -30,26 +37,42 @@ export default class Errors {
         }
     }
 
+    static ParserError = class extends Error {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static ExpectedButFound = class extends Errors.ParserError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
     static Debug = class extends Error {
         constructor(msg: string) {
             super(msg);
         }
     }
 
-    static raiseInvalidNumber(lexeme: string): never {
-        throw new this.InvalidNumber(`Invalid number: ${lexeme}`);
+    static raiseInvalidNumber(cs: CharacterStream, loc: Location): never {
+        const lexeme = cs.lexeme(loc, cs.loc());
+        throw new this.InvalidNumber(buildErrorString(`Invalid number: ${lexeme}`, loc));
     }
 
-    static raiseInvalidDecimalNumber(lexeme: string): never {
-        throw new this.InvalidNumber(`Decimal numbers cannot have leading zeros: ${lexeme}`);
+    static raiseInvalidDecimalNumber(cs: CharacterStream, loc: Location): never {
+        const lexeme = cs.lexeme(loc, cs.loc());
+        throw new this.InvalidNumber(buildErrorString(`Decimal numbers cannot have leading zeros: ${lexeme}`, loc));
     }
 
-    static raiseUnbalancedComment(lexeme: string): never {
-        throw new this.UnbalancedComment(`Unbalanced comment: ${lexeme}`);
+    static raiseUnbalancedComment(cs: CharacterStream, loc: Location): never {
+        const lexeme = cs.lexeme(loc, cs.loc());
+        throw new this.UnbalancedComment(buildErrorString(`Unbalanced comment: ${lexeme}`, loc));
     }
 
-    static raiseUnterminatedString(lexeme: string): never {
-        throw new this.UnterminatedString(`Unterminated string: ${lexeme}`);
+    static raiseUnterminatedString(cs: CharacterStream, loc: Location): never {
+        const lexeme = cs.lexeme(loc, cs.loc());
+        throw new this.UnterminatedString(buildErrorString(`Unterminated string: ${lexeme}`, loc));
     }
 
     static raiseEOF(): never {
@@ -58,5 +81,9 @@ export default class Errors {
 
     static raiseDebug(msg?: string): never {
         throw new this.Debug(msg || "DebugError");
+    }
+
+    static raiseExpectedButFound(exp: string, t: Token): never {
+        throw new this.ExpectedButFound(buildErrorString(`Expected: ${exp}. Found: \`${t.lexeme}\``, t.loc));
     }
 }

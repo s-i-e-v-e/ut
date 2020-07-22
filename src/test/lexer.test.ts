@@ -15,38 +15,38 @@ import Ut from "../util/mod.ts";
 const Errors = Ut.errors;
 
 function buildCharacterStream(x: string) {
-    return CharacterStream.build(x+"\n");
+    return CharacterStream.build(x+"\n", "<mem>");
 }
 
 Deno.test("Hexadecimal Number", () => {
-    const xs = lex(buildCharacterStream("0x1234"));
-    assertEquals(xs.data.length, 2);
-    const x = xs.data[0];
+    const ts = lex(buildCharacterStream("0x1234"));
+    assertEquals(ts.length, 2);
+    const x = ts.next();
     assertEquals(x.lexeme, "0x1234");
     assertEquals(x.type, TokenType.TK_HEXADECIMAL_NUMBER_LITERAL);
 });
 
 
 Deno.test("Decimal Number", () => {
-    const xs = lex(buildCharacterStream("1234"));
-    assertEquals(xs.data.length, 2);
-    const x = xs.data[0];
+    const ts = lex(buildCharacterStream("1234"));
+    assertEquals(ts.length, 2);
+    const x = ts.next();
     assertEquals(x.lexeme, "1234");
     assertEquals(x.type, TokenType.TK_DECIMAL_NUMBER_LITERAL);
 });
 
 Deno.test("Octal Number", () => {
-    const xs = lex(buildCharacterStream("0o1234"));
-    assertEquals(xs.data.length, 2);
-    const x = xs.data[0];
+    const ts = lex(buildCharacterStream("0o1234"));
+    assertEquals(ts.length, 2);
+    const x = ts.next();
     assertEquals(x.lexeme, "0o1234");
     assertEquals(x.type, TokenType.TK_OCTAL_NUMBER_LITERAL);
 });
 
 Deno.test("Binary Number", () => {
-    const xs = lex(buildCharacterStream("0b10110"));
-    assertEquals(xs.data.length, 2);
-    const x = xs.data[0];
+    const ts = lex(buildCharacterStream("0b10110"));
+    assertEquals(ts.length, 2);
+    const x = ts.next();
     assertEquals(x.lexeme, "0b10110");
     assertEquals(x.type, TokenType.TK_BINARY_NUMBER_LITERAL);
 });

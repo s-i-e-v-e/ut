@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {CharacterStream, Dictionary, Location, Token, TokenType} from "./common.ts";
+import {CharacterStream, Dictionary, Token, TokenStream, TokenType} from "./common.ts";
 import Ut from "./util/mod.ts";
 const Errors = Ut.errors;
 
@@ -98,7 +98,7 @@ function readComment(cs: CharacterStream) {
     }
     catch (e) {
         if (e instanceof Errors.EOF) {
-            return Errors.raiseUnbalancedComment(cs.lexeme(loc, cs.loc()));
+            return Errors.raiseUnbalancedComment(cs, loc);
         }
         else {
             throw e;
@@ -115,7 +115,7 @@ function readString(cs: CharacterStream) {
     }
     catch (e) {
         if (e instanceof Errors.EOF) {
-            return Errors.raiseUnterminatedString(cs.lexeme(loc, cs.loc()));
+            return Errors.raiseUnterminatedString(cs, loc);
         }
         else {
             throw e;
@@ -143,7 +143,7 @@ function readNumber(cs: CharacterStream) {
     const mustBeSeparator = () => {
         if (IDChar[cs.peek()]) {
             cs.next();
-            Errors.raiseInvalidNumber(cs.lexeme(loc, cs.loc()));
+            Errors.raiseInvalidNumber(cs, loc);
         }
     }
 
@@ -158,10 +158,10 @@ function readNumber(cs: CharacterStream) {
             case "o": type = TokenType.TK_OCTAL_NUMBER_LITERAL; Char = OctDigits; break;
             default: {
                 if (Char[x]) {
-                    Errors.raiseInvalidDecimalNumber(cs.lexeme(loc, cs.loc()));
+                    Errors.raiseInvalidDecimalNumber(cs, loc);
                 }
                 else {
-                    Errors.raiseInvalidNumber(cs.lexeme(loc, cs.loc()));
+                    Errors.raiseInvalidNumber(cs, loc);
                 }
             }
         }
@@ -172,7 +172,7 @@ function readNumber(cs: CharacterStream) {
             case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: {
                 // must at least be be one of 0xN | 0oN | 0bN
                 if (!Char[cs.next()]) {
-                    Errors.raiseInvalidNumber(cs.lexeme(loc, cs.loc()));
+                    Errors.raiseInvalidNumber(cs, loc);
                 }
             }
         }
@@ -197,21 +197,18 @@ function readSymbol(cs: CharacterStream) {
 }
 
 export default function lex(cs: CharacterStream) {
-    const ts = {
-        index: 0,
-        data: new Array<Token>(),
-    };
+    const xs = new Array<Token>();
 
     while (!cs.eof()) {
         const c = cs.peek();
         const f = LexerDispatch[c];
         if (f) {
             const tk = f(cs);
-            ts.data.push(tk);
+            xs.push(tk);
         }
         else {
             Errors.raiseDebug(`<${c}>`);
         }
     }
-    return ts;
+    return TokenStream.build(xs);
 }

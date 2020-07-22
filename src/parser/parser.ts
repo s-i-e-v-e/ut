@@ -16,16 +16,54 @@ import {
     Stmt,
     Parameter,
     Dictionary,
+    Type,
+    NotInferred,
+    Function,
 } from "./mod.ts";
-
-
 
 function parseID(ts: TokenStream) {
     return ts.nextMustBe(TokenType.TK_ID).lexeme;
 }
 
-function parseType(ts: TokenStream) {
-    return ts.nextMustBe(TokenType.TK_TYPE).lexeme;
+function parseTypeParameters(ts: TokenStream) {
+    const xs = new Array<Type>();
+    while (!ts.nextIs("]")) {
+        xs.push(parseType(ts));
+        if (!ts.consumeIfNextIs(",")) break;
+    }
+    return xs;
+}
+
+function parseType(ts: TokenStream): Type {
+    const idx = ts.getIndex();
+    if (ts.consumeIfNextIs("[")) {
+        const x = {
+            id: "Array",
+            typeParameters: parseTypeParameters(ts),
+        };
+        ts.nextMustBe("]");
+        const tx = ts.getAsToken(idx, ts.getIndex());
+        if (x.typeParameters.length != 1) {
+            Errors.raiseArrayType(tx);
+        }
+        return x;
+    }
+    else {
+        const id = ts.nextMustBe(TokenType.TK_TYPE).lexeme;
+        if (ts.consumeIfNextIs("[")) {
+            const x = {
+                id: id,
+                typeParameters: parseTypeParameters(ts),
+            };
+            ts.nextMustBe("]");
+            return x;
+        }
+        else {
+            return {
+                id: id,
+            };
+        }
+    }
 }
 
 const NumGrid: Dictionary<number> = {
@@ -116,22 +154,23 @@ function parseParameters(ts: TokenStream) {
         const id = parseID(ts);
         ts.nextMustBe(":");
         const type = parseType(ts);
-        if (ts.peek().lexeme === ")") continue;
-        ts.nextMustBe(",");
         xs.push({
             id: id,
             type: type
         });
+        if (ts.peek().lexeme === ")") continue;
+        ts.nextMustBe(",");
     }
     return xs;
 }
 
 function parseInferredType(ts: TokenStream) {
-    let ty = undefined;
     if (ts.consumeIfNextIs(":")) {
-        ty = parseType(ts);
+        return parseType(ts);
     }
-    return ty;
+    else {
+        return NotInferred;
+    }
 }
 
 function parseFunction(ts: TokenStream) {
@@ -150,7 +189,7 @@ function parseFunction(ts: TokenStream) {
         params: xs,
         returnType: returnType,
         body: body,
-    }
+    };
 }
 
 export default function parse(f: SourceFile) {

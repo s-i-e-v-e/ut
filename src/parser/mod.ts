@@ -33,6 +33,7 @@ export enum TokenType {
     TK_OCTAL_NUMBER_LITERAL,
     TK_DECIMAL_NUMBER_LITERAL,
     TK_HEXADECIMAL_NUMBER_LITERAL,
+    TK_INTERNAL
 }
 
 export interface Token {
@@ -44,11 +45,22 @@ export interface Token {
 export interface Function {
     id: string;
     params: Parameter[];
+    returnType: Type;
+    body: Stmt[];
+}
+
+export interface Type {
+    id: string;
+}
+
+export interface GenericType extends Type {
+    id: string;
+    typeParameters: Type[];
 }
 
 export interface Parameter {
     id: string;
-    type: string;
+    type: Type;
 }
 
 export interface Expr {}
@@ -68,6 +80,32 @@ export interface Literal extends RvalueExpr {}
 export interface StringLiteral extends Literal {}
 export interface BooleanLiteral extends Literal {}
 export interface NumberLiteral extends Literal {}
+
+export const InternalTypes = [
+    "Bit8",
+    "Bit16",
+    "Bit32",
+    "Bit64",
+    "Int8",
+    "Int16",
+    "Int32",
+    "Int64",
+    "Uint8",
+    "Uint16",
+    "Uint32",
+    "Uint64",
+    "Float8",
+    "Float16",
+    "Float32",
+    "Float64",
+    "String",
+    "Bool",
+    "`NotInferred"
+];
+
+export const NotInferred = {
+    id: "`NotInferred"
+};
 
 export {
     CharacterStream,

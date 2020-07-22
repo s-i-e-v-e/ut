@@ -53,6 +53,12 @@ export default class Errors {
         }
     }
 
+    static ArrayType = class extends Errors.ParserError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
     static Debug = class extends Error {
         constructor(msg: string) {
             super(msg);
@@ -89,5 +95,9 @@ export default class Errors {
 
     static raiseExpectedButFound(exp: string, t: Token): never {
         throw new this.ExpectedButFound(buildErrorString(`Expected: ${exp}. Found: \`${t.lexeme}\``, t.loc));
+    }
+
+    static raiseArrayType(t: Token): never {
+        throw new this.ExpectedButFound(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
     }
 }

@@ -20,6 +20,25 @@ export default class TokenStream {
         this.length = xs.length;
     }
 
+    getIndex() {
+        return this.index;
+    }
+
+    getAsToken(start: number, end: number) {
+        let xs = []
+
+        for (let i = start; i < end; i += 1) {
+            const x = this.xs[i];
+            xs.push(x.lexeme);
+        }
+
+        return {
+            type: TokenType.TK_INTERNAL,
+            loc: this.xs[start].loc,
+            lexeme: xs.join(""),
+        };
+    }
+
     eof() {
         return this.index >= this.xs.length;
     }
@@ -41,11 +60,10 @@ export default class TokenStream {
 
     consumeIfNextIs(x: string) {
         if (this.nextIs(x)) {
-            this.next();
-            return true;
+            return this.next();
         }
         else {
-            return false;
+            return undefined;
         }
     }
 

@@ -22,7 +22,7 @@ function buildCharacterStream(x: string) {
 
 Deno.test("Hexadecimal Number", () => {
     const ts = lex(buildCharacterStream("0x1234"));
-    assertEquals(ts.length, 2);
+    assertEquals(ts.length, 1);
     const x = ts.next();
     assertEquals(x.lexeme, "0x1234");
     assertEquals(x.type, TokenType.TK_HEXADECIMAL_NUMBER_LITERAL);
@@ -31,7 +31,7 @@ Deno.test("Hexadecimal Number", () => {
 
 Deno.test("Decimal Number", () => {
     const ts = lex(buildCharacterStream("1234"));
-    assertEquals(ts.length, 2);
+    assertEquals(ts.length, 1);
     const x = ts.next();
     assertEquals(x.lexeme, "1234");
     assertEquals(x.type, TokenType.TK_DECIMAL_NUMBER_LITERAL);
@@ -39,7 +39,7 @@ Deno.test("Decimal Number", () => {
 
 Deno.test("Octal Number", () => {
     const ts = lex(buildCharacterStream("0o1234"));
-    assertEquals(ts.length, 2);
+    assertEquals(ts.length, 1);
     const x = ts.next();
     assertEquals(x.lexeme, "0o1234");
     assertEquals(x.type, TokenType.TK_OCTAL_NUMBER_LITERAL);
@@ -47,7 +47,7 @@ Deno.test("Octal Number", () => {
 
 Deno.test("Binary Number", () => {
     const ts = lex(buildCharacterStream("0b10110"));
-    assertEquals(ts.length, 2);
+    assertEquals(ts.length, 1);
     const x = ts.next();
     assertEquals(x.lexeme, "0b10110");
     assertEquals(x.type, TokenType.TK_BINARY_NUMBER_LITERAL);

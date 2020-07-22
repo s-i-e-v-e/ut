@@ -6,8 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    Token,
     Errors,
+    Token,
+    TokenType,
 } from "./mod.ts";
 
 export default class TokenStream {
@@ -34,11 +35,49 @@ export default class TokenStream {
         return x;
     }
 
+    nextIs(x: string) {
+        return this.peek().lexeme === x;
+    }
+
+    consumeIfNextIs(x: string) {
+        if (this.nextIs(x)) {
+            this.next();
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    nextMustBe(x: string | TokenType) {
+        let t;
+        if (typeof x === "string") {
+            t = this.next();
+            if (t.lexeme !== x as string) {
+                Errors.raiseExpectedButFound(`\`${x}\``, t);
+            }
+        }
+        else {
+            const y = x as TokenType;
+            t = this.next();
+            if (t.type !== y) {
+                let exp;
+                switch (y) {
+                    case TokenType.TK_ID: exp = "Identifier"; break;
+                    case TokenType.TK_TYPE: exp = "Type"; break;
+                    default: return Errors.raiseDebug(JSON.stringify(t));
+                }
+                Errors.raiseExpectedButFound(exp, t);
+            }
+        }
+        return t;
+    }
+
     print() {
         console.log(this.xs);
     }
 
     static build(xs: Array<Token>) {
-        return new TokenStream(xs);
+        return new TokenStream(xs.filter(t => t.type !== TokenType.TK_WHITESPACE && t.type !== TokenType.TK_COMMENT));
     }
 }

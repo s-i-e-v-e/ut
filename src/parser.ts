@@ -38,6 +38,11 @@ function nextIs(x: string, ts: TokenStream) {
     }
 }
 
+function consume(ts: TokenStream) {
+    skipWhiteSpace(ts);
+    ts.next();
+}
+
 function nextMustBe(x: string | TokenType, ts: TokenStream) {
     let t;
     if (typeof x === "string") {
@@ -83,6 +88,51 @@ interface Parameter {
     type: string;
 }
 
+interface Expr {
+
+}
+
+interface Stmt {
+
+}
+
+interface VarDefStmt extends Stmt {
+    id: string;
+    type: string;
+    expr: Expr;
+}
+
+function parseVarDef(ts: TokenStream, isMutable: boolean) {
+    const id = parseID(ts);
+    const type = parseInferredType(ts);
+    nextMustBe("=", ts);
+    nextMustBe("undefined", ts);
+    return {
+        id: id,
+        type: type,
+        expr: {},
+    }
+}
+
+function parseBody(ts: TokenStream) {
+    const xs = new Array<Stmt>();
+    while (!nextIs("}", ts)) {
+        if (nextIs("let", ts)) {
+            consume(ts);
+            xs.push(parseVarDef(ts, false));
+        }
+        else if (nextIs("mut", ts)) {
+            consume(ts);
+            xs.push(parseVarDef(ts, true));
+        }
+        else {
+            Errors.raiseDebug();
+        }
+        nextMustBe(";", ts);
+    }
+    return xs;
+}
+
 function parseParameters(ts: TokenStream) {
     const xs = new Array<Parameter>();
     while (ts.peek().lexeme !== ")") {
@@ -99,6 +149,15 @@ function parseParameters(ts: TokenStream) {
     return xs;
 }
 
+function parseInferredType(ts: TokenStream) {
+    let ty = undefined;
+    if (nextIs(":", ts)) {
+        consume(ts);
+        ty = parseType(ts);
+    }
+    return ty;
+}
+
 function parseFunction(ts: TokenStream) {
     nextMustBe("fn", ts);
     nextMustBe(TokenType.TK_WHITESPACE, ts);
@@ -106,18 +165,16 @@ function parseFunction(ts: TokenStream) {
     nextMustBe("(", ts);
     const xs = parseParameters(ts);
     nextMustBe(")", ts);
-    let returnType = undefined;
-    if (nextIs(":", ts)) {
-        nextMustBe(":", ts);
-        returnType = parseType(ts);
-    }
+    const returnType = parseInferredType(ts);
     nextMustBe("{", ts);
+    const body = parseBody(ts);
     nextMustBe("}", ts);
 
     return {
         id: id,
         params: xs,
         returnType: returnType,
+        body: body,
     }
 }
 

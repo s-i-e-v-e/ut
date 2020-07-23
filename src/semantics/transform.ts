@@ -113,11 +113,11 @@ export default function transform(m: Module) {
     }
 
     for (const x of m.foreignFunctions) {
-        b.defineFunction(x.proto);
+        b.defineForeignFunction(x);
     }
 
     for (const x of m.functions) {
-        b.defineFunction(x.proto);
+        b.defineFunction(x);
         doFunction(b, x);
     }
 

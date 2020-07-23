@@ -6,6 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
+    Function,
+    ForeignFunction,
     FunctionPrototype,
     Variable
 } from "../parser/mod.ts";
@@ -19,6 +21,8 @@ import {
 
 export default class Block {
     private readonly nt: NameTable;
+    public readonly foreignFunctions: Array<FunctionPrototype>;
+    public readonly functions: Array<FunctionPrototype>;
     private readonly blocks: Array<Block>;
     private readonly ops: Array<any>;
 
@@ -26,14 +30,22 @@ export default class Block {
         this.nt = NameTable.build();
         this.blocks = [];
         this.ops = [];
+        this.foreignFunctions = [];
+        this.functions = [];
     }
 
     defineVar(v: Variable) {
         this.nt.add(v.id);
     }
 
-    defineFunction(fp: FunctionPrototype) {
-        this.nt.add(fp.id);
+    defineFunction(f: Function) {
+        this.nt.add(f.proto.id);
+        this.functions.push(f.proto);
+    }
+
+    defineForeignFunction(f: ForeignFunction) {
+        this.nt.add(f.proto.id);
+        this.foreignFunctions.push(f.proto);
     }
 
     defineTempVar() {

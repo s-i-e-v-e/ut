@@ -16,7 +16,7 @@ import {
     Errors,
     OS,
 } from "./util/mod.ts";
-
+import {build_vm_program} from "./codegen/mod.ts";
 
 export default async function run(path: string) {
     try {
@@ -29,6 +29,9 @@ export default async function run(path: string) {
         check(m);
         const b = transform(m);
         b.toConsole();
+
+        const p = build_vm_program(m);
+        console.log(p);
     }
     catch (e) {
         if (e instanceof Errors.Debug) {

@@ -55,8 +55,8 @@ function doStmt(s: Stmt) {
 
 function doFunction(f: Function) {
     f.body.forEach(x => doStmt(x));
-    if (f.id === "main" && f.returnType === KnownTypes.NotInferred) {
-        f.returnType = KnownTypes.Void;
+    if (f.proto.id === "main" && f.proto.returnType === KnownTypes.NotInferred) {
+        f.proto.returnType = KnownTypes.Void;
     }
 }
 

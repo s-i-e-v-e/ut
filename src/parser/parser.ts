@@ -14,6 +14,7 @@ import {
 import {
     Type,
     Function,
+    ForeignFunction,
     Struct,
     Parameter,
     Location,
@@ -268,7 +269,7 @@ function parseVarType(ts: TokenStream, force: boolean) {
     }
 }
 
-function parseFunction(ts: TokenStream) {
+function parseFunctionPrototype(ts: TokenStream) {
     const loc = ts.loc();
     ts.nextMustBe("fn");
     const id = parseID(ts);
@@ -276,15 +277,36 @@ function parseFunction(ts: TokenStream) {
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");
     const returnType = parseVarType(ts, false);
-    ts.nextMustBe("{");
-    const body = parseBody(ts);
-    ts.nextMustBe("}");
 
     return {
         id: id,
         params: xs,
         returnType: returnType,
+        loc: loc,
+    };
+}
+
+function parseFunction(ts: TokenStream) {
+    const loc = ts.loc();
+    const fp = parseFunctionPrototype(ts);
+    ts.nextMustBe("{");
+    const body = parseBody(ts);
+    ts.nextMustBe("}");
+
+    return {
+        proto: fp,
         body: body,
+        loc: loc,
+    };
+}
+
+function parseForeignFunction(ts: TokenStream) {
+    const loc = ts.loc();
+    ts.nextMustBe("foreign");
+    const fp = parseFunctionPrototype(ts);
+
+    return {
+        proto: fp,
         loc: loc,
     };
 }
@@ -304,14 +326,18 @@ function parseStruct(ts: TokenStream) {
 }
 
 function parseModule(ts: TokenStream, path: string) {
-    const xs = new Array<Function>();
-    const ys = new Array<Struct>();
+    const xs = new Array<Struct>();
+    const ys = new Array<ForeignFunction>();
+    const zs = new Array<Function>();
     while (!ts.eof()) {
-        if (ts.nextIs("fn")) {
-            xs.push(parseFunction(ts));
+        if (ts.nextIs("struct")) {
+            xs.push(parseStruct(ts));
         }
-        else if (ts.nextIs("struct")) {
-            ys.push(parseStruct(ts));
+        else if (ts.nextIs("foreign")) {
+            ys.push(parseForeignFunction(ts));
+        }
+        else if (ts.nextIs("fn")) {
+            zs.push(parseFunction(ts));
         }
         else {
             Errors.raiseDebug();
@@ -320,8 +346,9 @@ function parseModule(ts: TokenStream, path: string) {
 
     return {
         path: path,
-        functions: xs,
-        structs: ys,
+        structs: xs,
+        foreignFunctions: ys,
+        functions: zs,
     };
 }
 

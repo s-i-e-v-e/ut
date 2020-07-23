@@ -10,14 +10,14 @@ import {
     Errors,
 } from "../util/mod.ts";
 import {
-    Function,
+    FunctionPrototype,
     Struct,
     Type,
     Variable,
 } from "../parser/mod.ts";
 
 interface Namespaces {
-    functions: Dictionary<Function>;
+    functions: Dictionary<FunctionPrototype>;
     structs: Dictionary<Struct>;
     types: Dictionary<Type>;
     vars: Dictionary<Variable>;
@@ -69,8 +69,8 @@ export default class SymbolTable {
         return this.exists(id, (ns, id) => ns.vars[id]);
     }
 
-    addFunction(f: Function) {
-        this.add(f.id, this.ns.functions, f);
+    addFunction(fp: FunctionPrototype) {
+        this.add(fp.id, this.ns.functions, fp);
     }
 
     addStruct(s: Struct) {

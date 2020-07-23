@@ -14,15 +14,26 @@ export interface Location {
 
 export interface Module {
     path: string,
-    functions: Function[],
     structs: Struct[],
+    foreignFunctions: ForeignFunction[],
+    functions: Function[],
 }
 
-export interface Function {
+export interface FunctionPrototype {
     id: string;
     params: Parameter[];
     returnType: Type;
+    loc: Location;
+}
+
+export interface Function {
+    proto: FunctionPrototype,
     body: Stmt[];
+    loc: Location;
+}
+
+export interface ForeignFunction {
+    proto: FunctionPrototype,
     loc: Location;
 }
 

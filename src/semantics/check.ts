@@ -9,13 +9,14 @@
 import {
     Module,
     Function,
+    ForeignFunction,
+    FunctionPrototype,
     Struct,
     Stmt,
     VarInitStmt,
     Expr,
     NodeType,
     KnownTypes,
-    KnownFunctions,
     VarAssnStmt,
     FunctionApplicationStmt,
     Type,
@@ -105,14 +106,23 @@ function doStmt(st: SymbolTable, s: Stmt) {
     }
 }
 
-function doFunction(st: SymbolTable, f: Function) {
-    f.params.forEach(x => {
+function doFunctionPrototype(st: SymbolTable, fp: FunctionPrototype) {
+    fp.params.forEach(x => {
         if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
         st.addVar(x);
     })
-    if (!st.typeExists(f.returnType)) Errors.raiseUnknownType(f.returnType, f.loc);
+    if (!st.typeExists(fp.returnType)) Errors.raiseUnknownType(fp.returnType, fp.loc);
+}
+
+function doFunction(st: SymbolTable, f: Function) {
     st = st.newTable();
+    doFunctionPrototype(st, f.proto);
     f.body.forEach(x => doStmt(st, x));
+}
+
+function doForeignFunction(st: SymbolTable, f: ForeignFunction) {
+    st = st.newTable();
+    doFunctionPrototype(st, f.proto);
 }
 
 function doStruct(st: SymbolTable, s: Struct) {
@@ -130,16 +140,18 @@ export default function check(m: Module) {
     global.addType(KnownTypes.String);
     global.addType(KnownTypes.Void);
 
-    global.addFunction(KnownFunctions.SysExit);
-    global.addFunction(KnownFunctions.SysPrintln);
-
-    for (const x of m.functions) {
-        global.addFunction(x);
-        doFunction(global, x);
-    }
-
     for (const x of m.structs) {
         global.addStruct(x);
         doStruct(global, x);
+    }
+
+    for (const x of m.foreignFunctions) {
+        global.addFunction(x.proto);
+        doForeignFunction(global, x);
+    }
+
+    for (const x of m.functions) {
+        global.addFunction(x.proto);
+        doFunction(global, x);
     }
 }

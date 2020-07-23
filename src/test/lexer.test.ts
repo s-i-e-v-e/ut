@@ -112,3 +112,23 @@ Deno.test("Unterminated string", () => {
         lex(buildCharacterStream('"abc'));
     }, Errors.UnterminatedString);
 });
+
+Deno.test("Function call: exit(0x0);", () => {
+    const ts = lex(buildCharacterStream("exit(0x0);"));
+    assertEquals(ts.length, 5);
+    assertEquals(ts.next().lexeme, "exit");
+    assertEquals(ts.next().lexeme, "(");
+    assertEquals(ts.next().lexeme, "0x0");
+    assertEquals(ts.next().lexeme, ")");
+    assertEquals(ts.next().lexeme, ";");
+});
+
+Deno.test("Function call: exit(0);", () => {
+    const ts = lex(buildCharacterStream("exit(0);"));
+    assertEquals(ts.length, 5);
+    assertEquals(ts.next().lexeme, "exit");
+    assertEquals(ts.next().lexeme, "(");
+    assertEquals(ts.next().lexeme, "0");
+    assertEquals(ts.next().lexeme, ")");
+    assertEquals(ts.next().lexeme, ";");
+});

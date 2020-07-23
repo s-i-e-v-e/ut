@@ -168,8 +168,11 @@ function readNumber(cs: CharacterStream) {
                 if (Char[x]) {
                     Errors.raiseInvalidDecimalNumber(cs, loc);
                 }
-                else {
+                else if (IDChar[x]) {
                     Errors.raiseInvalidNumber(cs, loc);
+                }
+                else {
+                    cs.back();
                 }
             }
         }
@@ -182,6 +185,10 @@ function readNumber(cs: CharacterStream) {
                 if (!Char[cs.next()]) {
                     Errors.raiseInvalidNumber(cs, loc);
                 }
+                break;
+            }
+            default: {
+                // ignore
             }
         }
     }

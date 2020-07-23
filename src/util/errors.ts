@@ -10,6 +10,7 @@ import {
     Location,
     Token,
     Type,
+    Variable,
 } from "../parser/mod.ts";
 
 function buildErrorString(msg: string, loc: Location) {
@@ -96,6 +97,18 @@ export default class Errors {
         }
     }
 
+    static ImmutableVar = class extends Errors.SemanticError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static FunctionParameterCountMismatch = class extends Errors.SemanticError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
     static raiseInvalidNumber(cs: CharacterStream, loc: Location): never {
         const lexeme = cs.lexeme(loc, cs.loc());
         throw new this.InvalidNumber(buildErrorString(`Invalid number: ${lexeme}`, loc));
@@ -132,15 +145,23 @@ export default class Errors {
         throw new this.ArrayType(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
     }
 
-    static raiseUnknownType(t: Type): never {
-        throw new this.UnknownType(buildErrorString(`Unknown type: ${t.id}`, t.loc));
+    static raiseUnknownType(t: Type, loc: Location): never {
+        throw new this.UnknownType(buildErrorString(`Unknown type: ${t.id}`, loc));
     }
 
-    static raiseTypeMismatch(ltype: Type, rtype: Type): never {
-        throw new this.TypeMismatch(buildErrorString(`Type mismatch: ${ltype.id} != ${rtype.id}`, ltype.loc));
+    static raiseTypeMismatch(ltype: Type, rtype: Type, loc: Location): never {
+        throw new this.TypeMismatch(buildErrorString(`Type mismatch: ${ltype.id} != ${rtype.id}`, loc));
     }
 
     static raiseUnknownIdentifier(id: string, loc: Location): never {
         throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
+    }
+
+    static raiseImmutableVar(v: Variable) {
+        throw new this.ImmutableVar(buildErrorString(`Cannot assign to immutable variable: ${v.id}`, v.loc));
+    }
+
+    static raiseFunctionParameterCountMismatch(id: string, loc: Location) {
+        throw new this.ImmutableVar(buildErrorString(`Function parameter and arg counts differ: ${id}`, loc));
     }
 }

@@ -19,6 +19,10 @@ export interface SourceFile {
     contents: string;
 }
 
+export function clone<T>(x: T) {
+    return Object.assign({}, x);
+}
+
 export {
     Logger,
     Errors,

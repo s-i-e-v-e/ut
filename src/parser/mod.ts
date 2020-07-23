@@ -53,11 +53,13 @@ export interface Function {
     params: Parameter[];
     returnType: Type;
     body: Stmt[];
+    loc: Location;
 }
 
 export interface Struct {
     type: Type;
     members: Variable[];
+    loc: Location;
 }
 
 export interface Type {
@@ -171,15 +173,36 @@ export const InternalTypes = [
     "Integer"
 ];
 
+const SysLoc = {
+    index: 0,
+    line: 1,
+    character: 1,
+    path: "<system>",
+};
+
 function newType(id: string) {
     return {
         id: id,
-        loc: {
-            index: 0,
-            line: 1,
-            character: 1,
-            path: "<system>",
-        }
+        loc: SysLoc,
+    };
+}
+
+function newParameter(id: string, t: Type) {
+    return {
+        id: id,
+        isMutable: false,
+        type: t,
+        loc: SysLoc,
+    };
+}
+
+function newFunction(id: string, xs: Parameter[], returnType: Type) {
+    return {
+        id: id,
+        params: xs,
+        returnType: returnType,
+        loc: SysLoc,
+        body: [],
     };
 }
 
@@ -195,6 +218,10 @@ export const KnownTypes = {
     Bool: BoolType,
     String: StringType,
     Integer: IntegerType,
+};
+
+export const KnownFunctions = {
+    SysExit: newFunction("sys_exit", [newParameter("code", KnownTypes.Integer)], KnownTypes.Void),
 };
 
 export {

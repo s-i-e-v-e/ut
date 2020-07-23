@@ -13,13 +13,14 @@ import {
     Function,
     Struct,
     Type,
+    Variable,
 } from "../parser/mod.ts";
 
 interface Namespaces {
     functions: Dictionary<Function>;
     structs: Dictionary<Struct>;
     types: Dictionary<Type>;
-    ids: Dictionary<Type>;
+    vars: Dictionary<Variable>;
 }
 
 type Resolve<T> = (ns: Namespaces, id: string) => T;
@@ -32,7 +33,7 @@ export default class SymbolTable {
             functions: {},
             structs: {},
             types: {},
-            ids: {},
+            vars: {},
         };
     }
 
@@ -64,8 +65,8 @@ export default class SymbolTable {
         return this.exists(t.id, (ns, id) => ns.types[id]);
     }
 
-    idExists(name: string) {
-        return this.exists(name, (ns, id) => ns.ids[id]);
+    varExists(id: string) {
+        return this.exists(id, (ns, id) => ns.vars[id]);
     }
 
     addFunction(f: Function) {
@@ -80,24 +81,24 @@ export default class SymbolTable {
         this.add(t.id, this.ns.types, t);
     }
 
-    addID(name: string, t: Type) {
-        this.add(name, this.ns.ids, t);
+    addVar(v: Variable) {
+        this.add(v.id, this.ns.vars, v);
     }
 
     getType(id: string) {
-        return this.get<Type>(id, (ns, id) => ns.types[id]);
+        return this.get(id, (ns, id) => ns.types[id]);
     }
 
-    getIDType(id: string) {
-        return this.get<Type>(id, (ns, id) => ns.ids[id]);
+    getVar(id: string) {
+        return this.get(id, (ns, id) => ns.vars[id]);
     }
 
     getFunction(id: string) {
-        return this.get<Function>(id, (ns, id) => ns.functions[id]);
+        return this.get(id, (ns, id) => ns.functions[id]);
     }
 
     getStruct(id: string) {
-        return this.get<Struct>(id, (ns, id) => ns.structs[id]);
+        return this.get(id, (ns, id) => ns.structs[id]);
     }
 
     newTable() {

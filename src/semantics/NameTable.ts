@@ -20,7 +20,8 @@ export default class NameTable {
     get(id: string) {
         if (!this.map[id]) throw Errors.raiseDebug();
         const xs = this.map[id];
-        return `${id}-${xs.length-1}`;
+        const n = xs.length - 1;
+        return n ? `${id}-${n}` : id;
     }
 
     add(id: string) {
@@ -28,7 +29,8 @@ export default class NameTable {
             this.map[id] = [];
         }
         const xs = this.map[id];
-        const name = `${id}-${xs.length}`;
+        const n = xs.length;
+        const name = n ? `${id}-${n}` : id;
         xs.push(name);
         return name;
     }

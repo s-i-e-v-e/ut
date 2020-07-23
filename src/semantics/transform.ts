@@ -6,21 +6,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    Module,
+    BooleanLiteral,
+    Expr,
     Function,
-    Stmt,
     FunctionApplicationStmt,
+    IDExpr,
+    Module,
     NodeType,
+    NumberLiteral,
+    Stmt,
+    StringLiteral,
     VarAssnStmt,
     VarInitStmt,
-    Expr,
-    BooleanLiteral,
-    StringLiteral,
-    NumberLiteral, IDExpr,
 } from "../parser/mod.ts";
 import {
     Block,
     OperationType,
+    ReadID,
 } from "./mod.ts";
 import {
     Errors,
@@ -53,7 +55,7 @@ function doExpr(b: Block, e: Expr) {
         case NodeType.IDExpr: {
             const x = e as IDExpr;
             return {
-                value: b.getVar(x.id),
+                id: b.getVar(x.id),
                 opType: OperationType.ReadID,
             };
         }
@@ -77,9 +79,16 @@ function doStmt(b: Block, s: Stmt) {
             const x = s as FunctionApplicationStmt;
             const xs = [];
             for (let i = 0; i < x.fa.args.length; i += 1) {
-                const tv = b.defineTempVar();
-                b.useVar(tv, doExpr(b, x.fa.args[i]));
-                xs.push(tv);
+                const ev = doExpr(b, x.fa.args[i]);
+                if (ev.opType === OperationType.ReadID) {
+                    const x = ev as ReadID;
+                    xs.push(x.id);
+                }
+                else {
+                    const tv = b.defineTempVar();
+                    b.useVar(tv, ev);
+                    xs.push(tv);
+                }
             }
             b.call(x.fa.id, xs);
             break;

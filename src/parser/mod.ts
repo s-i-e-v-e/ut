@@ -221,7 +221,7 @@ export const KnownTypes = {
 };
 
 export const KnownFunctions = {
-    SysExit: newFunction("sys_exit", [newParameter("code", KnownTypes.Integer)], KnownTypes.Void),
+    SysExit: newFunction("sys-exit", [newParameter("code", KnownTypes.Integer)], KnownTypes.Void),
 };
 
 export {

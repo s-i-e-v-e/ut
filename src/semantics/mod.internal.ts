@@ -6,7 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import SymbolTable from "./SymbolTable.ts";
+import NameTable from "./NameTable.ts";
 
 export {
     SymbolTable,
+    NameTable,
 };

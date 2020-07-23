@@ -9,6 +9,7 @@ import parse from "./parser/parser.ts";
 import {
     infer,
     check,
+    transform,
 } from "./semantics/mod.ts";
 import {
     Logger,
@@ -26,6 +27,8 @@ export default async function run(path: string) {
         // m.structs.forEach(x => console.log(x));
         infer(m);
         check(m);
+        const b = transform(m);
+        b.toConsole();
     }
     catch (e) {
         if (e instanceof Errors.Debug) {

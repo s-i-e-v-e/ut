@@ -200,8 +200,3 @@ export const KnownTypes = {
     String: StringType,
     Integer: IntegerType,
 };
-
-export const KnownFunctions = {
-    SysExit: newFunction("sys-exit", [newParameter("code", KnownTypes.Integer)], KnownTypes.Void),
-    SysPrintln: newFunction("sys-println", [newParameter("s", KnownTypes.String)], KnownTypes.Void),
-};

@@ -177,7 +177,7 @@ function parseExpr(ts: TokenStream) {
 function parseVarDef(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boolean) {
     const loc = ts.loc();
     const id = parseID(ts);
-    const type = typeCanBeInferred ? KnownTypes.NotInferred : parseInferredType(ts, true);
+    const type = typeCanBeInferred ? KnownTypes.NotInferred : parseVarType(ts, true);
     return {
         id: id,
         type: type,
@@ -250,7 +250,7 @@ function parseStructMemberList(ts: TokenStream) {
     return parseVariableList(ts, false, false);
 }
 
-function parseInferredType(ts: TokenStream, force: boolean) {
+function parseVarType(ts: TokenStream, force: boolean) {
     if (force) {
         ts.nextMustBe(":");
         return parseType(ts);
@@ -260,7 +260,7 @@ function parseInferredType(ts: TokenStream, force: boolean) {
             return parseType(ts);
         }
         else {
-            return KnownTypes.NotInferred;
+            return KnownTypes.Void;
         }
     }
 }
@@ -272,7 +272,7 @@ function parseFunction(ts: TokenStream) {
     ts.nextMustBe("(");
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");
-    const returnType = parseInferredType(ts, false);
+    const returnType = parseVarType(ts, false);
     ts.nextMustBe("{");
     const body = parseBody(ts);
     ts.nextMustBe("}");

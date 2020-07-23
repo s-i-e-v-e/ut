@@ -20,6 +20,7 @@ import {
     FunctionApplicationStmt,
     Type,
     IDExpr,
+    Location,
 } from "../parser/mod.ts";
 import {
     Logger,
@@ -31,21 +32,36 @@ function typesMatch(t1: Type, t2: Type) {
     return t1.id === t2.id;
 }
 
+function getVar(st: SymbolTable, id: string, loc: Location) {
+    const x = st.getVar(id);
+    if (!x) Errors.raiseUnknownIdentifier(id, loc);
+    return x;
+}
+
+function getFunction(st: SymbolTable, id: string, loc: Location) {
+    const x = st.getFunction(id);
+    if (!x) Errors.raiseUnknownIdentifier(id, loc);
+    return x;
+}
+
 function getExprType(st: SymbolTable, e: Expr) {
+    let ty;
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
         case NodeType.StringLiteral:
         case NodeType.NumberLiteral: {
-            return e.type;
+            ty = e.type;
+            break;
         }
         case NodeType.IDExpr: {
             const x = e as IDExpr;
-            const v = st.getVar(x.id);
-            if (!v) Errors.raiseUnknownIdentifier(x.id, x.loc);
-            return v.type;
+            ty = getVar(st, x.id, x.loc).type;
+            break;
         }
         default: Errors.raiseDebug(JSON.stringify(e));
     }
+    if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
+    return ty;
 }
 
 function doStmt(st: SymbolTable, s: Stmt) {
@@ -58,8 +74,7 @@ function doStmt(st: SymbolTable, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
-            const v = st.getVar(x.id);
-            if (!v) Errors.raiseUnknownIdentifier(x.id, x.loc);
+            const v = getVar(st, x.id, x.loc);
 
             // check assignments to immutable vars
             if (!v.isMutable) Errors.raiseImmutableVar(v);
@@ -69,14 +84,12 @@ function doStmt(st: SymbolTable, s: Stmt) {
             const rtype = getExprType(st, x.expr);
 
             if (!st.getType(ltype.id)) Errors.raiseUnknownType(ltype, v.loc);
-            if (!st.getType(rtype.id)) Errors.raiseUnknownType(rtype, x.loc);
             if (!typesMatch(ltype, rtype)) Errors.raiseTypeMismatch(ltype, rtype, x.loc);
             break;
         }
         case NodeType.FunctionApplicationStmt: {
             const x = s as FunctionApplicationStmt;
-            const f = st.getFunction(x.fa.id);
-            if (!f) Errors.raiseUnknownIdentifier(x.fa.id, x.loc);
+            const f = getFunction(st, x.fa.id, x.fa.loc);
             if (x.fa.args.length != f.params.length) Errors.raiseFunctionParameterCountMismatch(x.fa.id, x.loc);
 
             for (let i = 0; i < x.fa.args.length; i += 1) {

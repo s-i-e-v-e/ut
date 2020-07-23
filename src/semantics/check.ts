@@ -23,10 +23,12 @@ import {
     Location,
 } from "../parser/mod.ts";
 import {
-    Logger,
-    Errors,
     SymbolTable,
-} from "./mod.ts";
+} from "./mod.internal.ts";
+import {
+    Errors,
+    Logger,
+} from "../util/mod.ts";
 
 function typesMatch(t1: Type, t2: Type) {
     return t1.id === t2.id;

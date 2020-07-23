@@ -8,7 +8,7 @@
 import {
     Dictionary,
     Errors,
-} from "./mod.ts";
+} from "../util/mod.ts";
 import {
     Function,
     Struct,

@@ -6,10 +6,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    Errors,
     Token,
     TokenType,
-} from "./mod.ts";
+} from "./mod.internal.ts";
+import { Errors } from "../util/mod.ts";
 
 export default class TokenStream {
     private index: number;

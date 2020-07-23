@@ -9,20 +9,23 @@ import {
     CharacterStream,
     TokenType,
     TokenStream,
-    Errors,
-    Logger,
-    SourceFile,
     lex,
-    Dictionary,
+} from "./mod.internal.ts";
+import {
     Type,
     Function,
     Struct,
-    Variable,
     Parameter,
     Location,
     NodeType,
     KnownTypes,
 } from "./mod.ts";
+import {
+    Errors,
+    Logger,
+    Dictionary,
+    SourceFile,
+} from "../util/mod.ts";
 
 function parseID(ts: TokenStream) {
     return ts.nextMustBe(TokenType.TK_ID).lexeme;

@@ -12,9 +12,9 @@ import {
 import {
     CharacterStream,
     TokenType,
-    Errors,
     lex,
-} from "../parser/mod.ts";
+} from "../parser/mod.internal.ts";
+import { Errors } from "../util/mod.ts";
 
 function buildCharacterStream(x: string) {
     return CharacterStream.build(x+"\n", "<mem>");

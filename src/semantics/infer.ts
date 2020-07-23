@@ -11,17 +11,15 @@ import {
     Function,
     Struct,
     Stmt,
-    VarAssnStmt,
     VarInitStmt,
-    FunctionApplicationStmt,
     Expr,
     NodeType,
     KnownTypes,
 } from "../parser/mod.ts";
 import {
-    Logger,
     Errors,
-} from "./mod.ts";
+    Logger,
+} from "../util/mod.ts";
 
 function getExprType(e: Expr) {
     switch (e.nodeType) {

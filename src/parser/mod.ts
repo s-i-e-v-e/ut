@@ -5,41 +5,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import CharacterStream from "./CharacterStream.ts";
-import TokenStream from "./TokenStream.ts";
-import lex from "./lexer.ts";
-import {
-    Errors,
-    Logger,
-    Dictionary,
-    SourceFile,
-} from "../util/mod.ts";
-
 export interface Location {
     line: number;
     character: number;
     index: number;
     path: string;
-}
-
-export enum TokenType {
-    TK_WHITESPACE = 128,
-    TK_COMMENT,
-    TK_ID,
-    TK_TYPE,
-    TK_STRING_LITERAL,
-    TK_BOOLEAN_LITERAL,
-    TK_BINARY_NUMBER_LITERAL,
-    TK_OCTAL_NUMBER_LITERAL,
-    TK_DECIMAL_NUMBER_LITERAL,
-    TK_HEXADECIMAL_NUMBER_LITERAL,
-    TK_INTERNAL
-}
-
-export interface Token {
-    type: TokenType,
-    loc: Location,
-    lexeme: string,
 }
 
 export interface Module {
@@ -223,14 +193,4 @@ export const KnownTypes = {
 export const KnownFunctions = {
     SysExit: newFunction("sys-exit", [newParameter("code", KnownTypes.Integer)], KnownTypes.Void),
     SysPrintln: newFunction("sys-println", [newParameter("s", KnownTypes.String)], KnownTypes.Void),
-};
-
-export {
-    CharacterStream,
-    TokenStream,
-    Dictionary,
-    Errors,
-    Logger,
-    SourceFile,
-    lex,
 };

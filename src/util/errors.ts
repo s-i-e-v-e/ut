@@ -6,12 +6,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    CharacterStream,
     Location,
-    Token,
     Type,
     Variable,
 } from "../parser/mod.ts";
+import {
+    CharacterStream,
+    Token,
+} from "../parser/mod.internal.ts";
 
 function buildErrorString(msg: string, loc: Location) {
     const path = loc.path.replaceAll(/\\/g, "/");

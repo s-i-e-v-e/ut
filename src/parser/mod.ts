@@ -42,6 +42,12 @@ export interface Token {
     lexeme: string,
 }
 
+export interface Module {
+    path: string,
+    functions: Function[],
+    structs: Struct[],
+}
+
 export interface Function {
     id: string;
     params: Parameter[];
@@ -56,6 +62,7 @@ export interface Struct {
 
 export interface Type {
     id: string;
+    loc: Location;
 }
 
 export interface GenericType extends Type {
@@ -67,11 +74,27 @@ export interface Variable {
     id: string;
     type: Type;
     isMutable: boolean;
+    loc: Location;
 }
 
 export type Parameter = Variable;
 
-export interface Stmt {}
+export enum NodeType {
+    VarInitStmt,
+    VarAssnStmt,
+    FunctionApplicationStmt,
+    IDExpr,
+    FunctionApplication,
+    StringLiteral,
+    BooleanLiteral,
+    NumberLiteral,
+}
+
+export interface AstNode {
+    nodeType: NodeType,
+    loc: Location,
+}
+export interface Stmt extends AstNode {}
 
 export interface VarInitStmt extends Stmt {
     var: Variable;
@@ -87,7 +110,9 @@ export interface FunctionApplicationStmt extends Stmt {
     fa: FunctionApplication;
 }
 
-export interface Expr {}
+export interface Expr extends AstNode {
+    type: Type,
+}
 
 export interface LvalueExpr extends Expr {}
 export interface RvalueExpr extends Expr {}
@@ -112,10 +137,15 @@ export interface FunctionApplication extends RvalueExpr {
 }
 
 export interface Literal extends RvalueExpr {}
-export interface StringLiteral extends Literal {}
-export interface BooleanLiteral extends Literal {}
-export interface NumberLiteral extends Literal {}
-
+export interface StringLiteral extends Literal {
+    value: string,
+}
+export interface BooleanLiteral extends Literal {
+    value: boolean,
+}
+export interface NumberLiteral extends Literal {
+    value: BigInt,
+}
 
 export const InternalTypes = [
     "Bit8",
@@ -136,11 +166,35 @@ export const InternalTypes = [
     "Float64",
     "String",
     "Bool",
-    "`NotInferred"
+    "NotInferred",
+    "Void",
+    "Integer"
 ];
 
-export const NotInferred = {
-    id: "`NotInferred"
+function newType(id: string) {
+    return {
+        id: id,
+        loc: {
+            index: 0,
+            line: 1,
+            character: 1,
+            path: "<system>",
+        }
+    };
+}
+
+const NotInferredType = newType("NotInferred");
+const VoidType = newType("Void");
+const BoolType = newType("Bool");
+const StringType = newType("String");
+const IntegerType = newType("Integer");
+
+export const KnownTypes = {
+    NotInferred: NotInferredType,
+    Void: VoidType,
+    Bool: BoolType,
+    String: StringType,
+    Integer: IntegerType,
 };
 
 export {

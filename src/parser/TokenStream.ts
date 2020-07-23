@@ -43,6 +43,10 @@ export default class TokenStream {
         return this.index >= this.xs.length;
     }
 
+    loc() {
+        return this.peek().loc;
+    }
+
     peek(n?: number) {
         return this.xs[n ? this.index + n : this.index];
     }

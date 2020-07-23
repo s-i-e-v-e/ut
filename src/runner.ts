@@ -7,16 +7,25 @@
  */
 import parse from "./parser/parser.ts";
 import {
+    infer,
+    check,
+} from "./semantics/mod.ts";
+import {
     Logger,
     Errors,
     OS,
 } from "./util/mod.ts";
 
+
 export default async function run(path: string) {
     try {
         const f = await OS.readSourceFile(path);
         Logger.info(`Running: ${path} [${f.fsPath}]`);
-        parse(f);
+        const m = parse(f);
+        // m.functions.forEach(x => console.log(x));
+        // m.structs.forEach(x => console.log(x));
+        infer(m);
+        check(m);
     }
     catch (e) {
         if (e instanceof Errors.Debug) {

@@ -9,6 +9,7 @@ import {
     CharacterStream,
     Location,
     Token,
+    Type,
 } from "../parser/mod.ts";
 
 function buildErrorString(msg: string, loc: Location) {
@@ -17,7 +18,7 @@ function buildErrorString(msg: string, loc: Location) {
 }
 
 export default class Errors {
-    static InvalidNumber = class extends Error {
+    static Debug = class extends Error {
         constructor(msg: string) {
             super(msg);
         }
@@ -29,13 +30,25 @@ export default class Errors {
         }
     }
 
-    static UnbalancedComment = class extends Error {
+    static LexerError = class extends Error {
         constructor(msg: string) {
             super(msg);
         }
     }
 
-    static UnterminatedString = class extends Error {
+    static InvalidNumber = class extends Errors.LexerError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static UnbalancedComment = class extends Errors.LexerError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static UnterminatedString = class extends Errors.LexerError {
         constructor(msg: string) {
             super(msg);
         }
@@ -59,7 +72,25 @@ export default class Errors {
         }
     }
 
-    static Debug = class extends Error {
+    static SemanticError = class extends Error {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static UnknownType = class extends Errors.SemanticError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static TypeMismatch = class extends Errors.SemanticError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static UnknownIdentifier = class extends Errors.SemanticError {
         constructor(msg: string) {
             super(msg);
         }
@@ -99,5 +130,17 @@ export default class Errors {
 
     static raiseArrayType(t: Token): never {
         throw new this.ArrayType(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
+    }
+
+    static raiseUnknownType(t: Type): never {
+        throw new this.UnknownType(buildErrorString(`Unknown type: ${t.id}`, t.loc));
+    }
+
+    static raiseTypeMismatch(ltype: Type, rtype: Type): never {
+        throw new this.TypeMismatch(buildErrorString(`Type mismatch: ${ltype.id} != ${rtype.id}`, ltype.loc));
+    }
+
+    static raiseUnknownIdentifier(id: string, loc: Location): never {
+        throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
     }
 }

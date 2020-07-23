@@ -13,15 +13,15 @@ import {
     Logger,
     SourceFile,
     lex,
-    Stmt,
     Dictionary,
     Type,
-    NotInferred,
     Function,
     Struct,
     Variable,
     Parameter,
-    Expr, VarInitStmt,
+    Location,
+    NodeType,
+    KnownTypes,
 } from "./mod.ts";
 
 function parseID(ts: TokenStream) {
@@ -39,12 +39,15 @@ function parseTypeParameters(ts: TokenStream) {
 
 function parseType(ts: TokenStream) {
     const idx = ts.getIndex();
+    const loc = ts.loc();
     if (ts.consumeIfNextIs("[")) {
         const x = {
             id: "Array",
             typeParameters: parseTypeParameters(ts),
+            loc: loc,
         };
         ts.nextMustBe("]");
+
         const tx = ts.getAsToken(idx, ts.getIndex());
         if (x.typeParameters.length != 1) {
             Errors.raiseArrayType(tx);
@@ -57,6 +60,7 @@ function parseType(ts: TokenStream) {
             const x = {
                 id: id,
                 typeParameters: parseTypeParameters(ts),
+                loc: loc,
             };
             ts.nextMustBe("]");
             return x;
@@ -64,6 +68,7 @@ function parseType(ts: TokenStream) {
         else {
             return {
                 id: id,
+                loc: loc,
             };
         }
     }
@@ -94,7 +99,7 @@ const NumGrid: Dictionary<number> = {
     "f" : 15,
 }
 
-function parseNumber(n: string, radix: number) {
+function parseNumber(n: string, radix: number, loc: Location) {
     n = radix === 10 ? n : n.substring(2);
     const isKilo = n.endsWith("K");
     n = isKilo ? n.substring(0, n.length - 1) : n;
@@ -105,24 +110,40 @@ function parseNumber(n: string, radix: number) {
         sum += BigInt(NumGrid[d] * (radix ** i));
     }
     sum = isKilo ? sum * BigInt(1024) : sum;
-    return sum;
+    return {
+        nodeType: NodeType.NumberLiteral,
+        value: sum,
+        type: KnownTypes.Integer,
+        loc: loc,
+    };
 }
 
 function parseLiteral(ts: TokenStream) {
+    const loc = ts.loc();
     const t = ts.next();
     switch (t.type) {
-        case TokenType.TK_STRING_LITERAL: return t.lexeme.substring(1, t.lexeme.length - 1);
-        case TokenType.TK_BOOLEAN_LITERAL: return t.lexeme === "true";
-        case TokenType.TK_BINARY_NUMBER_LITERAL: return parseNumber(t.lexeme, 2);
-        case TokenType.TK_OCTAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 8);
-        case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 16);
-        case TokenType.TK_DECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 10);
+        case TokenType.TK_STRING_LITERAL: return {
+            nodeType: NodeType.StringLiteral,
+            value: t.lexeme.substring(1, t.lexeme.length - 1),
+            type: KnownTypes.String,
+            loc: loc,
+        };
+        case TokenType.TK_BOOLEAN_LITERAL: return {
+            nodeType: NodeType.BooleanLiteral,
+            value: t.lexeme === "true",
+            type: KnownTypes.Bool,
+            loc: loc,
+        };
+        case TokenType.TK_BINARY_NUMBER_LITERAL: return parseNumber(t.lexeme, 2, loc);
+        case TokenType.TK_OCTAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 8, loc);
+        case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 16, loc);
+        case TokenType.TK_DECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 10, loc);
         default: return Errors.raiseDebug();
     }
 }
 
-function parseFunctionApplication(ts: TokenStream, id: string) {
-    const xs = new Array<Expr>();
+function parseFunctionApplication(ts: TokenStream, id: string, loc: Location) {
+    const xs = new Array<any>();
     ts.nextMustBe("(");
     while (!ts.nextIs(")")) {
         xs.push(parseExpr(ts));
@@ -130,46 +151,56 @@ function parseFunctionApplication(ts: TokenStream, id: string) {
     }
     ts.nextMustBe(")");
     return {
+        nodeType: NodeType.FunctionApplication,
         id: id,
         args: xs,
+        loc: loc,
     };
 }
 
 function parseExpr(ts: TokenStream) {
     if (ts.nextIsLiteral()) return parseLiteral(ts);
+    const loc = ts.loc();
     const id = parseID(ts);
     if (ts.nextIs("(")) {
-        return parseFunctionApplication(ts, id);
+        return parseFunctionApplication(ts, id, loc);
     }
     else {
         return {
+            nodeType: NodeType.IDExpr,
             id: id,
+            loc: loc,
         }
     }
 }
 
-function parseVarDef(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boolean): Variable {
+function parseVarDef(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boolean) {
+    const loc = ts.loc();
     const id = parseID(ts);
-    const type = typeCanBeInferred ? NotInferred : parseInferredType(ts, true);
+    const type = typeCanBeInferred ? KnownTypes.NotInferred : parseInferredType(ts, true);
     return {
         id: id,
         type: type,
         isMutable: isMutable,
+        loc: loc,
     }
 }
 
-function parseVarInit(ts: TokenStream, isMutable: boolean): VarInitStmt {
+function parseVarInit(ts: TokenStream, isMutable: boolean) {
+    const loc = ts.loc();
     const v = parseVarDef(ts, isMutable, true);
     ts.nextMustBe("=");
     const expr = parseExpr(ts);
     return {
+        nodeType: NodeType.VarInitStmt,
         var: v,
         expr: expr,
+        loc: loc,
     }
 }
 
 function parseBody(ts: TokenStream) {
-    const xs = new Array<Stmt>();
+    const xs = new Array<any>();
     while (!ts.nextIs("}")) {
         if (ts.consumeIfNextIs("let")) {
             xs.push(parseVarInit(ts, false));
@@ -178,16 +209,21 @@ function parseBody(ts: TokenStream) {
             xs.push(parseVarInit(ts, true));
         }
         else {
+            const loc = ts.loc();
             const id = parseID(ts);
             if (ts.consumeIfNextIs("=")) {
                 xs.push({
+                    nodeType: NodeType.VarAssnStmt,
                     id: id,
                     expr: parseExpr(ts),
+                    loc: loc,
                 });
             }
             else {
                 xs.push({
-                    fa: parseFunctionApplication(ts, id),
+                    nodeType: NodeType.FunctionApplicationStmt,
+                    fa: parseFunctionApplication(ts, id, loc),
+                    loc: loc,
                 });
             }
         }
@@ -224,12 +260,13 @@ function parseInferredType(ts: TokenStream, force: boolean) {
             return parseType(ts);
         }
         else {
-            return NotInferred;
+            return KnownTypes.NotInferred;
         }
     }
 }
 
 function parseFunction(ts: TokenStream) {
+    const loc = ts.loc();
     ts.nextMustBe("fn");
     const id = parseID(ts);
     ts.nextMustBe("(");
@@ -245,10 +282,12 @@ function parseFunction(ts: TokenStream) {
         params: xs,
         returnType: returnType,
         body: body,
+        loc: loc,
     };
 }
 
 function parseStruct(ts: TokenStream) {
+    const loc = ts.loc();
     ts.nextMustBe("struct");
     const ty = parseType(ts);
     ts.nextMustBe("(");
@@ -257,10 +296,11 @@ function parseStruct(ts: TokenStream) {
     return {
         type: ty,
         members: members,
+        loc: loc,
     }
 }
 
-function parseModule(ts: TokenStream) {
+function parseModule(ts: TokenStream, path: string) {
     const xs = new Array<Function>();
     const ys = new Array<Struct>();
     while (!ts.eof()) {
@@ -276,6 +316,7 @@ function parseModule(ts: TokenStream) {
     }
 
     return {
+        path: path,
         functions: xs,
         structs: ys,
     };
@@ -285,9 +326,5 @@ export default function parse(f: SourceFile) {
     Logger.info(`Parsing: ${f.path}`);
     const cs = CharacterStream.build(f.contents, f.fsPath);
     const ts = lex(cs);
-    const m = parseModule(ts);
-
-    m.functions.forEach(x => console.log(x));
-    m.structs.forEach(x => console.log(x));
-
+    return parseModule(ts, f.path);
 }

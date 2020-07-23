@@ -129,6 +129,7 @@ export default function check(m: Module) {
     global.addType(KnownTypes.Void);
 
     global.addFunction(KnownFunctions.SysExit);
+    global.addFunction(KnownFunctions.SysPrintln);
 
     for (const x of m.functions) {
         global.addFunction(x);

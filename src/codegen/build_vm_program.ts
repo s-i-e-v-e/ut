@@ -133,8 +133,6 @@ function translateStmt(vs: VmState, s: Stmt) {
                     opType: VmOpType.MovR2R,
                 });
             }
-
-            console.log(ops);
             return ops;
         }
         default: Errors.raiseDebug();

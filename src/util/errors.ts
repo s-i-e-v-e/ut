@@ -27,13 +27,19 @@ export default class Errors {
         }
     }
 
-    static EOF = class extends Error {
+    static UtError = class extends Error {
         constructor(msg: string) {
             super(msg);
         }
     }
 
-    static LexerError = class extends Error {
+    static EOF = class extends Errors.UtError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static LexerError = class extends Errors.UtError {
         constructor(msg: string) {
             super(msg);
         }
@@ -57,7 +63,7 @@ export default class Errors {
         }
     }
 
-    static ParserError = class extends Error {
+    static ParserError = class extends Errors.UtError {
         constructor(msg: string) {
             super(msg);
         }
@@ -75,7 +81,7 @@ export default class Errors {
         }
     }
 
-    static SemanticError = class extends Error {
+    static SemanticError = class extends Errors.UtError {
         constructor(msg: string) {
             super(msg);
         }

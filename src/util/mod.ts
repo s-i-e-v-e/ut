@@ -23,6 +23,16 @@ export function clone<T>(x: T) {
     return Object.assign({}, x);
 }
 
+export function toHexString(xs: Uint8Array) {
+    const ys = [];
+    for (let i = 0; i < xs.length; i += 1) {
+        const x = xs[i];
+        const y = x.toString(16);
+        ys.push(y.length === 2 ? y : `0${y}`);
+    }
+    return ys.join("");
+}
+
 export {
     Logger,
     Errors,

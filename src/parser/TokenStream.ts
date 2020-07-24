@@ -111,10 +111,6 @@ export default class TokenStream {
         return t;
     }
 
-    print() {
-        console.log(this.xs);
-    }
-
     static build(xs: Array<Token>) {
         return new TokenStream(xs.filter(t => t.type !== TokenType.TK_WHITESPACE && t.type !== TokenType.TK_COMMENT));
     }

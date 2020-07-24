@@ -9,36 +9,34 @@ import parse from "./parser/parser.ts";
 import {
     infer,
     check,
-    transform,
 } from "./semantics/mod.ts";
 import {
     Logger,
     Errors,
     OS,
 } from "./util/mod.ts";
-import {build_vm_program} from "./codegen/mod.ts";
+import gen_vm_code from "./codegen/gen_vm.ts";
+import {Vm} from "./vm/mod.ts";
 
 export default async function run(path: string) {
     try {
         const f = await OS.readSourceFile(path);
         Logger.info(`Running: ${path} [${f.fsPath}]`);
         const m = parse(f);
-        // m.functions.forEach(x => console.log(x));
-        // m.structs.forEach(x => console.log(x));
         infer(m);
         check(m);
-        const b = transform(m);
-        b.toConsole();
 
-        const p = build_vm_program(m);
-        console.log(p);
+        const vme = gen_vm_code(m);
+        const vm = Vm.build();
+        const xs = vme.asBytes();
+        vm.exec(xs);
     }
     catch (e) {
-        if (e instanceof Errors.Debug) {
-            throw e;
+        if (e instanceof Errors.UtError) {
+            Logger.error(e);
         }
         else {
-            Logger.error(e)
+            throw e;
         }
     }
 }

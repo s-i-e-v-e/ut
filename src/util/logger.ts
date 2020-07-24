@@ -7,8 +7,21 @@
  */
 import { OS } from "./mod.ts";
 
+export enum LogLevel {
+    NONE,
+    DEBUG,
+    INFO,
+}
+
 export default class Logger {
+    private static level = LogLevel.NONE;
+
+    static setLevel(level: LogLevel) {
+        this.level = level;
+    }
+
     static info(msg: string) {
+        if (this.level < LogLevel.INFO) return;
         console.log(msg);
     }
 
@@ -16,7 +29,8 @@ export default class Logger {
         return OS.panic(e.message);
     }
 
-    static debug(e: Error) {
-        return OS.panic(e.message);
+    static debug(msg: string) {
+        if (this.level < LogLevel.DEBUG) return;
+        console.log(msg);
     }
 }

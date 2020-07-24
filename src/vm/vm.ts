@@ -77,8 +77,8 @@ export default class Vm {
     }
 
     private pop() {
-        const x = read_u64_from_ptr(this.dv, this.sp);
         this.sp += 8;
+        const x = read_u64_from_ptr(this.dv, this.sp);
         return x;
     }
 

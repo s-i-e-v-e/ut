@@ -13,7 +13,7 @@ export enum LogLevel {
     INFO,
 }
 
-export default class Logger {
+export class Logger {
     private static level = LogLevel.NONE;
 
     static setLevel(level: LogLevel) {

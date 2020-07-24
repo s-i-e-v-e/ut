@@ -78,8 +78,7 @@ export default class Vm {
 
     private pop() {
         this.sp += 8;
-        const x = read_u64_from_ptr(this.dv, this.sp);
-        return x;
+        return read_u64_from_ptr(this.dv, this.sp);
     }
 
     private init(code: Uint8Array) {

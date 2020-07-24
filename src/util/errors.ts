@@ -170,6 +170,6 @@ export default class Errors {
     }
 
     static raiseFunctionParameterCountMismatch(id: string, loc: Location) {
-        throw new this.ImmutableVar(buildErrorString(`Function parameter and arg counts differ: ${id}`, loc));
+        throw new this.FunctionParameterCountMismatch(buildErrorString(`Function parameter and arg counts differ: ${id}`, loc));
     }
 }

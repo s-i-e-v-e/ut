@@ -6,7 +6,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import run from "./runner.ts";
-import { OS } from "./util/mod.ts";
+import {
+    OS,
+    Logger,
+    LogLevel,
+} from "./util/mod.ts";
 
 function help() {
     console.log("ut 0.1");
@@ -16,6 +20,7 @@ function help() {
 }
 
 async function main(args: string[]) {
+    Logger.setLevel(LogLevel.INFO);
     const cmd = args[0];
     const p1 = args[1];
 

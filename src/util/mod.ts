@@ -5,7 +5,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import Logger from "./logger.ts";
+import {
+    Logger,
+    LogLevel
+} from "./logger.ts";
 import Errors from "./errors.ts";
 import OS from "./os.ts";
 
@@ -35,6 +38,7 @@ export function toHexString(xs: Uint8Array) {
 
 export {
     Logger,
+    LogLevel,
     Errors,
     OS,
 };

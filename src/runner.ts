@@ -29,7 +29,7 @@ export default async function run(path: string) {
         const vme = gen_vm_code(m);
         const vm = Vm.build();
         const xs = vme.asBytes();
-        await Deno.writeFile("./dump.bin", xs);
+        //await Deno.writeFile("./dump.bin", xs);
         vm.exec(xs);
     }
     catch (e) {

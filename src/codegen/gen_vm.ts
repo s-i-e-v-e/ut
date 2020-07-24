@@ -111,7 +111,6 @@ function emitStmt(vme: VmByteCode, regs: Registers, s: Stmt) {
             }
 
             // put args in  r0 ... rN
-            const ys = [];
             for (let i = 0; i < x.fa.args.length; i += 1) {
                 const r = `r${i}`;
                 emitExpr(vme, regs, r, x.fa.args[i]);

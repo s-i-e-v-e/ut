@@ -127,6 +127,9 @@ export default class VmByteCode {
     }
 
     startFunction(id: string) {
+        while ((this.cs.offset() % 256) !== 0) {
+            this.cs.write_u8(0xCC);
+        }
         this.functions[id] = this.cs.offset();
         Logger.debug(`startFunction:: ${id} => ${this.functions[id]}`);
     }
@@ -153,6 +156,11 @@ export default class VmByteCode {
     mov_r_str(rd: string, x: string) {
         const [offset, size] = this.putStr(x);
         this.mov_r_i(rd, offset);
+    }
+
+    push_i(x: number) {
+        this.cs.write_u8(VmOperation.PUSH_I);
+        this.cs.write_u64(x);
     }
 
     push_r(r: string) {

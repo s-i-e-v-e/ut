@@ -9,6 +9,7 @@
 export enum VmOperation {
     MOV_R_R,
     MOV_R_I,
+    PUSH_I,
     PUSH,
     POP,
     CALL,

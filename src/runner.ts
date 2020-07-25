@@ -7,7 +7,6 @@
  */
 import parse from "./parser/parser.ts";
 import {
-    infer,
     check,
 } from "./semantics/mod.ts";
 import {
@@ -23,7 +22,6 @@ export default async function run(path: string) {
         const f = await OS.readSourceFile(path);
         Logger.info(`Running: ${path} [${f.fsPath}]`);
         const m = parse(f);
-        infer(m);
         check(m);
 
         const vme = gen_vm_code(m);

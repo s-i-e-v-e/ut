@@ -244,14 +244,21 @@ function parseVarInit(ts: TokenStream, isMutable: boolean) {
 function parseBody(ts: TokenStream) {
     const xs = new Array<any>();
     while (!ts.nextIs("}")) {
+        const loc = ts.loc();
         if (ts.consumeIfNextIs("let")) {
             xs.push(parseVarInit(ts, false));
         }
         else if (ts.consumeIfNextIs("mut")) {
             xs.push(parseVarInit(ts, true));
         }
+        else if (ts.consumeIfNextIs("return")) {
+            xs.push({
+                nodeType: NodeType.ReturnStmt,
+                expr: parseExpr(ts),
+                loc: loc,
+            });
+        }
         else {
-            const loc = ts.loc();
             const id = parseID(ts);
             if (ts.consumeIfNextIs("=")) {
                 xs.push({
@@ -315,7 +322,6 @@ function parseFunctionPrototype(ts: TokenStream) {
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");
     let returnType = parseVarType(ts, false);
-    returnType =  returnType === KnownTypes.NotInferred ? KnownTypes.Void : returnType;
 
     return {
         id: id,
@@ -325,7 +331,7 @@ function parseFunctionPrototype(ts: TokenStream) {
     };
 }
 
-function parseFunction(ts: TokenStream) {
+function parseFunction(ts: TokenStream): Function {
     const loc = ts.loc();
     const fp = parseFunctionPrototype(ts);
     ts.nextMustBe("{");
@@ -339,7 +345,7 @@ function parseFunction(ts: TokenStream) {
     };
 }
 
-function parseForeignFunction(ts: TokenStream) {
+function parseForeignFunction(ts: TokenStream): ForeignFunction {
     const loc = ts.loc();
     ts.nextMustBe("foreign");
     const fp = parseFunctionPrototype(ts);
@@ -350,7 +356,7 @@ function parseForeignFunction(ts: TokenStream) {
     };
 }
 
-function parseStruct(ts: TokenStream) {
+function parseStruct(ts: TokenStream): Struct {
     const loc = ts.loc();
     ts.nextMustBe("struct");
     const ty = parseType(ts);

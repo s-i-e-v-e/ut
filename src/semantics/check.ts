@@ -7,24 +7,27 @@
  */
 
 import {
-    Module,
-    Function,
-    ForeignFunction,
-    FunctionPrototype,
-    Struct,
-    Stmt,
-    VarInitStmt,
-    Expr,
-    NodeType,
-    KnownTypes,
-    VarAssnStmt,
-    FunctionApplicationStmt,
-    Type,
-    IDExpr,
-    Location,
-    Variable,
     ArrayConstructor,
-    GenericType
+    Expr,
+    ForeignFunction,
+    Function,
+    FunctionApplication,
+    FunctionApplicationStmt,
+    FunctionPrototype,
+    GenericType,
+    IDExpr,
+    KnownTypes,
+    Location,
+    Module,
+    NodeType,
+    ReturnStmt,
+    Stmt,
+    Struct,
+    Type,
+    VarAssnStmt,
+    Variable,
+    VarInitStmt,
+    ArrayExpr,
 } from "../parser/mod.ts";
 import {
     SymbolTable,
@@ -82,8 +85,6 @@ function checkTypes(st: SymbolTable, v: Variable, expr: Expr, loc: Location) {
 
     if (!typeExists(st, ltype, v.loc)) Errors.raiseUnknownType(ltype, loc);
     if (!typesMatch(ltype, rtype)) Errors.raiseTypeMismatch(ltype, rtype, loc);
-    console.log(ltype);
-    console.log(rtype);
 }
 
 function getVar(st: SymbolTable, id: string, loc: Location) {
@@ -98,7 +99,7 @@ function getFunction(st: SymbolTable, id: string, loc: Location) {
     return x;
 }
 
-function getExprType(st: SymbolTable, e: Expr) {
+function getExprType(st: SymbolTable, e: Expr): Type {
     let ty;
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
@@ -112,8 +113,46 @@ function getExprType(st: SymbolTable, e: Expr) {
             ty = getVar(st, x.id, x.loc).type;
             break;
         }
+        case NodeType.FunctionApplication: {
+            const x = e as FunctionApplication;
+            if (st.varExists(x.id)) {
+                e.nodeType = NodeType.ArrayExpr
+                ty = getExprType(st, e);
+            }
+            else {
+                ty = getFunction(st, x.id, x.loc).returnType;
+            }
+            break;
+        }
+        case NodeType.ArrayExpr: {
+            const x = e as ArrayExpr;
+            const at = getVar(st, x.id, x.loc).type as GenericType;
+            ty = at.typeParameters[0];
+            console.log(ty);
+            break;
+        }
         case NodeType.ArrayConstructor: {
             const x = e as ArrayConstructor;
+            if (x.args) {
+                // check arg types
+                // get type of first arg
+                const et = getExprType(st, x.args[0]) as GenericType;
+                x.args.forEach(y => {
+                    if (!typesMatch(et, y.type)) Errors.raiseTypeMismatch(et, y.type, y.loc);
+                })
+
+                // can infer type from constructor args
+                const ty = x.type as GenericType;
+                if (!ty.typeParameters) {
+                    ty.typeParameters = [et];
+                }
+                else {
+                    if (!typesMatch(ty.typeParameters[0], et)) Errors.raiseTypeMismatch(ty.typeParameters[0], et, x.loc);
+                }
+            }
+            else {
+                // ignore
+            }
             return x.type;
         }
         default: Errors.raiseDebug(JSON.stringify(e));
@@ -122,10 +161,18 @@ function getExprType(st: SymbolTable, e: Expr) {
     return ty;
 }
 
-function doStmt(st: SymbolTable, s: Stmt) {
+function doStmt(st: SymbolTable, fp: FunctionPrototype, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as VarInitStmt;
+
+            // infer
+            const ty = getExprType(st, x.expr);
+            if (x.var.type === KnownTypes.NotInferred) {
+                x.var.type = ty;
+            }
+
+            // check
             if (!st.typeExists(x.var.type)) Errors.raiseUnknownType(x.var.type, x.var.loc);
             st.addVar(x.var);
             checkTypes(st, x.var, x.expr, x.loc);
@@ -153,8 +200,23 @@ function doStmt(st: SymbolTable, s: Stmt) {
             }
             break;
         }
+        case NodeType.ReturnStmt: {
+            const x = s as ReturnStmt;
+            const ty = getExprType(st, x.expr);
+            if (fp.returnType === KnownTypes.NotInferred) {
+                fp.returnType = ty;
+            }
+            else {
+                if (!typesMatch(fp.returnType, ty)) Errors.raiseTypeMismatch(fp.returnType, ty, x.loc);
+            }
+            break;
+        }
         default: Errors.raiseDebug();
     }
+}
+
+function doFunctionReturnType(st: SymbolTable, fp: FunctionPrototype) {
+    if (!st.typeExists(fp.returnType)) Errors.raiseUnknownType(fp.returnType, fp.loc);
 }
 
 function doFunctionPrototype(st: SymbolTable, fp: FunctionPrototype) {
@@ -162,16 +224,21 @@ function doFunctionPrototype(st: SymbolTable, fp: FunctionPrototype) {
         if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
         st.addVar(x);
     })
-    if (!st.typeExists(fp.returnType)) Errors.raiseUnknownType(fp.returnType, fp.loc);
 }
 
 function doFunction(st: SymbolTable, f: Function) {
+    if (f.proto.id === "main" && f.proto.returnType === KnownTypes.NotInferred) {
+        f.proto.returnType = KnownTypes.Void;
+    }
     st = st.newTable();
     doFunctionPrototype(st, f.proto);
-    f.body.forEach(x => doStmt(st, x));
+    f.tag = st;
 }
 
 function doForeignFunction(st: SymbolTable, f: ForeignFunction) {
+    if (f.proto.returnType === KnownTypes.NotInferred) {
+        f.proto.returnType = KnownTypes.Void;
+    }
     st = st.newTable();
     doFunctionPrototype(st, f.proto);
 }
@@ -205,5 +272,19 @@ export default function check(m: Module) {
     for (const x of m.functions) {
         global.addFunction(x.proto);
         doFunction(global, x);
+    }
+
+    for (const x of m.functions) {
+        const st = x.tag as SymbolTable;
+        x.body.forEach(y => doStmt(st, x.proto, y));
+    }
+
+    // check return types
+    for (const x of m.foreignFunctions) {
+        doFunctionReturnType(global, x.proto);
+    }
+
+    for (const x of m.functions) {
+        doFunctionReturnType(global, x.proto);
     }
 }

@@ -12,6 +12,10 @@ export interface Location {
     path: string;
 }
 
+export interface Primitive {
+    tag?: any,
+}
+
 export interface Module {
     path: string,
     structs: Struct[],
@@ -26,18 +30,18 @@ export interface FunctionPrototype {
     loc: Location;
 }
 
-export interface Function {
+export interface Function extends Primitive  {
     proto: FunctionPrototype,
     body: Stmt[];
     loc: Location;
 }
 
-export interface ForeignFunction {
+export interface ForeignFunction extends Primitive  {
     proto: FunctionPrototype,
     loc: Location;
 }
 
-export interface Struct {
+export interface Struct extends Primitive {
     type: Type;
     members: Variable[];
     loc: Location;
@@ -72,6 +76,8 @@ export enum NodeType {
     BooleanLiteral,
     NumberLiteral,
     ArrayConstructor,
+    ReturnStmt,
+    ArrayExpr,
 }
 
 export interface AstNode {
@@ -92,6 +98,10 @@ export interface VarAssnStmt extends Stmt {
 
 export interface FunctionApplicationStmt extends Stmt {
     fa: FunctionApplication;
+}
+
+export interface ReturnStmt extends Stmt {
+    expr: Expr;
 }
 
 export interface Expr extends AstNode {
@@ -116,6 +126,11 @@ export interface IDExpr extends LvalueExpr {
  *
  */
 export interface FunctionApplication extends RvalueExpr {
+    id: string;
+    args: Expr[];
+}
+
+export interface ArrayExpr extends RvalueExpr {
     id: string;
     args: Expr[];
 }

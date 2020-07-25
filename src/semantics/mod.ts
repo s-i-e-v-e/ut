@@ -5,7 +5,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import infer from "./infer.ts";
 import check from "./check.ts";
 import transform from "./transform.ts";
 import Block from "./Block.ts";
@@ -48,7 +47,6 @@ export interface UseVar extends Operation {
 }
 
 export {
-    infer,
     check,
     transform,
     Block,

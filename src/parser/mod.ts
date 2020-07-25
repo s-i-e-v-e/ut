@@ -71,6 +71,7 @@ export enum NodeType {
     StringLiteral,
     BooleanLiteral,
     NumberLiteral,
+    ArrayConstructor,
 }
 
 export interface AstNode {
@@ -117,6 +118,11 @@ export interface IDExpr extends LvalueExpr {
 export interface FunctionApplication extends RvalueExpr {
     id: string;
     args: Expr[];
+}
+
+export interface ArrayConstructor extends RvalueExpr {
+    sizeExpr: Expr | undefined;
+    args: Expr[] | undefined;
 }
 
 export interface Literal extends RvalueExpr {}
@@ -187,16 +193,25 @@ function newFunction(id: string, xs: Parameter[], returnType: Type) {
     };
 }
 
-const NotInferredType = newType("NotInferred");
-const VoidType = newType("Void");
-const BoolType = newType("Bool");
-const StringType = newType("String");
-const IntegerType = newType("Integer");
-
 export const KnownTypes = {
-    NotInferred: NotInferredType,
-    Void: VoidType,
-    Bool: BoolType,
-    String: StringType,
-    Integer: IntegerType,
+    NotInferred: newType("NotInferred"),
+    Void: newType("Void"),
+    Bool: newType("Bool"),
+    String: newType("String"),
+    Integer: newType("Integer"),
+    Array: newType("Array"),
 };
+
+export function toTypeString(t: Type, xs?: Array<string>) {
+    const g = t as GenericType;
+    xs = xs ? xs : [""];
+    xs.push(g.id)
+    if (g.typeParameters && g.typeParameters.length) {
+        xs.push("[");
+        for (let i = 0; i < g.typeParameters.length; i += 1) {
+            toTypeString(g.typeParameters[i], xs);
+        }
+        xs.push("]");
+    }
+    return xs.join("");
+}

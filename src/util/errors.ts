@@ -7,6 +7,7 @@
  */
 import {
     Location,
+    toTypeString,
     Type,
     Variable,
 } from "../parser/mod.ts";
@@ -76,6 +77,12 @@ export default class Errors {
     }
 
     static ArrayType = class extends Errors.ParserError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
+    static ArrayInit = class extends Errors.ParserError {
         constructor(msg: string) {
             super(msg);
         }
@@ -153,12 +160,16 @@ export default class Errors {
         throw new this.ArrayType(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
     }
 
+    static raiseArrayInitArgs(t: Token) {
+        throw new this.ArrayInit(buildErrorString(`Array initialization failure: argument list is empty`, t.loc));
+    }
+
     static raiseUnknownType(t: Type, loc: Location): never {
-        throw new this.UnknownType(buildErrorString(`Unknown type: ${t.id}`, loc));
+        throw new this.UnknownType(buildErrorString(`Unknown type: ${toTypeString(t)}`, loc));
     }
 
     static raiseTypeMismatch(ltype: Type, rtype: Type, loc: Location): never {
-        throw new this.TypeMismatch(buildErrorString(`Type mismatch: ${ltype.id} != ${rtype.id}`, loc));
+        throw new this.TypeMismatch(buildErrorString(`Type mismatch: ${toTypeString(ltype)} != ${toTypeString(rtype)}`, loc));
     }
 
     static raiseUnknownIdentifier(id: string, loc: Location): never {

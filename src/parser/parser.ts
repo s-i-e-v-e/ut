@@ -20,6 +20,7 @@ import {
     Location,
     NodeType,
     KnownTypes,
+    ArrayConstructor,
 } from "./mod.ts";
 import {
     Errors,
@@ -146,13 +147,48 @@ function parseLiteral(ts: TokenStream) {
     }
 }
 
-function parseFunctionApplication(ts: TokenStream, id: string, loc: Location) {
+function parseExprList(ts: TokenStream) {
     const xs = new Array<any>();
-    ts.nextMustBe("(");
     while (!ts.nextIs(")")) {
         xs.push(parseExpr(ts));
         if (!ts.consumeIfNextIs(",")) break;
     }
+    return xs;
+}
+
+function parseTypeConstructor(ts: TokenStream): ArrayConstructor {
+    const loc = ts.loc();
+    const ty: Type = parseType(ts);
+    if (ty.id === "Array") {
+        // is array constructor
+        const t = ts.peek();
+        ts.nextMustBe("(");
+        let sizeExpr = undefined;
+        let args = undefined;
+        if (ts.consumeIfNextIs("#")) {
+            sizeExpr = parseExpr(ts);
+        }
+        else {
+            args = parseExprList(ts);
+            if (!args.length) Errors.raiseArrayInitArgs(t);
+        }
+        ts.nextMustBe(")");
+        return <ArrayConstructor>{
+            nodeType: NodeType.ArrayConstructor,
+            loc: loc,
+            type: ty,
+            sizeExpr: sizeExpr,
+            args: args,
+        };
+    }
+    else {
+        Errors.raiseDebug();
+    }
+}
+
+function parseFunctionApplication(ts: TokenStream, id: string, loc: Location) {
+    ts.nextMustBe("(");
+    const xs = parseExprList(ts);
     ts.nextMustBe(")");
     return {
         nodeType: NodeType.FunctionApplication,
@@ -164,6 +200,8 @@ function parseFunctionApplication(ts: TokenStream, id: string, loc: Location) {
 
 function parseExpr(ts: TokenStream) {
     if (ts.nextIsLiteral()) return parseLiteral(ts);
+    if (ts.nextIsType()) return parseTypeConstructor(ts);
+
     const loc = ts.loc();
     const id = parseID(ts);
     if (ts.nextIs("(")) {
@@ -178,10 +216,10 @@ function parseExpr(ts: TokenStream) {
     }
 }
 
-function parseVarDef(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boolean) {
+function parseVarDef(ts: TokenStream, isMutable: boolean, force: boolean) {
     const loc = ts.loc();
     const id = parseID(ts);
-    const type = typeCanBeInferred ? KnownTypes.NotInferred : parseVarType(ts, true);
+    const type = parseVarType(ts, force);
     return {
         id: id,
         type: type,
@@ -192,7 +230,7 @@ function parseVarDef(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boo
 
 function parseVarInit(ts: TokenStream, isMutable: boolean) {
     const loc = ts.loc();
-    const v = parseVarDef(ts, isMutable, true);
+    const v = parseVarDef(ts, isMutable, false);
     ts.nextMustBe("=");
     const expr = parseExpr(ts);
     return {
@@ -236,10 +274,10 @@ function parseBody(ts: TokenStream) {
     return xs;
 }
 
-function parseVariableList(ts: TokenStream, isMutable: boolean, typeCanBeInferred: boolean) {
+function parseVariableList(ts: TokenStream, isMutable: boolean) {
     const xs = new Array<Parameter>();
     while (ts.peek().lexeme !== ")") {
-        xs.push(parseVarDef(ts, isMutable, typeCanBeInferred));
+        xs.push(parseVarDef(ts, isMutable, true));
         if (ts.peek().lexeme === ")") continue;
         ts.nextMustBe(",");
     }
@@ -247,11 +285,11 @@ function parseVariableList(ts: TokenStream, isMutable: boolean, typeCanBeInferre
 }
 
 function parseParameterList(ts: TokenStream) {
-    return parseVariableList(ts, false, false);
+    return parseVariableList(ts, false);
 }
 
 function parseStructMemberList(ts: TokenStream) {
-    return parseVariableList(ts, false, false);
+    return parseVariableList(ts, false);
 }
 
 function parseVarType(ts: TokenStream, force: boolean) {
@@ -264,7 +302,7 @@ function parseVarType(ts: TokenStream, force: boolean) {
             return parseType(ts);
         }
         else {
-            return KnownTypes.Void;
+            return KnownTypes.NotInferred;
         }
     }
 }
@@ -276,7 +314,8 @@ function parseFunctionPrototype(ts: TokenStream) {
     ts.nextMustBe("(");
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");
-    const returnType = parseVarType(ts, false);
+    let returnType = parseVarType(ts, false);
+    returnType =  returnType === KnownTypes.NotInferred ? KnownTypes.Void : returnType;
 
     return {
         id: id,

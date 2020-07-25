@@ -78,6 +78,10 @@ export default class TokenStream {
         }
     }
 
+    nextIsType() {
+        return this.peek().type === TokenType.TK_TYPE;
+    }
+
     consumeIfNextIs(x: string) {
         if (this.nextIs(x)) {
             return this.next();

@@ -15,6 +15,7 @@ import {
     Expr,
     NodeType,
     KnownTypes,
+    ArrayConstructor, GenericType, toTypeString,
 } from "../parser/mod.ts";
 import {
     Errors,
@@ -28,6 +29,25 @@ function getExprType(e: Expr) {
         case NodeType.NumberLiteral: {
             return e.type;
         }
+        case NodeType.ArrayConstructor: {
+            const x = e as ArrayConstructor;
+            if (x.args) {
+                // can infer type from constructor args
+                const ty = x.type as GenericType;
+                if (!ty.typeParameters) {
+                    // get type of first arg
+                    const et = getExprType(x.args[0]) as GenericType;
+                    ty.typeParameters = [et];
+                }
+                else {
+                    // ignore
+                }
+            }
+            else {
+                // ignore
+            }
+            return x.type;
+        }
         default: Errors.raiseDebug(JSON.stringify(e));
     }
 }
@@ -36,8 +56,9 @@ function doStmt(s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as VarInitStmt;
+            const ty = getExprType(x.expr);
             if (x.var.type === KnownTypes.NotInferred) {
-                x.var.type = getExprType(x.expr);
+                x.var.type = ty;
             }
             break;
         }

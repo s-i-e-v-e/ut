@@ -22,6 +22,9 @@ import {
     Type,
     IDExpr,
     Location,
+    Variable,
+    ArrayConstructor,
+    GenericType
 } from "../parser/mod.ts";
 import {
     SymbolTable,
@@ -32,7 +35,55 @@ import {
 } from "../util/mod.ts";
 
 function typesMatch(t1: Type, t2: Type) {
-    return t1.id === t2.id;
+    const g1 = t1 as GenericType;
+    const g2 = t2 as GenericType;
+
+    let a = g1.id === g2.id;
+    if (g1.typeParameters) {
+        if (g2.typeParameters) {
+            if (g1.typeParameters.length !== g2.typeParameters.length) return false;
+            for (let i = 0; i < g1.typeParameters.length; i += 1) {
+                a = a && typesMatch(g1.typeParameters[i], g2.typeParameters[i]);
+            }
+            return a;
+        }
+        else {
+            return false;
+        }
+    }
+    else {
+        if (g2.typeParameters) {
+            return false;
+        }
+        else {
+            return a;
+        }
+    }
+}
+
+function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
+    const g = t as GenericType;
+    if (!st.getType(g.id)) return false;
+    if (g.typeParameters && g.typeParameters.length) {
+        let a = true;
+        for (let i = 0; i < g.typeParameters.length; i += 1) {
+            a = a && typeExists(st, g.typeParameters[i], loc);
+        }
+        return a;
+    }
+    else {
+        return true;
+    }
+}
+
+function checkTypes(st: SymbolTable, v: Variable, expr: Expr, loc: Location) {
+    const ltype = v.type;
+    const rtype = getExprType(st, expr);
+
+    if (!typeExists(st, ltype, v.loc)) Errors.raiseUnknownType(ltype, loc);
+    if (!typesMatch(ltype, rtype)) Errors.raiseTypeMismatch(ltype, rtype, loc);
+    console.log(ltype);
+    console.log(rtype);
 }
 
 function getVar(st: SymbolTable, id: string, loc: Location) {
@@ -61,6 +112,10 @@ function getExprType(st: SymbolTable, e: Expr) {
             ty = getVar(st, x.id, x.loc).type;
             break;
         }
+        case NodeType.ArrayConstructor: {
+            const x = e as ArrayConstructor;
+            return x.type;
+        }
         default: Errors.raiseDebug(JSON.stringify(e));
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
@@ -73,6 +128,7 @@ function doStmt(st: SymbolTable, s: Stmt) {
             const x = s as VarInitStmt;
             if (!st.typeExists(x.var.type)) Errors.raiseUnknownType(x.var.type, x.var.loc);
             st.addVar(x.var);
+            checkTypes(st, x.var, x.expr, x.loc);
             break;
         }
         case NodeType.VarAssnStmt: {
@@ -82,12 +138,7 @@ function doStmt(st: SymbolTable, s: Stmt) {
             // check assignments to immutable vars
             if (!v.isMutable) Errors.raiseImmutableVar(v);
 
-            // check type match
-            const ltype = v.type;
-            const rtype = getExprType(st, x.expr);
-
-            if (!st.getType(ltype.id)) Errors.raiseUnknownType(ltype, v.loc);
-            if (!typesMatch(ltype, rtype)) Errors.raiseTypeMismatch(ltype, rtype, x.loc);
+            checkTypes(st, v, x.expr, x.loc);
             break;
         }
         case NodeType.FunctionApplicationStmt: {
@@ -139,6 +190,7 @@ export default function check(m: Module) {
     global.addType(KnownTypes.Bool);
     global.addType(KnownTypes.String);
     global.addType(KnownTypes.Void);
+    global.addType(KnownTypes.Array);
 
     for (const x of m.structs) {
         global.addStruct(x);

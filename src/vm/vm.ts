@@ -18,7 +18,8 @@ function read_u64_from_ptr(dv: DataView, p: number) {
 }
 
 export default class Vm {
-    private static readonly IVT_END = 1024;
+    public static readonly SEGMENT_SIZE = 1024;
+    public static readonly IVT_END = 128;
     private ip: number;
     private hp: number; // heap pointer
     private sp: number; // stack pointer
@@ -31,11 +32,11 @@ export default class Vm {
     private readonly dec: TextDecoder;
 
     private constructor() {
-        this.memory = new Uint8Array(1024*1024*8);
+        this.memory = new Uint8Array(Vm.SEGMENT_SIZE*8);
         this.dv = new DataView(this.memory.buffer);
         this.dec = new TextDecoder();
         this.ip = Vm.IVT_END;
-        this.hp = 1024*1024*4;
+        this.hp = Vm.SEGMENT_SIZE*3;
         this.sp = this.memory.length - 8;
     }
 
@@ -49,26 +50,34 @@ export default class Vm {
         return x;
     }
 
-    private read_u64() {
-        const x = read_u64_from_ptr(this.dv, this.ip);
-        this.ip += 8;
-        return x;
+    private read_u64(offset?: number) {
+        if (offset) {
+            return read_u64_from_ptr(this.dv, offset);
+        }
+        else {
+            const x = read_u64_from_ptr(this.dv, this.ip);
+            this.ip += 8;
+            return x;
+        }
     }
 
     private read_str(offset: number) {
-        const ip = this.ip;
-        this.ip = offset;
+        let ip = offset;
 
-        const len = this.read_u64();
+        const len = this.read_u64(ip);
+        ip += 8;
         const xs = [];
         for (let i = 0; i < len; i += 1) {
-            const x = this.dv.getUint8(this.ip);
+            const x = this.dv.getUint8(ip);
             xs.push(x);
-            this.ip += 1;
+            ip += 1;
         }
-        this.ip = ip;
 
         return this.dec.decode(new Uint8Array(xs));
+    }
+
+    private write_u64(offset: number, x: number) {
+        this.dv.setBigUint64(offset, BigInt(x));
     }
 
     private push(n: number) {
@@ -113,6 +122,22 @@ export default class Vm {
                     this.registers[rd] = x;
                     break;
                 }
+                case VmOperation.MOV_R_M: {
+                    const rr = this.read_u8();
+                    const rd = (rr >>> 4) & 0x0F;
+                    const offset = this.read_u64();
+                    Logger.debug(`MOV r${rd}, [${offset}]`);
+                    this.registers[rd] = this.read_u64(offset);
+                    break;
+                }
+                case VmOperation.MOV_M_R: {
+                    const rr = this.read_u8();
+                    const rd = (rr >>> 4) & 0x0F;
+                    const offset = this.read_u64();
+                    Logger.debug(`MOV [${offset}], r${rd}`);
+                    this.write_u64(offset, this.registers[rd]);
+                    break;
+                }
                 case VmOperation.PUSH: {
                     const rr = this.read_u8();
                     const rs = (rr >>> 4) & 0x0F;
@@ -139,6 +164,10 @@ export default class Vm {
                             case FFI.Sys_println: {
                                 const str = this.read_str(this.registers[0]);
                                 console.log(str);
+                                break;
+                            }
+                            case FFI.Sys_u64_println: {
+                                console.log(`${this.registers[0]}`);
                                 break;
                             }
                             default: Errors.raiseDebug();

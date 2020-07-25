@@ -20,7 +20,7 @@ function help() {
 }
 
 async function main(args: string[]) {
-    Logger.setLevel(LogLevel.INFO);
+    Logger.setLevel(LogLevel.DEBUG);
     const cmd = args[0];
     const p1 = args[1];
 

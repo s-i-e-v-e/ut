@@ -19,8 +19,9 @@ import {
     IDExpr,
     NumberLiteral,
     StringLiteral,
+    ArrayConstructor,
 } from "../parser/mod.ts";
-import {ForeignFunctions, VmByteCode} from "../vm/mod.ts";
+import {ByteBuffer, ForeignFunctions, VmByteCode} from "../vm/mod.ts";
 import {
     Errors,
     Dictionary,
@@ -78,6 +79,29 @@ function emitExpr(vme: VmByteCode, regs: Registers, rd: string, e: Expr) {
         case NodeType.IDExpr: {
             const x = e as IDExpr;
             vme.mov_r_r(rd, regs.getReg(x.id));
+            break;
+        }
+        case NodeType.ArrayConstructor: {
+            const x = e as ArrayConstructor;
+
+            const args = x.args!;
+            const n = args.length;
+            const step = 8;
+            const bb = ByteBuffer.build(8 + 8 + (step * 8));
+            bb.write_u64(n);
+            bb.write_u64(step);
+            for (let i = 0; i < args.length*8; i += 1) {
+                bb.write_u8(0xCC);
+            }
+            const offset = vme.heapStore(bb.asBytes());
+
+            const tmp = regs.useReg("tmp");
+            let hp = offset + 8 + 8;
+            for (let i = 0; i < args.length; i += 1) {
+                emitExpr(vme, regs, tmp, args[i]);
+                vme.mov_m_r(hp, tmp);
+                hp += 8;
+            }
             break;
         }
         default: Errors.raiseDebug(JSON.stringify(e));

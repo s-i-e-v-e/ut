@@ -11,8 +11,9 @@ import {
 } from "../util/mod.ts";
 
 import { VmOperation } from "./mod.internal.ts";
+import Vm from "./vm.ts";
 
-class ByteBuffer {
+export class ByteBuffer {
     private readonly enc: TextEncoder;
     private readonly xs: Uint8Array;
     private readonly dv: DataView;
@@ -61,6 +62,13 @@ class ByteBuffer {
         return 8;
     }
 
+    write(xs: Uint8Array) {
+        for (let i = 0; i < xs.length; i += 1) {
+            this.dv.setUint8(this._offset, xs[i]);
+            this._offset += 1;
+        }
+    }
+
     asBytes() {
         return this.xs;
     }
@@ -92,8 +100,8 @@ interface Reloc {
     id: string;
 }
 
-export default class VmByteCode {
-    private static readonly SEGMENT_SIZE = 1024*2;
+export class VmByteCode {
+    private static readonly SEGMENT_SIZE = Vm.SEGMENT_SIZE;
     private static readonly CS_BASE = 0;
     private static readonly DS_BASE = VmByteCode.SEGMENT_SIZE;
     private static readonly RDS_BASE = VmByteCode.SEGMENT_SIZE*2;
@@ -111,9 +119,8 @@ export default class VmByteCode {
         this.functions = {};
         this.reloc = [];
 
-        // ivt - first 1024 bytes
-        for (let i = 0; i < 128; i += 1) {
-            this.cs.write_u64(0x0010F00FA00AF00F);
+        for (let i = 0; i < Vm.IVT_END; i += 1) {
+            this.cs.write_u8(0xEE);
         }
     }
 
@@ -127,7 +134,7 @@ export default class VmByteCode {
     }
 
     startFunction(id: string) {
-        while ((this.cs.offset() % 256) !== 0) {
+        while ((this.cs.offset() % Vm.IVT_END) !== 0) {
             this.cs.write_u8(0xCC);
         }
         this.functions[id] = this.cs.offset();
@@ -137,6 +144,12 @@ export default class VmByteCode {
     private putStr(x: string) {
         const offs = this.rds.offset();
         return [VmByteCode.RDS_BASE + offs, this.rds.write_str(x)];
+    }
+
+    heapStore(xs: Uint8Array) {
+        const offs = this.ds.offset();
+        this.ds.write(xs);
+        return offs;
     }
 
     mov_r_r(rd: string, rs: string) {
@@ -156,6 +169,20 @@ export default class VmByteCode {
     mov_r_str(rd: string, x: string) {
         const [offset, size] = this.putStr(x);
         this.mov_r_i(rd, offset);
+    }
+
+    mov_m_r(offset: number, rd: string) {
+        this.cs.write_u8(VmOperation.MOV_M_R);
+        const a = registers[rd];
+        this.cs.write_u8(a << 4 | 0);
+        this.cs.write_u64(offset);
+    }
+
+    mov_r_m(rd: string, offset: number) {
+        this.cs.write_u8(VmOperation.MOV_R_M);
+        const a = registers[rd];
+        this.cs.write_u8(a << 4 | 0);
+        this.cs.write_u64(offset);
     }
 
     push_i(x: number) {

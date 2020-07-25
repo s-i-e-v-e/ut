@@ -7,10 +7,15 @@
  */
 
 export enum VmOperation {
+    ADD_R_R,
+    ADD_R_I,
+    MUL_R_R,
+    MUL_R_I,
     MOV_R_R,
     MOV_R_I,
     MOV_R_M,
     MOV_M_R,
+    MOV_R_RO,
     PUSH_I,
     PUSH,
     POP,

@@ -7,10 +7,16 @@
  */
 import {
     Dictionary,
-    Errors, Logger
+    Errors,
+    Logger,
 } from "../util/mod.ts";
 
-import { VmOperation } from "./mod.internal.ts";
+import {
+    VmOperation,
+} from "./mod.internal.ts";
+import {
+    registers,
+} from "./mod.ts";
 import Vm from "./vm.ts";
 
 export class ByteBuffer {
@@ -74,27 +80,6 @@ export class ByteBuffer {
     }
 }
 
-const registers: Dictionary<number> = {
-    "r0": 0,
-    "r1": 1,
-    "r2": 2,
-    "r3": 3,
-    "r4": 4,
-    "r5": 5,
-    "r6": 6,
-    "r7": 7,
-    "r8": 8,
-    "r9": 9,
-    "r10": 10,
-    "r11": 11,
-    "r12": 12,
-    "r13": 13,
-    "r14": 14,
-    "r15": 15,
-};
-
-
-
 interface Reloc {
     offset: number;
     id: string;
@@ -149,10 +134,11 @@ export class VmByteCode {
     heapStore(xs: Uint8Array) {
         const offs = this.ds.offset();
         this.ds.write(xs);
-        return offs;
+        return VmByteCode.DS_BASE+offs;
     }
 
     mov_r_r(rd: string, rs: string) {
+        if (rd === rs) return;
         this.cs.write_u8(VmOperation.MOV_R_R);
         const a = registers[rd];
         const b = registers[rs];
@@ -183,6 +169,13 @@ export class VmByteCode {
         const a = registers[rd];
         this.cs.write_u8(a << 4 | 0);
         this.cs.write_u64(offset);
+    }
+
+    mov_r_ro(rd: string, rs: string) {
+        this.cs.write_u8(VmOperation.MOV_R_RO);
+        const a = registers[rd];
+        const b = registers[rs];
+        this.cs.write_u8(a << 4 | b);
     }
 
     push_i(x: number) {
@@ -221,6 +214,34 @@ export class VmByteCode {
 
     ret() {
         this.cs.write_u8(VmOperation.RET);
+    }
+
+    add_r_r(rd: string, rs: string) {
+        this.cs.write_u8(VmOperation.ADD_R_R);
+        const a = registers[rd];
+        const b = registers[rs];
+        this.cs.write_u8(a << 4 | b);
+    }
+
+    mul_r_r(rd: string, rs: string) {
+        this.cs.write_u8(VmOperation.MUL_R_R);
+        const a = registers[rd];
+        const b = registers[rs];
+        this.cs.write_u8(a << 4 | b);
+    }
+
+    add_r_i(rd: string, n: number) {
+        this.cs.write_u8(VmOperation.ADD_R_I);
+        const a = registers[rd];
+        this.cs.write_u8(a << 4 | 0);
+        this.cs.write_u64(n);
+    }
+
+    mul_r_i(rd: string, n: number) {
+        this.cs.write_u8(VmOperation.MUL_R_I);
+        const a = registers[rd];
+        this.cs.write_u8(a << 4 | 0);
+        this.cs.write_u64(n);
     }
 
     asBytes() {

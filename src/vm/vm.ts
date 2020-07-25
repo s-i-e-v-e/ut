@@ -6,9 +6,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import {Errors, Logger} from "../util/mod.ts";
-import { VmOperation } from "./mod.internal.ts";
-import {FFI} from "./mod.ts";
+import {
+    Errors,
+    Logger
+} from "../util/mod.ts";
+import {
+    VmOperation
+} from "./mod.internal.ts";
+import {
+    FFI
+} from "./mod.ts";
 
 function read_u64_from_ptr(dv: DataView, p: number) {
     const upper = dv.getUint32(p);
@@ -98,6 +105,21 @@ export default class Vm {
         }
     }
 
+    private parse_r_r(ins?: string) {
+        const rr = this.read_u8();
+        const rd = (rr >>> 4) & 0x0F;
+        const rs = rr & 0x0F;
+        if (ins) Logger.debug(`${ins} r${rd}, r${rs}`);
+        return [rd, rs];
+    }
+
+    private parse_r_i() {
+        const rr = this.read_u8();
+        const r = (rr >>> 4) & 0x0F;
+        const x = this.read_u64();
+        return [r, x];
+    }
+
     exec(code: Uint8Array) {
         this.init(code);
 
@@ -106,36 +128,56 @@ export default class Vm {
         while (true) {
             const ins = this.read_u8();
             switch (ins) {
+                case VmOperation.ADD_R_R: {
+                    const [rd, rs] = this.parse_r_r("ADD");
+                    this.registers[rd] += this.registers[rs];
+                    break;
+                }
+                case VmOperation.ADD_R_I: {
+                    const [rd, x] = this.parse_r_i();
+                    this.registers[rd] += x;
+                    Logger.debug(`ADD r${rd}, ${x}`);
+                    break;
+                }
+                case VmOperation.MUL_R_R: {
+                    const [rd, rs] = this.parse_r_r("MUL");
+                    this.registers[rd] *= this.registers[rs];
+                    break;
+                }
+                case VmOperation.MUL_R_I: {
+                    const [rd, x] = this.parse_r_i();
+                    this.registers[rd] *= x;
+                    Logger.debug(`MUL r${rd}, ${x}`);
+                    break;
+                }
                 case VmOperation.MOV_R_R: {
-                    const rr = this.read_u8();
-                    const rd = (rr >>> 4) & 0x0F;
-                    const rs = rr & 0x0F;
-                    Logger.debug(`MOV r${rd}, r${rs}`);
+                    const [rd, rs] = this.parse_r_r("MOV");
                     this.registers[rd] = this.registers[rs];
                     break;
                 }
                 case VmOperation.MOV_R_I: {
-                    const rr = this.read_u8();
-                    const rd = (rr >>> 4) & 0x0F;
-                    const x = this.read_u64();
-                    Logger.debug(`MOV r${rd}, ${x}`);
+                    const [rd, x] = this.parse_r_i();
                     this.registers[rd] = x;
+                    Logger.debug(`MOV r${rd}, ${x}`);
+                    break;
+                }
+                case VmOperation.MOV_R_RO: {
+                    const [rd, rs] = this.parse_r_r();
+                    const offset = this.registers[rs];
+                    this.registers[rd] = this.read_u64(offset);
+                    Logger.debug(`MOV r${rd}, [r${rs}] // [${offset}]`);
                     break;
                 }
                 case VmOperation.MOV_R_M: {
-                    const rr = this.read_u8();
-                    const rd = (rr >>> 4) & 0x0F;
-                    const offset = this.read_u64();
-                    Logger.debug(`MOV r${rd}, [${offset}]`);
+                    const [rd, offset] = this.parse_r_i();
                     this.registers[rd] = this.read_u64(offset);
+                    Logger.debug(`MOV r${rd}, [${offset}]`);
                     break;
                 }
                 case VmOperation.MOV_M_R: {
-                    const rr = this.read_u8();
-                    const rd = (rr >>> 4) & 0x0F;
-                    const offset = this.read_u64();
-                    Logger.debug(`MOV [${offset}], r${rd}`);
-                    this.write_u64(offset, this.registers[rd]);
+                    const [rs, offset] = this.parse_r_i();
+                    this.write_u64(offset, this.registers[rs]);
+                    Logger.debug(`MOV [${offset}], r${rs}`);
                     break;
                 }
                 case VmOperation.PUSH: {

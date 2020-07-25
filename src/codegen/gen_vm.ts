@@ -20,38 +20,73 @@ import {
     NumberLiteral,
     StringLiteral,
     ArrayConstructor,
+    FunctionApplication,
+    ArrayExpr,
+    ReturnStmt,
 } from "../parser/mod.ts";
-import {ByteBuffer, ForeignFunctions, VmByteCode} from "../vm/mod.ts";
+import {
+    ByteBuffer,
+    ForeignFunctions,
+    registers,
+    VmByteCode
+} from "../vm/mod.ts";
 import {
     Errors,
     Dictionary,
+    Logger,
 } from "../util/mod.ts";
 
 export class Registers {
     private static REG_MAX = 15;
-    private readonly registers: Dictionary<string|undefined>;
-    private _index: number;
+    private readonly idRegisters: Dictionary<string|undefined>;
+    private readonly registerIDs: Dictionary<string|undefined>;
 
     private constructor() {
-        this.registers = {};
-        this._index = 0;
+        this.idRegisters = {};
+        this.registerIDs = {};
     }
 
-    index() {
-        return this._index;
+    useReg(id?: string) {
+        for (const r of Object.keys(registers)) {
+            if (this.registerIDs[r] === undefined) {
+                this.registerIDs[r] = id || "1";
+                if (id) this.idRegisters[id] = r;
+                Logger.debug(`use-reg: ${r}`);
+                return r;
+            }
+        }
+        return Errors.raiseDebug("no free regs");
     }
 
-    useReg(id: string) {
-        if (this._index > Registers.REG_MAX) Errors.raiseDebug(id);
-        const reg = `r${this._index}`;
-        this.registers[id] = reg;
-        this._index += 1;
-        return reg;
+    freeReg(r: string) {
+        const id = this.registerIDs[r];
+        this.registerIDs[r] = undefined;
+        if (id) this.idRegisters[id] = undefined;
+        Logger.debug(`free-reg: ${r}`);
     }
 
     getReg(id: string) {
-        if (!this.registers[id]) Errors.raiseDebug(id);
-        return this.registers[id]!;
+        if (!this.idRegisters[id]) Errors.raiseDebug(id);
+        return this.idRegisters[id]!;
+    }
+
+    save(vme: VmByteCode) {
+        const xs = [];
+        for (const r of Object.keys(registers)) {
+            if (this.registerIDs[r] !== undefined) {
+                vme.push_r(r);
+                xs.push(r);
+            }
+        }
+        return xs;
+    }
+
+    restore(vme: VmByteCode, xs: string[]) {
+        xs = xs.reverse();
+
+        for (const r of xs) {
+            vme.pop_r(r);
+        }
     }
 
     static build() {
@@ -81,6 +116,29 @@ function emitExpr(vme: VmByteCode, regs: Registers, rd: string, e: Expr) {
             vme.mov_r_r(rd, regs.getReg(x.id));
             break;
         }
+        case NodeType.FunctionApplication: {
+            const x = e as FunctionApplication;
+
+            // push used regs to stack
+            const saved = regs.save(vme);
+
+            // put args in  r0 ... rN
+            for (let i = 0; i < x.args.length; i += 1) {
+                const r = `r${i}`;
+                emitExpr(vme, regs, r, x.args[i]);
+            }
+            vme.call(x.id);
+
+            const tmp = regs.useReg();
+            vme.mov_r_r(tmp, "r0");
+
+            // pop used regs from stack
+            regs.restore(vme, saved);
+
+            vme.mov_r_r(rd, tmp);
+            regs.freeReg(tmp);
+            break;
+        }
         case NodeType.ArrayConstructor: {
             const x = e as ArrayConstructor;
 
@@ -95,16 +153,43 @@ function emitExpr(vme: VmByteCode, regs: Registers, rd: string, e: Expr) {
             }
             const offset = vme.heapStore(bb.asBytes());
 
-            const tmp = regs.useReg("tmp");
+            const tmp = regs.useReg();
             let hp = offset + 8 + 8;
             for (let i = 0; i < args.length; i += 1) {
                 emitExpr(vme, regs, tmp, args[i]);
                 vme.mov_m_r(hp, tmp);
                 hp += 8;
             }
+            regs.freeReg(tmp);
+            vme.mov_r_i(rd, offset);
             break;
         }
-        default: Errors.raiseDebug(JSON.stringify(e));
+        case NodeType.ArrayExpr: {
+            const x = e as ArrayExpr;
+
+            const t0 = regs.useReg();
+            emitExpr(vme, regs, t0, x.args[0]);
+
+            // get element size offset
+            const t1 = regs.useReg();
+            vme.mov_r_r(t1, regs.getReg(x.id));
+            vme.add_r_i(t1, 8);
+
+            const t2 = regs.useReg();
+            vme.mov_r_ro(t2, t1);
+            vme.mul_r_r(t2, t0);
+
+            vme.add_r_i(t1, 8);
+            vme.add_r_r(t2, t1);
+
+            //
+            vme.mov_r_ro(rd, t2);
+            regs.freeReg(t0);
+            regs.freeReg(t1);
+            regs.freeReg(t2);
+            break;
+        }
+        default: Errors.raiseDebug(JSON.stringify(e.nodeType));
     }
 }
 
@@ -124,31 +209,18 @@ function emitStmt(vme: VmByteCode, regs: Registers, s: Stmt) {
         }
         case NodeType.FunctionApplicationStmt: {
             const x = s as FunctionApplicationStmt;
-
-            const ops = []
-
-            // push used regs to stack
-            const usedRegCount = regs.index();
-            for (let i = 0; i < usedRegCount; i += 1) {
-                const r = `r${i}`;
-                vme.push_r(r)
-            }
-
-            // put args in  r0 ... rN
-            for (let i = 0; i < x.fa.args.length; i += 1) {
-                const r = `r${i}`;
-                emitExpr(vme, regs, r, x.fa.args[i]);
-            }
-            vme.call(x.fa.id);
-
-            // pop used regs from stack
-            for (let i = 0; i < usedRegCount; i += 1) {
-                const r = `r${usedRegCount - i - 1}`;
-                vme.pop_r(r)
-            }
+            const rd = regs.useReg();
+            emitExpr(vme, regs, rd, x.fa);
+            regs.freeReg(rd);
             break;
         }
-        default: Errors.raiseDebug();
+        case NodeType.ReturnStmt: {
+            const x = s as ReturnStmt;
+            emitExpr(vme, regs, "r0", x.expr);
+            vme.ret();
+            break;
+        }
+        default: Errors.raiseDebug(""+s.nodeType);
     }
 }
 

@@ -213,6 +213,21 @@ export default class Vm {
                     Logger.debug(`MOV [${offset}], r${rs}`);
                     break;
                 }
+                case VmOperation.CMP_R_R: {
+                    const [rd, rs] = this.parse_r_r("CMP");
+                    this.registers[Number(rd)] = this.registers[Number(rd)] === this.registers[rs] ? 1n : 0n;
+                    break;
+                }
+                case VmOperation.AND_R_R: {
+                    const [rd, rs] = this.parse_r_r("AND");
+                    this.registers[Number(rd)] = this.registers[Number(rd)] && this.registers[rs];
+                    break;
+                }
+                case VmOperation.OR_R_R: {
+                    const [rd, rs] = this.parse_r_r("OR");
+                    this.registers[Number(rd)] = this.registers[Number(rd)] || this.registers[rs];
+                    break;
+                }
                 case VmOperation.PUSH: {
                     const rr = this.read_u8();
                     const rs = (rr >>> 4) & 0x0F;
@@ -243,6 +258,10 @@ export default class Vm {
                             }
                             case FFI.Sys_u64_println: {
                                 console.log(`${this.registers[0]}`);
+                                break;
+                            }
+                            case FFI.Sys_bool_println: {
+                                console.log(`${this.registers[0] === 1n}`);
                                 break;
                             }
                             default: Errors.raiseDebug();

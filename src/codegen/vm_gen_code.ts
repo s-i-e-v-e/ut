@@ -146,7 +146,24 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
                     b.sub_r_r(t1, t2);
                     break;
                 }
-                default: Errors.raiseDebug();
+                case "==": {
+                    b.cmp_r_r(t1, t2);
+                    break;
+                }
+                case "!=": {
+                    b.cmp_r_r(t1, t2);
+                    b.not(t1);
+                    break;
+                }
+                case "&": {
+                    b.and_r_r(t1, t2);
+                    break;
+                }
+                case "|": {
+                    b.or_r_r(t1, t2);
+                    break;
+                }
+                default: Errors.raiseDebug(x.op);
             }
             b.mov_r_r(rd, t1);
             regs.freeReg(t1);

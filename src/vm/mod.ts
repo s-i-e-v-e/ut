@@ -16,12 +16,14 @@ export enum FFI {
     Sys_exit,
     Sys_println,
     Sys_u64_println,
+    Sys_bool_println,
 }
 
 export const ForeignFunctions: Dictionary<number> = {
     "sys-exit": FFI.Sys_exit,
     "sys-println": FFI.Sys_println,
     "sys-u64-println": FFI.Sys_u64_println,
+    "sys-bool-println": FFI.Sys_bool_println,
 }
 
 export const registers: Dictionary<number> = {

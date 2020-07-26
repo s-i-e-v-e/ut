@@ -99,6 +99,12 @@ function write_r_i(bb: ByteBuffer, rd: string, n: number, op: VmOperation) {
     bb.write_u64(n);
 }
 
+function write_r(bb: ByteBuffer, rd: string, op: VmOperation) {
+    bb.write_u8(op);
+    const a = registers[rd];
+    bb.write_u8(a << 4 | 0);
+}
+
 export class VmCodeBuilder {
     private static readonly SEGMENT_SIZE = Vm.SEGMENT_SIZE;
     private static readonly CS_BASE = 0;
@@ -268,6 +274,22 @@ export class VmCodeBuilder {
 
     sub_r_i(rd: string, n: number) {
         write_r_i(this.cs, rd, n, VmOperation.SUB_R_I);
+    }
+
+    cmp_r_r(rd: string, rs: string) {
+        write_r_r(this.cs, rd, rs, VmOperation.CMP_R_R);
+    }
+
+    and_r_r(rd: string, rs: string) {
+        write_r_r(this.cs, rd, rs, VmOperation.AND_R_R);
+    }
+
+    or_r_r(rd: string, rs: string) {
+        write_r_r(this.cs, rd, rs, VmOperation.OR_R_R);
+    }
+
+    not(rd: string) {
+        write_r(this.cs, rd, VmOperation.NOT);
     }
 
     asBytes() {

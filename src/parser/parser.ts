@@ -403,8 +403,8 @@ function parseBody(ts: TokenStream) {
             if (ts.consumeIfNextIs("=")) {
                 xs.push({
                     nodeType: NodeType.VarAssnStmt,
-                    id: ide.id,
-                    expr: parseExpr(ts),
+                    lhs: ide,
+                    rhs: parseExpr(ts),
                     loc: ide.loc,
                 });
             }

@@ -26,6 +26,8 @@ export enum VmOperation {
     AND_R_R,
     OR_R_R,
     NOT,
+    SET_E,
+    SET_NE,
     PUSH_I,
     PUSH,
     POP,

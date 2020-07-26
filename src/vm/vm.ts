@@ -34,6 +34,9 @@ export default class Vm {
         0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n,
         0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n,
     ];
+    private readonly FLAGS = {
+        ZF: 0n,
+    };
     private readonly memory: Uint8Array;
     private readonly dv: DataView;
     private readonly dec: TextDecoder;
@@ -120,6 +123,21 @@ export default class Vm {
         return [BigInt(r), x];
     }
 
+    private parse_r() {
+        const rr = this.read_u8();
+        const r = (rr >>> 4) & 0x0F;
+        return BigInt(r);
+    }
+
+    private updateFlags(rd: bigint|number, isReg: boolean = true) {
+        const v = isReg ? this.registers[Number(rd)] : rd;
+        this.FLAGS.ZF = v === 0n ? 1n : 0n;
+    }
+
+    private set(rd: bigint|number, flag: boolean) {
+        this.registers[Number(rd)] = flag ? 1n : 0n;
+    }
+
     exec(code: Uint8Array) {
         this.init(code);
 
@@ -131,23 +149,27 @@ export default class Vm {
                 case VmOperation.ADD_R_R: {
                     const [rd, rs] = this.parse_r_r("ADD");
                     this.registers[Number(rd)] += this.registers[rs];
+                    this.updateFlags(rd);
                     break;
                 }
                 case VmOperation.ADD_R_I: {
                     const [rd, x] = this.parse_r_i();
                     this.registers[Number(rd)] += x;
                     Logger.debug(`ADD r${rd}, ${x}`);
+                    this.updateFlags(rd);
                     break;
                 }
                 case VmOperation.SUB_R_R: {
                     const [rd, rs] = this.parse_r_r("SUB");
                     this.registers[Number(rd)] -= this.registers[rs];
+                    this.updateFlags(rd);
                     break;
                 }
                 case VmOperation.SUB_R_I: {
                     const [rd, x] = this.parse_r_i();
                     this.registers[Number(rd)] -= x;
                     Logger.debug(`SUB r${rd}, ${x}`);
+                    this.updateFlags(rd);
                     break;
                 }
                 case VmOperation.MUL_R_R: {
@@ -215,31 +237,44 @@ export default class Vm {
                 }
                 case VmOperation.CMP_R_R: {
                     const [rd, rs] = this.parse_r_r("CMP");
-                    this.registers[Number(rd)] = this.registers[Number(rd)] === this.registers[rs] ? 1n : 0n;
+                    const v = this.registers[Number(rd)] - this.registers[rs];
+                    this.updateFlags(v, false);
                     break;
                 }
                 case VmOperation.AND_R_R: {
                     const [rd, rs] = this.parse_r_r("AND");
-                    this.registers[Number(rd)] = this.registers[Number(rd)] && this.registers[rs];
+                    this.registers[Number(rd)] = this.registers[Number(rd)] & this.registers[rs];
+                    this.updateFlags(rd);
                     break;
                 }
                 case VmOperation.OR_R_R: {
                     const [rd, rs] = this.parse_r_r("OR");
-                    this.registers[Number(rd)] = this.registers[Number(rd)] || this.registers[rs];
+                    this.registers[Number(rd)] = this.registers[Number(rd)] | this.registers[rs];
+                    this.updateFlags(rd);
+                    break;
+                }
+                case VmOperation.SET_E: {
+                    const rs = this.parse_r();
+                    Logger.debug(`SET_E r${rs}`);
+                    this.set(rs, !!this.FLAGS.ZF);
+                    break;
+                }
+                case VmOperation.SET_NE: {
+                    const rs = this.parse_r();
+                    Logger.debug(`SET_NE r${rs}`);
+                    this.set(rs, !this.FLAGS.ZF);
                     break;
                 }
                 case VmOperation.PUSH: {
-                    const rr = this.read_u8();
-                    const rs = (rr >>> 4) & 0x0F;
+                    const rs = this.parse_r();
                     Logger.debug(`PUSH r${rs}`);
-                    this.push(this.registers[rs]);
+                    this.push(this.registers[Number(rs)]);
                     break;
                 }
                 case VmOperation.POP: {
-                    const rr = this.read_u8();
-                    const rd = (rr >>> 4) & 0x0F;
+                    const rd = this.parse_r();
                     Logger.debug(`POP r${rd}`);
-                    this.registers[rd] = this.pop();
+                    this.registers[Number(rd)] = this.pop();
                     break;
                 }
                 case VmOperation.CALL: {

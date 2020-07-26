@@ -292,6 +292,14 @@ export class VmCodeBuilder {
         write_r(this.cs, rd, VmOperation.NOT);
     }
 
+    sete(rd: string) {
+        write_r(this.cs, rd, VmOperation.SET_E);
+    }
+
+    setne(rd: string) {
+        write_r(this.cs, rd, VmOperation.SET_NE);
+    }
+
     asBytes() {
         // finalize reloc
         for (const r of this.reloc) {

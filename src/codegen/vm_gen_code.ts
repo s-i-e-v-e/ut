@@ -148,11 +148,12 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
                 }
                 case "==": {
                     b.cmp_r_r(t1, t2);
+                    b.sete(t1);
                     break;
                 }
                 case "!=": {
                     b.cmp_r_r(t1, t2);
-                    b.not(t1);
+                    b.setne(t1);
                     break;
                 }
                 case "&": {

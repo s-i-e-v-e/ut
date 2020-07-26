@@ -7,9 +7,10 @@
  */
 import run from "./runner.ts";
 import {
-    OS,
     Logger,
     LogLevel,
+    OS,
+    Errors,
 } from "./util/mod.ts";
 
 function help() {
@@ -19,16 +20,70 @@ function help() {
     console.log("   ut help");
 }
 
-async function main(args: string[]) {
-    Logger.setLevel(LogLevel.DEBUG);
-    const cmd = args[0];
-    const p1 = args[1];
+interface Config {
+    logLevel: LogLevel,
+}
 
-    switch (cmd) {
+interface Command {
+    id: string,
+    args: string[],
+}
+
+async function main(args: string[]) {
+    const cfg: Config = {
+        logLevel: LogLevel.NONE,
+    };
+
+    let cx: Command = {
+        id: "",
+        args: []
+    };
+    for (let i = 0; i < args.length;) {
+        const cmd = args[i];
+        i += 1;
+
+        switch (cmd) {
+            case "-v": {
+                cfg.logLevel = LogLevel.INFO;
+                break;
+            }
+            case "-vv": {
+                cfg.logLevel = LogLevel.DEBUG;
+                break;
+            }
+            case "help": {
+                cx = {
+                    id: cmd,
+                    args: [],
+                };
+                break;
+            }
+            case "run": {
+                const a = args[i];
+                i += 1;
+                cx = {
+                    id: cmd,
+                    args: [a],
+                };
+                break;
+            }
+            default: {
+                OS.panic(`Unknown command: ${cmd}`);
+                break;
+            }
+        }
+    }
+
+    Logger.setLevel(cfg.logLevel);
+    switch (cx.id) {
         case undefined:
-        case "help": help(); break;
-        case "run": await run(p1); break;
-        default: OS.panic(`Unknown command: ${cmd}`);
+        case "":
+        case "help": {
+            help();
+            break;
+        }
+        case "run": await run(cx.args[0]); break;
+        default: Errors.raiseDebug();
     }
 }
 

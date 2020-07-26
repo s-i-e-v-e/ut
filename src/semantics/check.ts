@@ -128,7 +128,6 @@ function getExprType(st: SymbolTable, e: Expr): Type {
             const x = e as ArrayExpr;
             const at = getVar(st, x.id, x.loc).type as GenericType;
             ty = at.typeParameters[0];
-            console.log(ty);
             break;
         }
         case NodeType.ArrayConstructor: {

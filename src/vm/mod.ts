@@ -6,9 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    VmByteCode,
+    VmCodeBuilder,
     ByteBuffer,
-} from "./vm_bytecode_emitter.ts";
+} from "./vm_code_builder.ts";
 import Vm from "./vm.ts";
 import {Dictionary} from "../util/mod.ts";
 
@@ -44,7 +44,7 @@ export const registers: Dictionary<number> = {
 };
 
 export {
-    VmByteCode,
+    VmCodeBuilder,
     ByteBuffer,
     Vm,
 }

@@ -14,8 +14,8 @@ import {
     Errors,
     OS,
 } from "./util/mod.ts";
-import gen_vm_code from "./codegen/gen_vm.ts";
-import {Vm} from "./vm/mod.ts";
+import { vm_gen_code } from "./codegen/mod.ts";
+import { Vm } from "./vm/mod.ts";
 
 export default async function run(path: string) {
     try {
@@ -24,7 +24,7 @@ export default async function run(path: string) {
         const m = parse(f);
         check(m);
 
-        const vme = gen_vm_code(m);
+        const vme = vm_gen_code(m);
         const vm = Vm.build();
         const xs = vme.asBytes();
         //await Deno.writeFile("./dump.bin", xs);

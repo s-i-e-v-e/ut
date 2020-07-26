@@ -29,7 +29,7 @@ import {
     ByteBuffer,
     ForeignFunctions,
     registers,
-    VmByteCode
+    VmCodeBuilder
 } from "../vm/mod.ts";
 import {
     Errors,
@@ -71,22 +71,22 @@ export class Registers {
         return this.idRegisters[id]!;
     }
 
-    save(vme: VmByteCode) {
+    save(b: VmCodeBuilder) {
         const xs = [];
         for (const r of Object.keys(registers)) {
             if (this.registerIDs[r] !== undefined) {
-                vme.push_r(r);
+                b.push_r(r);
                 xs.push(r);
             }
         }
         return xs;
     }
 
-    restore(vme: VmByteCode, xs: string[]) {
+    restore(b: VmCodeBuilder, xs: string[]) {
         xs = xs.reverse();
 
         for (const r of xs) {
-            vme.pop_r(r);
+            b.pop_r(r);
         }
     }
 
@@ -95,72 +95,72 @@ export class Registers {
     }
 }
 
-function emitExpr(vme: VmByteCode, regs: Registers, rd: string, e: Expr) {
+function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
             const x = e as BooleanLiteral;
-            vme.mov_r_i(rd, x.value ? 1 : 0);
+            b.mov_r_i(rd, x.value ? 1 : 0);
             break;
         }
         case NodeType.StringLiteral: {
             const x = e as StringLiteral;
-            vme.mov_r_str(rd, x.value);
+            b.mov_r_str(rd, x.value);
             break;
         }
         case NodeType.NumberLiteral: {
             const x = e as NumberLiteral;
-            vme.mov_r_i(rd, Number(x.value));
+            b.mov_r_i(rd, Number(x.value));
             break;
         }
         case NodeType.IDExpr: {
             const x = e as IDExpr;
-            vme.mov_r_r(rd, regs.getReg(x.id));
+            b.mov_r_r(rd, regs.getReg(x.id));
             break;
         }
         case NodeType.BinaryExpr: {
             const x = e as BinaryExpr;
 
-            const a = regs.useReg();
-            emitExpr(vme, regs, a, x.left);
-            const b = regs.useReg();
-            emitExpr(vme, regs, b, x.right);
+            const t1 = regs.useReg();
+            emitExpr(b, regs, t1, x.left);
+            const t2 = regs.useReg();
+            emitExpr(b, regs, t2, x.right);
 
             switch (x.op) {
                 case "+": {
-                    vme.add_r_r(a, b);
+                    b.add_r_r(t1, t2);
                     break;
                 }
                 case "*": {
-                    vme.mul_r_r(a, b);
+                    b.mul_r_r(t1, t2);
                     break;
                 }
                 default: Errors.raiseDebug();
             }
-            vme.mov_r_r(rd, a);
-            regs.freeReg(a);
-            regs.freeReg(b);
+            b.mov_r_r(rd, t1);
+            regs.freeReg(t1);
+            regs.freeReg(t2);
             break;
         }
         case NodeType.FunctionApplication: {
             const x = e as FunctionApplication;
 
             // push used regs to stack
-            const saved = regs.save(vme);
+            const saved = regs.save(b);
 
             // put args in  r0 ... rN
             for (let i = 0; i < x.args.length; i += 1) {
                 const r = `r${i}`;
-                emitExpr(vme, regs, r, x.args[i]);
+                emitExpr(b, regs, r, x.args[i]);
             }
-            vme.call(x.id);
+            b.call(x.id);
 
             const tmp = regs.useReg();
-            vme.mov_r_r(tmp, "r0");
+            b.mov_r_r(tmp, "r0");
 
             // pop used regs from stack
-            regs.restore(vme, saved);
+            regs.restore(b, saved);
 
-            vme.mov_r_r(rd, tmp);
+            b.mov_r_r(rd, tmp);
             regs.freeReg(tmp);
             break;
         }
@@ -176,39 +176,39 @@ function emitExpr(vme: VmByteCode, regs: Registers, rd: string, e: Expr) {
             for (let i = 0; i < args.length*8; i += 1) {
                 bb.write_u8(0xCC);
             }
-            const offset = vme.heapStore(bb.asBytes());
+            const offset = b.heapStore(bb.asBytes());
 
             const tmp = regs.useReg();
             let hp = offset + 8 + 8;
             for (let i = 0; i < args.length; i += 1) {
-                emitExpr(vme, regs, tmp, args[i]);
-                vme.mov_m_r(hp, tmp);
+                emitExpr(b, regs, tmp, args[i]);
+                b.mov_m_r(hp, tmp);
                 hp += 8;
             }
             regs.freeReg(tmp);
-            vme.mov_r_i(rd, offset);
+            b.mov_r_i(rd, offset);
             break;
         }
         case NodeType.ArrayExpr: {
             const x = e as ArrayExpr;
 
             const t0 = regs.useReg();
-            emitExpr(vme, regs, t0, x.args[0]);
+            emitExpr(b, regs, t0, x.args[0]);
 
             // get element size offset
             const t1 = regs.useReg();
-            vme.mov_r_r(t1, regs.getReg(x.id));
-            vme.add_r_i(t1, 8);
+            b.mov_r_r(t1, regs.getReg(x.id));
+            b.add_r_i(t1, 8);
 
             const t2 = regs.useReg();
-            vme.mov_r_ro(t2, t1);
-            vme.mul_r_r(t2, t0);
+            b.mov_r_ro(t2, t1);
+            b.mul_r_r(t2, t0);
 
-            vme.add_r_i(t1, 8);
-            vme.add_r_r(t2, t1);
+            b.add_r_i(t1, 8);
+            b.add_r_r(t2, t1);
 
             //
-            vme.mov_r_ro(rd, t2);
+            b.mov_r_ro(rd, t2);
             regs.freeReg(t0);
             regs.freeReg(t1);
             regs.freeReg(t2);
@@ -218,58 +218,58 @@ function emitExpr(vme: VmByteCode, regs: Registers, rd: string, e: Expr) {
     }
 }
 
-function emitStmt(vme: VmByteCode, regs: Registers, s: Stmt) {
+function emitStmt(b: VmCodeBuilder, regs: Registers, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as VarInitStmt;
             const rd = regs.useReg(x.var.id);
-            emitExpr(vme, regs, rd, x.expr);
+            emitExpr(b, regs, rd, x.expr);
             break;
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
             const rd = regs.getReg(x.lhs.id);
-            emitExpr(vme, regs, rd, x.rhs);
+            emitExpr(b, regs, rd, x.rhs);
             break;
         }
         case NodeType.FunctionApplicationStmt: {
             const x = s as FunctionApplicationStmt;
             const rd = regs.useReg();
-            emitExpr(vme, regs, rd, x.fa);
+            emitExpr(b, regs, rd, x.fa);
             regs.freeReg(rd);
             break;
         }
         case NodeType.ReturnStmt: {
             const x = s as ReturnStmt;
-            emitExpr(vme, regs, "r0", x.expr);
-            vme.ret();
+            emitExpr(b, regs, "r0", x.expr);
+            b.ret();
             break;
         }
         default: Errors.raiseDebug(""+s.nodeType);
     }
 }
 
-function emitFunction(vme: VmByteCode, f: Function) {
-    vme.startFunction(f.proto.id);
+function emitFunction(b: VmCodeBuilder, f: Function) {
+    b.startFunction(f.proto.id);
     const regs = Registers.build();
     f.proto.params.forEach(x => regs.useReg(x.id));
-    f.body.forEach(x => emitStmt(vme, regs, x));
-    vme.ret();
+    f.body.forEach(x => emitStmt(b, regs, x));
+    b.ret();
 }
 
-export default function gen_vm_code(m: Module) {
-    const vme = VmByteCode.build();
+export default function vm_gen_code(m: Module) {
+    const b = VmCodeBuilder.build();
 
     // ivt - first 1024 bytes
-    m.foreignFunctions.forEach(x => vme.addForeignFunction(x.proto.id, ForeignFunctions[x.proto.id]));
+    m.foreignFunctions.forEach(x => b.addForeignFunction(x.proto.id, ForeignFunctions[x.proto.id]));
 
     // first, main
     const main = m.functions.filter(x => x.proto.id === "main")[0];
-    emitFunction(vme, main);
+    emitFunction(b, main);
 
     // then, rest
     const xs = m.functions.filter(x => x.proto.id !== "main");
-    xs.forEach(x => emitFunction(vme, x));
+    xs.forEach(x => emitFunction(b, x));
 
-    return vme;
+    return b;
 }

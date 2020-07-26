@@ -5,8 +5,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import build_vm_program from "./build_vm_program.ts";
+import vm_gen_code from "./vm_gen_code.ts";
 
 export {
-    build_vm_program
+    vm_gen_code
 };

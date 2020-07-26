@@ -85,11 +85,11 @@ interface Reloc {
     id: string;
 }
 
-export class VmByteCode {
+export class VmCodeBuilder {
     private static readonly SEGMENT_SIZE = Vm.SEGMENT_SIZE;
     private static readonly CS_BASE = 0;
-    private static readonly DS_BASE = VmByteCode.SEGMENT_SIZE;
-    private static readonly RDS_BASE = VmByteCode.SEGMENT_SIZE*2;
+    private static readonly DS_BASE = VmCodeBuilder.SEGMENT_SIZE;
+    private static readonly RDS_BASE = VmCodeBuilder.SEGMENT_SIZE*2;
 
     private readonly cs: ByteBuffer
     private readonly ds: ByteBuffer;
@@ -98,9 +98,9 @@ export class VmByteCode {
     private readonly reloc: Array<Reloc>;
 
     private constructor() {
-        this.cs = ByteBuffer.build(VmByteCode.SEGMENT_SIZE);
-        this.ds = ByteBuffer.build(VmByteCode.SEGMENT_SIZE);
-        this.rds = ByteBuffer.build(VmByteCode.SEGMENT_SIZE);
+        this.cs = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
+        this.ds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
+        this.rds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.functions = {};
         this.reloc = [];
 
@@ -110,7 +110,7 @@ export class VmByteCode {
     }
 
     static build() {
-        return new VmByteCode();
+        return new VmCodeBuilder();
     }
 
     addForeignFunction(id: string, idx: number) {
@@ -128,13 +128,13 @@ export class VmByteCode {
 
     private putStr(x: string) {
         const offs = this.rds.offset();
-        return [VmByteCode.RDS_BASE + offs, this.rds.write_str(x)];
+        return [VmCodeBuilder.RDS_BASE + offs, this.rds.write_str(x)];
     }
 
     heapStore(xs: Uint8Array) {
         const offs = this.ds.offset();
         this.ds.write(xs);
-        return VmByteCode.DS_BASE+offs;
+        return VmCodeBuilder.DS_BASE+offs;
     }
 
     mov_r_r(rd: string, rs: string) {
@@ -252,10 +252,10 @@ export class VmByteCode {
             this.cs.write_u64_at(offset, dest);
         }
 
-        const xs = new Uint8Array(VmByteCode.SEGMENT_SIZE * 3);
+        const xs = new Uint8Array(VmCodeBuilder.SEGMENT_SIZE * 3);
         xs.set(this.cs.asBytes(), 0);
-        xs.set(this.ds.asBytes(), VmByteCode.SEGMENT_SIZE);
-        xs.set(this.rds.asBytes(), VmByteCode.SEGMENT_SIZE * 2);
+        xs.set(this.ds.asBytes(), VmCodeBuilder.SEGMENT_SIZE);
+        xs.set(this.rds.asBytes(), VmCodeBuilder.SEGMENT_SIZE * 2);
         return xs;
     }
 }

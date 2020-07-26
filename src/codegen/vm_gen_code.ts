@@ -24,6 +24,9 @@ import {
     ArrayExpr,
     ReturnStmt,
     BinaryExpr,
+    IfStmt,
+    IfExpr,
+    ReturnExpr,
 } from "../parser/mod.ts";
 import {
     ByteBuffer,
@@ -244,11 +247,38 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
             regs.freeReg(t2);
             break;
         }
+        case NodeType.ReturnExpr: {
+            const x = e as ReturnExpr;
+            emitExpr(b, regs, rd, x.expr);
+            break;
+        }
+        case NodeType.IfExpr: {
+            const x = e as IfExpr;
+
+            const t0 = regs.useReg();
+            emitExpr(b, regs, t0, x.condition);
+            b.cmp_r_i(t0, 1);
+
+            const gotoElse = `else-${b.codeOffset()}`;
+            b.jnz(gotoElse);
+
+            x.ifBranch.forEach(x => emitStmt(b, regs, rd, x));
+            const gotoEnd = `end-${b.codeOffset()}`;
+            b.jmp(gotoEnd);
+
+            const elseOffset = b.codeOffset();
+            x.elseBranch.forEach(x => emitStmt(b, regs, rd, x));
+            const endOffset = b.codeOffset();
+
+            b.mapCodeOffset(gotoElse, elseOffset);
+            b.mapCodeOffset(gotoEnd, endOffset);
+            break;
+        }
         default: Errors.raiseDebug(JSON.stringify(e.nodeType));
     }
 }
 
-function emitStmt(b: VmCodeBuilder, regs: Registers, s: Stmt) {
+function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as VarInitStmt;
@@ -275,6 +305,18 @@ function emitStmt(b: VmCodeBuilder, regs: Registers, s: Stmt) {
             b.ret();
             break;
         }
+        case NodeType.ReturnExpr: {
+            const x = s as ReturnExpr;
+            emitExpr(b, regs, rd, x);
+            break;
+        }
+        case NodeType.IfStmt: {
+            const x = s as IfStmt;
+            const rd = regs.useReg();
+            emitExpr(b, regs, rd, x.ie);
+            regs.freeReg(rd);
+            break;
+        }
         default: Errors.raiseDebug(""+s.nodeType);
     }
 }
@@ -283,7 +325,7 @@ function emitFunction(b: VmCodeBuilder, f: Function) {
     b.startFunction(f.proto.id);
     const regs = Registers.build();
     f.proto.params.forEach(x => regs.useReg(x.id));
-    f.body.forEach(x => emitStmt(b, regs, x));
+    f.body.forEach(x => emitStmt(b, regs, "", x));
     b.ret();
 }
 

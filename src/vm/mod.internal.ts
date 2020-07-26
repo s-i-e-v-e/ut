@@ -23,6 +23,7 @@ export enum VmOperation {
     MOV_M_R,
     MOV_R_RO,
     CMP_R_R,
+    CMP_R_I,
     AND_R_R,
     OR_R_R,
     NOT,
@@ -32,5 +33,8 @@ export enum VmOperation {
     PUSH,
     POP,
     CALL,
+    JMP,
+    JZ,
+    JNZ,
     RET,
 }

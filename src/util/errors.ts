@@ -88,6 +88,12 @@ export default class Errors {
         }
     }
 
+    static IfExprMustReturn = class extends Errors.ParserError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
     static SemanticError = class extends Errors.UtError {
         constructor(msg: string) {
             super(msg);
@@ -123,6 +129,8 @@ export default class Errors {
             super(msg);
         }
     }
+
+
 
     static raiseInvalidNumber(cs: CharacterStream, loc: Location): never {
         const lexeme = cs.lexeme(loc, cs.loc());
@@ -180,6 +188,10 @@ export default class Errors {
         throw new this.TypeMismatch(buildErrorString(`Logic ops only defined on Bool, not ${toTypeString(t)}.`, loc));
     }
 
+    static raiseIfConditionError(t: Type, loc: Location): never {
+        throw new this.TypeMismatch(buildErrorString(`IF condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
+    }
+
     static raiseUnknownIdentifier(id: string, loc: Location): never {
         throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
     }
@@ -190,5 +202,9 @@ export default class Errors {
 
     static raiseFunctionParameterCountMismatch(id: string, loc: Location) {
         throw new this.FunctionParameterCountMismatch(buildErrorString(`Function parameter and arg counts differ: ${id}`, loc));
+    }
+
+    static raiseIfExprMustReturn(loc: Location) {
+        throw new this.IfExprMustReturn(buildErrorString(`IF/ELSE expression must return a value.`, loc));
     }
 }

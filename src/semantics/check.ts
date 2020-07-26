@@ -29,6 +29,10 @@ import {
     VarInitStmt,
     ArrayExpr,
     BinaryExpr,
+    Block,
+    IfStmt,
+    IfExpr,
+    ReturnExpr,
 } from "../parser/mod.ts";
 import {
     SymbolTable,
@@ -80,9 +84,9 @@ function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
     }
 }
 
-function checkTypes(st: SymbolTable, v: Variable, expr: Expr, loc: Location) {
+function checkTypes(st: SymbolTable, block: Block, v: Variable, expr: Expr, loc: Location) {
     const ltype = v.type;
-    const rtype = getExprType(st, expr);
+    const rtype = getExprType(st, block, expr);
 
     if (!typeExists(st, ltype, v.loc)) Errors.raiseUnknownType(ltype, loc);
     if (!typesMatch(ltype, rtype)) Errors.raiseTypeMismatch(ltype, rtype, loc);
@@ -100,7 +104,7 @@ function getFunction(st: SymbolTable, id: string, loc: Location) {
     return x;
 }
 
-function getExprType(st: SymbolTable, e: Expr): Type {
+function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
     let ty;
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
@@ -117,8 +121,8 @@ function getExprType(st: SymbolTable, e: Expr): Type {
         case NodeType.BinaryExpr: {
             const x = e as BinaryExpr;
 
-            const ta = getExprType(st, x.left);
-            const tb = getExprType(st, x.right);
+            const ta = getExprType(st, block, x.left);
+            const tb = getExprType(st, block, x.right);
             if (!typesMatch(ta, tb)) Errors.raiseTypeMismatch(ta, tb, x.loc);
 
             switch (x.op) {
@@ -156,7 +160,7 @@ function getExprType(st: SymbolTable, e: Expr): Type {
             const x = e as FunctionApplication;
             if (st.varExists(x.id)) {
                 e.nodeType = NodeType.ArrayExpr
-                ty = getExprType(st, e);
+                ty = getExprType(st, block, e);
             }
             else {
                 ty = getFunction(st, x.id, x.loc).returnType;
@@ -174,7 +178,7 @@ function getExprType(st: SymbolTable, e: Expr): Type {
             if (x.args) {
                 // check arg types
                 // get type of first arg
-                const et = getExprType(st, x.args[0]) as GenericType;
+                const et = getExprType(st, block, x.args[0]) as GenericType;
                 x.args.forEach(y => {
                     if (!typesMatch(et, y.type)) Errors.raiseTypeMismatch(et, y.type, y.loc);
                 })
@@ -193,19 +197,41 @@ function getExprType(st: SymbolTable, e: Expr): Type {
             }
             return x.type;
         }
+        case NodeType.ReturnExpr: {
+            const x = e as ReturnExpr;
+            ty = getExprType(st, block, x.expr);
+            if (block.returnType === KnownTypes.NotInferred) {
+                block.returnType = ty;
+            }
+            else {
+                if (!typesMatch(block.returnType, ty)) Errors.raiseTypeMismatch(block.returnType, ty, x.loc);
+            }
+            break;
+        }
+        case NodeType.IfExpr: {
+            const x = e as IfExpr;
+            const t = getExprType(st, block, x.condition);
+            if (t !== KnownTypes.Bool) Errors.raiseIfConditionError(t, x.loc);
+
+            x.ifBranch.forEach(y => doStmt(st, x, y));
+            x.elseBranch.forEach(y => doStmt(st, x, y));
+            x.returnType = x.returnType === KnownTypes.NotInferred ? KnownTypes.Void: x.returnType;
+            ty = x.returnType;
+            break;
+        }
         default: Errors.raiseDebug(JSON.stringify(e));
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
     return ty;
 }
 
-function doStmt(st: SymbolTable, fp: FunctionPrototype, s: Stmt) {
+function doStmt(st: SymbolTable, block: Block, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as VarInitStmt;
 
             // infer
-            const ty = getExprType(st, x.expr);
+            const ty = getExprType(st, block, x.expr);
             if (x.var.type === KnownTypes.NotInferred) {
                 x.var.type = ty;
             }
@@ -213,7 +239,7 @@ function doStmt(st: SymbolTable, fp: FunctionPrototype, s: Stmt) {
             // check
             if (!st.typeExists(x.var.type)) Errors.raiseUnknownType(x.var.type, x.var.loc);
             st.addVar(x.var);
-            checkTypes(st, x.var, x.expr, x.loc);
+            checkTypes(st, block, x.var, x.expr, x.loc);
             break;
         }
         case NodeType.VarAssnStmt: {
@@ -223,7 +249,7 @@ function doStmt(st: SymbolTable, fp: FunctionPrototype, s: Stmt) {
             // check assignments to immutable vars
             if (!v.isMutable) Errors.raiseImmutableVar(v);
 
-            checkTypes(st, v, x.rhs, x.loc);
+            checkTypes(st, block, v, x.rhs, x.loc);
             break;
         }
         case NodeType.FunctionApplicationStmt: {
@@ -232,7 +258,7 @@ function doStmt(st: SymbolTable, fp: FunctionPrototype, s: Stmt) {
             if (x.fa.args.length != f.params.length) Errors.raiseFunctionParameterCountMismatch(x.fa.id, x.loc);
 
             for (let i = 0; i < x.fa.args.length; i += 1) {
-                const atype = getExprType(st, x.fa.args[i]);
+                const atype = getExprType(st, block, x.fa.args[i]);
                 const ptype = f.params[i].type;
                 if (!typesMatch(atype, ptype)) Errors.raiseTypeMismatch(atype, ptype, x.loc);
             }
@@ -240,13 +266,17 @@ function doStmt(st: SymbolTable, fp: FunctionPrototype, s: Stmt) {
         }
         case NodeType.ReturnStmt: {
             const x = s as ReturnStmt;
-            const ty = getExprType(st, x.expr);
-            if (fp.returnType === KnownTypes.NotInferred) {
-                fp.returnType = ty;
-            }
-            else {
-                if (!typesMatch(fp.returnType, ty)) Errors.raiseTypeMismatch(fp.returnType, ty, x.loc);
-            }
+            getExprType(st, block, x as ReturnExpr);
+            break;
+        }
+        case NodeType.IfStmt: {
+            const x = s as IfStmt;
+            getExprType(st, x.ie, x.ie);
+            break;
+        }
+        case NodeType.ReturnExpr: {
+            const x = s as ReturnExpr;
+            getExprType(st, block, x);
             break;
         }
         default: Errors.raiseDebug();

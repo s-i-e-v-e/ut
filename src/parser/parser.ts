@@ -12,17 +12,18 @@ import {
     lex,
 } from "./mod.internal.ts";
 import {
-    Type,
-    Function,
+    ArrayConstructor,
+    BinaryExpr,
     ForeignFunction,
-    Struct,
-    Parameter,
+    Function,
+    IDExpr,
+    KnownTypes,
     Location,
     NodeType,
-    KnownTypes,
-    ArrayConstructor,
-    IDExpr,
-    BinaryExpr,
+    Parameter,
+    Stmt,
+    Struct,
+    Type,
 } from "./mod.ts";
 import {
     Errors,
@@ -200,6 +201,45 @@ function parseTypeConstructor(ts: TokenStream): ArrayConstructor {
     }
 }
 
+function parseIfExpr(ts: TokenStream, isStmt: boolean) {
+    const mustReturn = (xs: Stmt[], loc: Location) => {
+        // last statement must be a return
+        const last = xs.length ? xs[xs.length - 1] : undefined;
+        if (last && last.nodeType === NodeType.ReturnStmt) {
+            last.nodeType = NodeType.ReturnExpr;
+        }
+        else {
+            Errors.raiseIfExprMustReturn(loc);
+        }
+    };
+
+    const loc = ts.loc();
+    ts.nextMustBe("if");
+    ts.nextMustBe("(");
+    const cond = parseExpr(ts);
+    ts.nextMustBe(")");
+    ts.nextMustBe("{");
+    const l1 = ts.loc();
+    const ifBranch = parseBody(ts);
+    ts.nextMustBe("}");
+    ts.nextMustBe("else");
+    ts.nextMustBe("{");
+    const l2 = ts.loc();
+    const elseBranch = parseBody(ts);
+    ts.nextMustBe("}");
+
+    if (!isStmt) mustReturn(ifBranch, l1);
+    if (!isStmt) mustReturn(elseBranch, l2);
+    return {
+        nodeType: NodeType.IfExpr,
+        condition: cond,
+        ifBranch: ifBranch,
+        elseBranch: elseBranch,
+        loc: loc,
+        returnType: KnownTypes.NotInferred,
+    };
+}
+
 function parseFunctionApplication(ts: TokenStream, ide: IDExpr) {
     ts.nextMustBe("(");
     const xs = parseExprList(ts);
@@ -233,6 +273,9 @@ function _parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
     }
     else if (ts.nextIsType()) {
         e = parseTypeConstructor(ts);
+    }
+    else if (ts.nextIs("if")) {
+        e = parseIfExpr(ts, false);
     }
     else {
         const ide = parseIDExpr(ts);
@@ -332,6 +375,7 @@ function parseVarInit(ts: TokenStream, isMutable: boolean) {
 
 function parseBody(ts: TokenStream) {
     const xs = new Array<any>();
+
     while (!ts.nextIs("}")) {
         const loc = ts.loc();
         if (ts.consumeIfNextIs("let")) {
@@ -344,6 +388,13 @@ function parseBody(ts: TokenStream) {
             xs.push({
                 nodeType: NodeType.ReturnStmt,
                 expr: parseExpr(ts),
+                loc: loc,
+            });
+        }
+        else if (ts.nextIs("if")) {
+            xs.push({
+                nodeType: NodeType.IfStmt,
+                ie: parseIfExpr(ts, true),
                 loc: loc,
             });
         }

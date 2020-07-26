@@ -115,6 +115,7 @@ export class VmCodeBuilder {
     private readonly ds: ByteBuffer;
     private readonly rds: ByteBuffer;
     private readonly functions: Dictionary<number>;
+    private readonly labels: Dictionary<number>;
     private readonly reloc: Array<Reloc>;
 
     private constructor() {
@@ -122,6 +123,7 @@ export class VmCodeBuilder {
         this.ds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.rds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.functions = {};
+        this.labels = {};
         this.reloc = [];
 
         for (let i = 0; i < Vm.IVT_END; i += 1) {
@@ -131,6 +133,14 @@ export class VmCodeBuilder {
 
     static build() {
         return new VmCodeBuilder();
+    }
+
+    codeOffset() {
+        return this.cs.offset();
+    }
+
+    mapCodeOffset(id: string, offset: number) {
+        this.labels[id] = offset;
     }
 
     addForeignFunction(id: string, idx: number) {
@@ -215,12 +225,12 @@ export class VmCodeBuilder {
         this.cs.write_u8(a << 4 | 0);
     }
 
-    call(id: string) {
-        this.cs.write_u8(VmOperation.CALL);
+    private goto(op: VmOperation, id: string, map: Dictionary<number>) {
+        this.cs.write_u8(op);
         let offset;
-        Logger.debug(`call:: ${id} => ${this.functions[id]}`);
-        if (this.functions[id] !== undefined) {
-            offset = this.functions[id]; // location of function
+        Logger.debug(`goto:: ${id} => ${map[id]}`);
+        if (map[id] !== undefined) {
+            offset = map[id]; // location of function/label
         }
         else {
             this.reloc.push({
@@ -230,6 +240,22 @@ export class VmCodeBuilder {
             offset = 0xFFFFFFFFFFFFFFFF;
         }
         this.cs.write_u64(offset);
+    }
+
+    jz(id: string) {
+        this.goto(VmOperation.JZ, id, this.labels);
+    }
+
+    jnz(id: string) {
+        this.goto(VmOperation.JNZ, id, this.labels);
+    }
+
+    jmp(id: string) {
+        this.goto(VmOperation.JMP, id, this.labels);
+    }
+
+    call(id: string) {
+        this.goto(VmOperation.CALL, id, this.functions);
     }
 
     ret() {
@@ -276,6 +302,10 @@ export class VmCodeBuilder {
         write_r_i(this.cs, rd, n, VmOperation.SUB_R_I);
     }
 
+    cmp_r_i(rs: string, n: number) {
+        write_r_i(this.cs, rs, n, VmOperation.CMP_R_I);
+    }
+
     cmp_r_r(rd: string, rs: string) {
         write_r_r(this.cs, rd, rs, VmOperation.CMP_R_R);
     }
@@ -303,9 +333,10 @@ export class VmCodeBuilder {
     asBytes() {
         // finalize reloc
         for (const r of this.reloc) {
-            const offset = this.functions[r.id];
+            const offset = this.functions[r.id] ? this.functions[r.id] : this.labels[r.id];
             const dest = r.offset;
             this.cs.write_u64_at(offset, dest);
+            Logger.debug(`reloc::${r.id}:${offset} @ ${dest}`)
         }
 
         const xs = new Uint8Array(VmCodeBuilder.SEGMENT_SIZE * 3);

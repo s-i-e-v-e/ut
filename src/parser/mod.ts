@@ -23,6 +23,10 @@ export interface Module {
     functions: Function[],
 }
 
+export interface Block {
+    returnType: Type;
+}
+
 export interface FunctionPrototype {
     id: string;
     params: Parameter[];
@@ -72,11 +76,14 @@ export enum NodeType {
     FunctionApplicationStmt,
     IDExpr,
     FunctionApplication,
+    IfExpr,
+    IfStmt,
     StringLiteral,
     BooleanLiteral,
     NumberLiteral,
     ArrayConstructor,
     ReturnStmt,
+    ReturnExpr,
     ArrayExpr,
     BinaryExpr,
 }
@@ -99,6 +106,10 @@ export interface VarAssnStmt extends Stmt {
 
 export interface FunctionApplicationStmt extends Stmt {
     fa: FunctionApplication;
+}
+
+export interface IfStmt extends Stmt {
+    ie: IfExpr;
 }
 
 export interface ReturnStmt extends Stmt {
@@ -145,6 +156,17 @@ export interface ArrayExpr extends RvalueExpr {
 export interface ArrayConstructor extends RvalueExpr {
     sizeExpr: Expr | undefined;
     args: Expr[] | undefined;
+}
+
+export interface IfExpr extends RvalueExpr {
+    condition: Expr;
+    ifBranch: Stmt[];
+    elseBranch: Stmt[];
+    returnType: Type;
+}
+
+export interface ReturnExpr extends RvalueExpr {
+    expr: Expr;
 }
 
 export interface Literal extends RvalueExpr {}

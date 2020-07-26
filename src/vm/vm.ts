@@ -239,6 +239,15 @@ export default class Vm {
                     const [rd, rs] = this.parse_r_r("CMP");
                     const v = this.registers[Number(rd)] - this.registers[rs];
                     this.updateFlags(v, false);
+                    Logger.debug(`ZF: ${this.FLAGS.ZF}`);
+                    break;
+                }
+                case VmOperation.CMP_R_I: {
+                    const [rs, x] = this.parse_r_i();
+                    const v = this.registers[Number(rs)] - x;
+                    this.updateFlags(v, false);
+                    Logger.debug(`CMP r${rs}, ${x}`);
+                    Logger.debug(`ZF: ${this.FLAGS.ZF}`);
                     break;
                 }
                 case VmOperation.AND_R_R: {
@@ -304,6 +313,28 @@ export default class Vm {
                     }
                     else {
                         this.push(this.ip);
+                        this.ip = offset;
+                    }
+                    break;
+                }
+                case VmOperation.JMP: {
+                    const offset = this.read_u64();
+                    Logger.debug(`JMP ${offset}`);
+                    this.ip = offset;
+                    break;
+                }
+                case VmOperation.JZ: {
+                    const offset = this.read_u64();
+                    if (!!this.FLAGS.ZF) {
+                        Logger.debug(`JZ ${offset}`);
+                        this.ip = offset;
+                    }
+                    break;
+                }
+                case VmOperation.JNZ: {
+                    const offset = this.read_u64();
+                    if (!this.FLAGS.ZF) {
+                        Logger.debug(`JNZ ${offset}`);
                         this.ip = offset;
                     }
                     break;

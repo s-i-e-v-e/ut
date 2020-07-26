@@ -33,6 +33,7 @@ export default async function run(path: string) {
     catch (e) {
         if (e instanceof Errors.UtError) {
             Logger.error(e);
+            //throw e;
         }
         else {
             throw e;

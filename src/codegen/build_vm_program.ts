@@ -87,8 +87,8 @@ function translateStmt(vs: VmState, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
-            const rd = vs.getReg(x.id);
-            return [translateExpr(vs, rd, x.expr)];
+            const rd = vs.getReg(x.lhs.id);
+            return [translateExpr(vs, rd, x.rhs)];
         }
         case NodeType.FunctionApplicationStmt: {
             const x = s as FunctionApplicationStmt;

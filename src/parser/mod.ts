@@ -92,8 +92,8 @@ export interface VarInitStmt extends Stmt {
 }
 
 export interface VarAssnStmt extends Stmt {
-    id: string;
-    expr: Expr;
+    lhs: IDExpr;
+    rhs: Expr;
 }
 
 export interface FunctionApplicationStmt extends Stmt {

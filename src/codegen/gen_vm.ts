@@ -203,8 +203,8 @@ function emitStmt(vme: VmByteCode, regs: Registers, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
-            const rd = regs.getReg(x.id);
-            emitExpr(vme, regs, rd, x.expr);
+            const rd = regs.getReg(x.lhs.id);
+            emitExpr(vme, regs, rd, x.rhs);
             break;
         }
         case NodeType.FunctionApplicationStmt: {

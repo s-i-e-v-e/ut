@@ -179,12 +179,12 @@ function doStmt(st: SymbolTable, fp: FunctionPrototype, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
-            const v = getVar(st, x.id, x.loc);
+            const v = getVar(st, x.lhs.id, x.loc);
 
             // check assignments to immutable vars
             if (!v.isMutable) Errors.raiseImmutableVar(v);
 
-            checkTypes(st, v, x.expr, x.loc);
+            checkTypes(st, v, x.rhs, x.loc);
             break;
         }
         case NodeType.FunctionApplicationStmt: {

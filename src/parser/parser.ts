@@ -21,6 +21,7 @@ import {
     NodeType,
     KnownTypes,
     ArrayConstructor,
+    IDExpr,
 } from "./mod.ts";
 import {
     Errors,
@@ -31,6 +32,18 @@ import {
 
 function parseID(ts: TokenStream) {
     return ts.nextMustBe(TokenType.TK_ID).lexeme;
+}
+
+function parseIDExpr(ts: TokenStream): IDExpr {
+    const loc = ts.loc();
+    const id = parseID(ts);
+
+    return {
+        nodeType: NodeType.IDExpr,
+        id: id,
+        loc: loc,
+        type: KnownTypes.NotInferred,
+    }
 }
 
 function parseTypeParameters(ts: TokenStream) {
@@ -186,15 +199,15 @@ function parseTypeConstructor(ts: TokenStream): ArrayConstructor {
     }
 }
 
-function parseFunctionApplication(ts: TokenStream, id: string, loc: Location) {
+function parseFunctionApplication(ts: TokenStream, ide: IDExpr) {
     ts.nextMustBe("(");
     const xs = parseExprList(ts);
     ts.nextMustBe(")");
     return {
         nodeType: NodeType.FunctionApplication,
-        id: id,
+        id: ide.id,
         args: xs,
-        loc: loc,
+        loc: ide.loc,
     };
 }
 
@@ -202,17 +215,12 @@ function parseExpr(ts: TokenStream) {
     if (ts.nextIsLiteral()) return parseLiteral(ts);
     if (ts.nextIsType()) return parseTypeConstructor(ts);
 
-    const loc = ts.loc();
-    const id = parseID(ts);
+    const ide = parseIDExpr(ts);
     if (ts.nextIs("(")) {
-        return parseFunctionApplication(ts, id, loc);
+        return parseFunctionApplication(ts, ide);
     }
     else {
-        return {
-            nodeType: NodeType.IDExpr,
-            id: id,
-            loc: loc,
-        }
+        return ide;
     }
 }
 
@@ -248,7 +256,7 @@ function parseBody(ts: TokenStream) {
         if (ts.consumeIfNextIs("let")) {
             xs.push(parseVarInit(ts, false));
         }
-        else if (ts.consumeIfNextIs("mut")) {
+        else if (ts.consumeIfNextIs("var")) {
             xs.push(parseVarInit(ts, true));
         }
         else if (ts.consumeIfNextIs("return")) {
@@ -259,20 +267,20 @@ function parseBody(ts: TokenStream) {
             });
         }
         else {
-            const id = parseID(ts);
+            const ide = parseIDExpr(ts);
             if (ts.consumeIfNextIs("=")) {
                 xs.push({
                     nodeType: NodeType.VarAssnStmt,
-                    id: id,
+                    id: ide.id,
                     expr: parseExpr(ts),
-                    loc: loc,
+                    loc: ide.loc,
                 });
             }
             else {
                 xs.push({
                     nodeType: NodeType.FunctionApplicationStmt,
-                    fa: parseFunctionApplication(ts, id, loc),
-                    loc: loc,
+                    fa: parseFunctionApplication(ts, ide),
+                    loc: ide.loc,
                 });
             }
         }

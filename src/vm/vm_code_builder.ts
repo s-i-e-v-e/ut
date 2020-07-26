@@ -85,6 +85,20 @@ interface Reloc {
     id: string;
 }
 
+function write_r_r(bb: ByteBuffer, rd: string, rs: string, op: VmOperation) {
+    bb.write_u8(op);
+    const a = registers[rd];
+    const b = registers[rs];
+    bb.write_u8(a << 4 | b);
+}
+
+function write_r_i(bb: ByteBuffer, rd: string, n: number, op: VmOperation) {
+    bb.write_u8(op);
+    const a = registers[rd];
+    bb.write_u8(a << 4 | 0);
+    bb.write_u64(n);
+}
+
 export class VmCodeBuilder {
     private static readonly SEGMENT_SIZE = Vm.SEGMENT_SIZE;
     private static readonly CS_BASE = 0;
@@ -216,32 +230,44 @@ export class VmCodeBuilder {
         this.cs.write_u8(VmOperation.RET);
     }
 
-    add_r_r(rd: string, rs: string) {
-        this.cs.write_u8(VmOperation.ADD_R_R);
-        const a = registers[rd];
-        const b = registers[rs];
-        this.cs.write_u8(a << 4 | b);
-    }
-
     mul_r_r(rd: string, rs: string) {
-        this.cs.write_u8(VmOperation.MUL_R_R);
-        const a = registers[rd];
-        const b = registers[rs];
-        this.cs.write_u8(a << 4 | b);
+        write_r_r(this.cs, rd, rs, VmOperation.MUL_R_R);
     }
 
-    add_r_i(rd: string, n: number) {
-        this.cs.write_u8(VmOperation.ADD_R_I);
-        const a = registers[rd];
-        this.cs.write_u8(a << 4 | 0);
-        this.cs.write_u64(n);
+    div_r_r(rd: string, rs: string) {
+        write_r_r(this.cs, rd, rs, VmOperation.DIV_R_R);
+    }
+
+    mod_r_r(rd: string, rs: string) {
+        write_r_r(this.cs, rd, rs, VmOperation.MOD_R_R);
+    }
+
+    add_r_r(rd: string, rs: string) {
+        write_r_r(this.cs, rd, rs, VmOperation.ADD_R_R);
+    }
+
+    sub_r_r(rd: string, rs: string) {
+        write_r_r(this.cs, rd, rs, VmOperation.SUB_R_R);
     }
 
     mul_r_i(rd: string, n: number) {
-        this.cs.write_u8(VmOperation.MUL_R_I);
-        const a = registers[rd];
-        this.cs.write_u8(a << 4 | 0);
-        this.cs.write_u64(n);
+        write_r_i(this.cs, rd, n, VmOperation.MUL_R_I);
+    }
+
+    div_r_i(rd: string, n: number) {
+        write_r_i(this.cs, rd, n, VmOperation.DIV_R_I);
+    }
+
+    mod_r_i(rd: string, n: number) {
+        write_r_i(this.cs, rd, n, VmOperation.MOD_R_I);
+    }
+
+    add_r_i(rd: string, n: number) {
+        write_r_i(this.cs, rd, n, VmOperation.ADD_R_I);
+    }
+
+    sub_r_i(rd: string, n: number) {
+        write_r_i(this.cs, rd, n, VmOperation.SUB_R_I);
     }
 
     asBytes() {

@@ -139,6 +139,17 @@ export default class Vm {
                     Logger.debug(`ADD r${rd}, ${x}`);
                     break;
                 }
+                case VmOperation.SUB_R_R: {
+                    const [rd, rs] = this.parse_r_r("SUB");
+                    this.registers[rd] -= this.registers[rs];
+                    break;
+                }
+                case VmOperation.SUB_R_I: {
+                    const [rd, x] = this.parse_r_i();
+                    this.registers[rd] -= x;
+                    Logger.debug(`SUB r${rd}, ${x}`);
+                    break;
+                }
                 case VmOperation.MUL_R_R: {
                     const [rd, rs] = this.parse_r_r("MUL");
                     this.registers[rd] *= this.registers[rs];
@@ -148,6 +159,28 @@ export default class Vm {
                     const [rd, x] = this.parse_r_i();
                     this.registers[rd] *= x;
                     Logger.debug(`MUL r${rd}, ${x}`);
+                    break;
+                }
+                case VmOperation.DIV_R_R: {
+                    const [rd, rs] = this.parse_r_r("DIV");
+                    this.registers[rd] /= this.registers[rs];
+                    break;
+                }
+                case VmOperation.DIV_R_I: {
+                    const [rd, x] = this.parse_r_i();
+                    this.registers[rd] /= x;
+                    Logger.debug(`DIV r${rd}, ${x}`);
+                    break;
+                }
+                case VmOperation.MOD_R_R: {
+                    const [rd, rs] = this.parse_r_r("MOD");
+                    this.registers[rd] %= this.registers[rs];
+                    break;
+                }
+                case VmOperation.MOD_R_I: {
+                    const [rd, x] = this.parse_r_i();
+                    this.registers[rd] %= x;
+                    Logger.debug(`MOD r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.MOV_R_R: {

@@ -126,12 +126,24 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
             emitExpr(b, regs, t2, x.right);
 
             switch (x.op) {
+                case "*": {
+                    b.mul_r_r(t1, t2);
+                    break;
+                }
+                case "/": {
+                    b.div_r_r(t1, t2);
+                    break;
+                }
+                case "%": {
+                    b.mod_r_r(t1, t2);
+                    break;
+                }
                 case "+": {
                     b.add_r_r(t1, t2);
                     break;
                 }
-                case "*": {
-                    b.mul_r_r(t1, t2);
+                case "-": {
+                    b.sub_r_r(t1, t2);
                     break;
                 }
                 default: Errors.raiseDebug();

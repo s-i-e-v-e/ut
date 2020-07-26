@@ -254,7 +254,7 @@ function _parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
 
 function parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
     const e = _parseExpr(ts, e1, op);
-    if (ts.nextIs("*") || ts.nextIs("/")) {
+    if (ts.nextIs("*") || ts.nextIs("/") || ts.nextIs("%")) {
         return parseBinaryExpr(ts, e, ts.next().lexeme);
     }
     else if (ts.nextIs("+") || ts.nextIs("-")) {

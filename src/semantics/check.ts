@@ -123,6 +123,7 @@ function getExprType(st: SymbolTable, e: Expr): Type {
             ty = ta;
 
             switch (x.op) {
+                case "%":
                 case "*":
                 case "/":
                 case "+":

@@ -17,22 +17,22 @@ import {
     FFI
 } from "./mod.ts";
 
-function read_u64_from_ptr(dv: DataView, p: number) {
-    const upper = dv.getUint32(p);
-    const lower = dv.getUint32(p + 4);
+function read_u64_from_ptr(dv: DataView, p: bigint) {
+    const upper = BigInt(dv.getUint32(Number(p)));
+    const lower = BigInt(dv.getUint32(Number(p + 4n)));
 
-    return (upper * (2 ** 32)) + lower;
+    return (upper * (2n ** 32n)) + lower;
 }
 
 export default class Vm {
     public static readonly SEGMENT_SIZE = 1024;
     public static readonly IVT_END = 128;
-    private ip: number;
-    private hp: number; // heap pointer
-    private sp: number; // stack pointer
+    private ip: bigint;
+    private hp: bigint; // heap pointer
+    private sp: bigint; // stack pointer
     private readonly registers = [
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
+        0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n,
+        0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n,
     ];
     private readonly memory: Uint8Array;
     private readonly dv: DataView;
@@ -42,9 +42,9 @@ export default class Vm {
         this.memory = new Uint8Array(Vm.SEGMENT_SIZE*8);
         this.dv = new DataView(this.memory.buffer);
         this.dec = new TextDecoder();
-        this.ip = Vm.IVT_END;
-        this.hp = Vm.SEGMENT_SIZE*3;
-        this.sp = this.memory.length - 8;
+        this.ip = BigInt(Vm.IVT_END);
+        this.hp = BigInt(Vm.SEGMENT_SIZE*3);
+        this.sp = BigInt(this.memory.length - 8);
     }
 
     static build() {
@@ -52,48 +52,48 @@ export default class Vm {
     }
 
     private read_u8() {
-        const x = this.dv.getUint8(this.ip);
-        this.ip += 1;
+        const x = this.dv.getUint8(Number(this.ip));
+        this.ip += 1n;
         return x;
     }
 
-    private read_u64(offset?: number) {
+    private read_u64(offset?: bigint) {
         if (offset) {
             return read_u64_from_ptr(this.dv, offset);
         }
         else {
             const x = read_u64_from_ptr(this.dv, this.ip);
-            this.ip += 8;
+            this.ip += 8n;
             return x;
         }
     }
 
-    private read_str(offset: number) {
+    private read_str(offset: bigint) {
         let ip = offset;
 
         const len = this.read_u64(ip);
-        ip += 8;
+        ip += 8n;
         const xs = [];
         for (let i = 0; i < len; i += 1) {
-            const x = this.dv.getUint8(ip);
+            const x = this.dv.getUint8(Number(ip));
             xs.push(x);
-            ip += 1;
+            ip += 1n;
         }
 
         return this.dec.decode(new Uint8Array(xs));
     }
 
-    private write_u64(offset: number, x: number) {
-        this.dv.setBigUint64(offset, BigInt(x));
+    private write_u64(offset: bigint, x: bigint) {
+        this.dv.setBigUint64(Number(offset), BigInt(x));
     }
 
-    private push(n: number) {
-        this.dv.setBigUint64(this.sp, BigInt(n));
-        this.sp -= 8;
+    private push(n: bigint) {
+        this.dv.setBigUint64(Number(this.sp), n);
+        this.sp -= 8n;
     }
 
     private pop() {
-        this.sp += 8;
+        this.sp += 8n;
         return read_u64_from_ptr(this.dv, this.sp);
     }
 
@@ -117,99 +117,99 @@ export default class Vm {
         const rr = this.read_u8();
         const r = (rr >>> 4) & 0x0F;
         const x = this.read_u64();
-        return [r, x];
+        return [BigInt(r), x];
     }
 
     exec(code: Uint8Array) {
         this.init(code);
 
-        this.push(0);
+        this.push(0n);
 
         while (true) {
             const ins = this.read_u8();
             switch (ins) {
                 case VmOperation.ADD_R_R: {
                     const [rd, rs] = this.parse_r_r("ADD");
-                    this.registers[rd] += this.registers[rs];
+                    this.registers[Number(rd)] += this.registers[rs];
                     break;
                 }
                 case VmOperation.ADD_R_I: {
                     const [rd, x] = this.parse_r_i();
-                    this.registers[rd] += x;
+                    this.registers[Number(rd)] += x;
                     Logger.debug(`ADD r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.SUB_R_R: {
                     const [rd, rs] = this.parse_r_r("SUB");
-                    this.registers[rd] -= this.registers[rs];
+                    this.registers[Number(rd)] -= this.registers[rs];
                     break;
                 }
                 case VmOperation.SUB_R_I: {
                     const [rd, x] = this.parse_r_i();
-                    this.registers[rd] -= x;
+                    this.registers[Number(rd)] -= x;
                     Logger.debug(`SUB r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.MUL_R_R: {
                     const [rd, rs] = this.parse_r_r("MUL");
-                    this.registers[rd] *= this.registers[rs];
+                    this.registers[Number(rd)] *= this.registers[rs];
                     break;
                 }
                 case VmOperation.MUL_R_I: {
                     const [rd, x] = this.parse_r_i();
-                    this.registers[rd] *= x;
+                    this.registers[Number(rd)] *= x;
                     Logger.debug(`MUL r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.DIV_R_R: {
                     const [rd, rs] = this.parse_r_r("DIV");
-                    this.registers[rd] /= this.registers[rs];
+                    this.registers[Number(rd)] /= this.registers[rs];
                     break;
                 }
                 case VmOperation.DIV_R_I: {
                     const [rd, x] = this.parse_r_i();
-                    this.registers[rd] /= x;
+                    this.registers[Number(rd)] /= x;
                     Logger.debug(`DIV r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.MOD_R_R: {
                     const [rd, rs] = this.parse_r_r("MOD");
-                    this.registers[rd] %= this.registers[rs];
+                    this.registers[Number(rd)] %= this.registers[rs];
                     break;
                 }
                 case VmOperation.MOD_R_I: {
                     const [rd, x] = this.parse_r_i();
-                    this.registers[rd] %= x;
+                    this.registers[Number(rd)] %= x;
                     Logger.debug(`MOD r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.MOV_R_R: {
                     const [rd, rs] = this.parse_r_r("MOV");
-                    this.registers[rd] = this.registers[rs];
+                    this.registers[Number(rd)] = this.registers[rs];
                     break;
                 }
                 case VmOperation.MOV_R_I: {
                     const [rd, x] = this.parse_r_i();
-                    this.registers[rd] = x;
+                    this.registers[Number(rd)] = x;
                     Logger.debug(`MOV r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.MOV_R_RO: {
                     const [rd, rs] = this.parse_r_r();
                     const offset = this.registers[rs];
-                    this.registers[rd] = this.read_u64(offset);
+                    this.registers[Number(rd)] = this.read_u64(offset);
                     Logger.debug(`MOV r${rd}, [r${rs}] // [${offset}]`);
                     break;
                 }
                 case VmOperation.MOV_R_M: {
                     const [rd, offset] = this.parse_r_i();
-                    this.registers[rd] = this.read_u64(offset);
+                    this.registers[Number(rd)] = this.read_u64(offset);
                     Logger.debug(`MOV r${rd}, [${offset}]`);
                     break;
                 }
                 case VmOperation.MOV_M_R: {
                     const [rs, offset] = this.parse_r_i();
-                    this.write_u64(offset, this.registers[rs]);
+                    this.write_u64(offset, this.registers[Number(rs)]);
                     Logger.debug(`MOV [${offset}], r${rs}`);
                     break;
                 }
@@ -231,9 +231,9 @@ export default class Vm {
                     const offset = this.read_u64();
                     Logger.debug(`CALL ${offset}`);
                     if (offset < Vm.IVT_END) {
-                        switch (offset/8) {
+                        switch (Number(offset)/8) {
                             case FFI.Sys_exit: {
-                                Deno.exit(this.registers[0]);
+                                Deno.exit(Number(this.registers[0]));
                                 break;
                             }
                             case FFI.Sys_println: {
@@ -257,7 +257,7 @@ export default class Vm {
                 case VmOperation.RET: {
                     Logger.debug("RET");
                     this.ip = this.pop();
-                    if (this.ip === 0) {
+                    if (this.ip === 0n) {
                         Logger.debug("DONE");
                         return;
                     }

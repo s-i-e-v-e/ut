@@ -212,8 +212,8 @@ function parseFunctionApplication(ts: TokenStream, ide: IDExpr) {
     };
 }
 
-function parseBinaryExpr(ts: TokenStream, e1: IDExpr, op: string): BinaryExpr {
-    return <BinaryExpr>parseExpr(ts, e1, op);
+function parseBinaryExpr(ts: TokenStream, precedence: number, e1: IDExpr, op: string): BinaryExpr {
+    return <BinaryExpr>parseExpr(ts, precedence, e1, op);
 }
 
 function buildBinaryExpr(left: any, op: string, right: any) {
@@ -252,17 +252,56 @@ function _parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
     return e;
 }
 
-function parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
+function parseExpr(ts: TokenStream, precedence?: number, e1?: IDExpr, op?: string): any {
+    precedence = precedence || 0;
     const e = _parseExpr(ts, e1, op);
+
+    interface Precedence {
+        precedence: number;
+        op: string;
+    }
+
+    const set = (opx: Precedence, precedence: number, isAssignment?: boolean) => {
+        let op = ts.next().lexeme;
+        if (ts.consumeIfNextIs("=")) {
+            opx.op = op+"=";
+            opx.precedence = isAssignment ? 10 : precedence;
+        }
+        else {
+            opx.op = op;
+            opx.precedence = precedence;
+        }
+    };
+
+    const opx = {
+        precedence: 0,
+        op: "",
+    };
+
     if (ts.nextIs("*") || ts.nextIs("/") || ts.nextIs("%")) {
-        return parseBinaryExpr(ts, e, ts.next().lexeme);
+        set(opx, 100, true);
     }
     else if (ts.nextIs("+") || ts.nextIs("-")) {
-        const op = ts.next().lexeme;
-        return buildBinaryExpr(e, op, parseExpr(ts));
+        set(opx, 90, true);
+    }
+    else if (ts.nextIs(">") || ts.nextIs("<")) {
+        set(opx, 80);
+    }
+    else if (ts.nextIs("=") || ts.nextIs("!")) {
+        set(opx, 70);
+    }
+    else if (ts.nextIs("&") || ts.nextIs("|")) {
+        set(opx, 60, true);
     }
     else {
         return e;
+    }
+
+    if (precedence <= opx.precedence) {
+        return parseBinaryExpr(ts, opx.precedence, e, opx.op);
+    }
+    else {
+        return buildBinaryExpr(e, opx.op, parseExpr(ts, precedence));
     }
 }
 
@@ -420,7 +459,7 @@ function parseStruct(ts: TokenStream): Struct {
     }
 }
 
-function parseModule(ts: TokenStream, path: string) {
+export function parseModule(ts: TokenStream, path: string) {
     const xs = new Array<Struct>();
     const ys = new Array<ForeignFunction>();
     const zs = new Array<Function>();

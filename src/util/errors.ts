@@ -176,6 +176,10 @@ export default class Errors {
         throw new this.TypeMismatch(buildErrorString(`Math ops only defined on Integer, not ${toTypeString(t)}.`, loc));
     }
 
+    static raiseLogicalOperationError(t: Type, loc: Location): never {
+        throw new this.TypeMismatch(buildErrorString(`Logic ops only defined on Bool, not ${toTypeString(t)}.`, loc));
+    }
+
     static raiseUnknownIdentifier(id: string, loc: Location): never {
         throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
     }

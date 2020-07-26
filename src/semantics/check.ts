@@ -120,15 +120,30 @@ function getExprType(st: SymbolTable, e: Expr): Type {
             const ta = getExprType(st, x.left);
             const tb = getExprType(st, x.right);
             if (!typesMatch(ta, tb)) Errors.raiseTypeMismatch(ta, tb, x.loc);
-            ty = ta;
 
             switch (x.op) {
+                case ">":
+                case "<":
+                case ">=":
+                case "<=":
                 case "%":
                 case "*":
                 case "/":
                 case "+":
                 case "-": {
+                    ty = ta;
                     if (ty !== KnownTypes.Integer) Errors.raiseMathTypeError(ty, x.loc);
+                    break;
+                }
+                case "==":
+                case "!=": {
+                    ty = KnownTypes.Bool;
+                    break;
+                }
+                case "|":
+                case "&": {
+                    ty = ta;
+                    if (ty !== KnownTypes.Bool) Errors.raiseLogicalOperationError(ty, x.loc);
                     break;
                 }
                 default: {

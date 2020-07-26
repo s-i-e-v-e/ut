@@ -8,6 +8,7 @@
 import CharacterStream from "./CharacterStream.ts";
 import TokenStream from "./TokenStream.ts";
 import lex from "./lexer.ts";
+import { parseModule } from "./parser.ts";
 import { Location } from "./mod.ts";
 
 export enum TokenType {
@@ -34,4 +35,5 @@ export {
     CharacterStream,
     TokenStream,
     lex,
+    parseModule,
 };

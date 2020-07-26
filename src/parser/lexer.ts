@@ -20,7 +20,7 @@ const Lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", 
 const Upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 const Digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const Whitespace = [" ", "\t", "\n"];
-const UniSym = ["(", ")", "{", "}", "[", "]", ":", ";", ",", "=", "#"];
+const UniSym = ["(", ")", "{", "}", "[", "]", ":", ";", ",", "=", "#", "+", "-", "*", "/"];
 type ReadToken = (cs: CharacterStream) => Token;
 
 function toMap(xs: string[]) {

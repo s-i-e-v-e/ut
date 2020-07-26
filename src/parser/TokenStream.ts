@@ -78,6 +78,14 @@ export default class TokenStream {
         }
     }
 
+    nextIsSym() {
+        return !(this.nextIsLiteral() || this.nextIsType() || this.nextIsID());
+    }
+
+    nextIsID() {
+        return this.peek().type === TokenType.TK_ID;
+    }
+
     nextIsType() {
         return this.peek().type === TokenType.TK_TYPE;
     }

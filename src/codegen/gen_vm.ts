@@ -23,6 +23,7 @@ import {
     FunctionApplication,
     ArrayExpr,
     ReturnStmt,
+    BinaryExpr,
 } from "../parser/mod.ts";
 import {
     ByteBuffer,
@@ -114,6 +115,30 @@ function emitExpr(vme: VmByteCode, regs: Registers, rd: string, e: Expr) {
         case NodeType.IDExpr: {
             const x = e as IDExpr;
             vme.mov_r_r(rd, regs.getReg(x.id));
+            break;
+        }
+        case NodeType.BinaryExpr: {
+            const x = e as BinaryExpr;
+
+            const a = regs.useReg();
+            emitExpr(vme, regs, a, x.left);
+            const b = regs.useReg();
+            emitExpr(vme, regs, b, x.right);
+
+            switch (x.op) {
+                case "+": {
+                    vme.add_r_r(a, b);
+                    break;
+                }
+                case "*": {
+                    vme.mul_r_r(a, b);
+                    break;
+                }
+                default: Errors.raiseDebug();
+            }
+            vme.mov_r_r(rd, a);
+            regs.freeReg(a);
+            regs.freeReg(b);
             break;
         }
         case NodeType.FunctionApplication: {

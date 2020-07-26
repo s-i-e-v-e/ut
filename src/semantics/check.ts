@@ -28,6 +28,7 @@ import {
     Variable,
     VarInitStmt,
     ArrayExpr,
+    BinaryExpr,
 } from "../parser/mod.ts";
 import {
     SymbolTable,
@@ -111,6 +112,28 @@ function getExprType(st: SymbolTable, e: Expr): Type {
         case NodeType.IDExpr: {
             const x = e as IDExpr;
             ty = getVar(st, x.id, x.loc).type;
+            break;
+        }
+        case NodeType.BinaryExpr: {
+            const x = e as BinaryExpr;
+
+            const ta = getExprType(st, x.left);
+            const tb = getExprType(st, x.right);
+            if (!typesMatch(ta, tb)) Errors.raiseTypeMismatch(ta, tb, x.loc);
+            ty = ta;
+
+            switch (x.op) {
+                case "*":
+                case "/":
+                case "+":
+                case "-": {
+                    if (ty !== KnownTypes.Integer) Errors.raiseMathTypeError(ty, x.loc);
+                    break;
+                }
+                default: {
+                    Errors.raiseDebug();
+                }
+            }
             break;
         }
         case NodeType.FunctionApplication: {

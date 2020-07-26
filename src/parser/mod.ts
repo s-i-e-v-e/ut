@@ -78,6 +78,7 @@ export enum NodeType {
     ArrayConstructor,
     ReturnStmt,
     ArrayExpr,
+    BinaryExpr,
 }
 
 export interface AstNode {
@@ -113,6 +114,12 @@ export interface RvalueExpr extends Expr {}
 
 export interface IDExpr extends LvalueExpr {
     id: string;
+}
+
+export interface BinaryExpr extends RvalueExpr {
+    left: Expr;
+    op: string,
+    right: Expr;
 }
 
 /**

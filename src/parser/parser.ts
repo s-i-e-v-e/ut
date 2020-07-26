@@ -22,6 +22,7 @@ import {
     KnownTypes,
     ArrayConstructor,
     IDExpr,
+    BinaryExpr,
 } from "./mod.ts";
 import {
     Errors,
@@ -211,16 +212,57 @@ function parseFunctionApplication(ts: TokenStream, ide: IDExpr) {
     };
 }
 
-function parseExpr(ts: TokenStream) {
-    if (ts.nextIsLiteral()) return parseLiteral(ts);
-    if (ts.nextIsType()) return parseTypeConstructor(ts);
+function parseBinaryExpr(ts: TokenStream, e1: IDExpr, op: string): BinaryExpr {
+    return <BinaryExpr>parseExpr(ts, e1, op);
+}
 
-    const ide = parseIDExpr(ts);
-    if (ts.nextIs("(")) {
-        return parseFunctionApplication(ts, ide);
+function buildBinaryExpr(left: any, op: string, right: any) {
+    return {
+        nodeType: NodeType.BinaryExpr,
+        left: left,
+        op: op,
+        right: right,
+        loc: left.loc,
+    };
+}
+
+function _parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
+    let e;
+    if (ts.nextIsLiteral()) {
+        e = parseLiteral(ts);
+    }
+    else if (ts.nextIsType()) {
+        e = parseTypeConstructor(ts);
     }
     else {
-        return ide;
+        const ide = parseIDExpr(ts);
+        if (ts.nextIs("(")) {
+            e = parseFunctionApplication(ts, ide);
+        }
+        else {
+            e = ide;
+        }
+    }
+    if (e1) {
+        e = buildBinaryExpr(e1, op!, e);
+    }
+    else {
+        // ignore
+    }
+    return e;
+}
+
+function parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
+    const e = _parseExpr(ts, e1, op);
+    if (ts.nextIs("*") || ts.nextIs("/")) {
+        return parseBinaryExpr(ts, e, ts.next().lexeme);
+    }
+    else if (ts.nextIs("+") || ts.nextIs("-")) {
+        const op = ts.next().lexeme;
+        return buildBinaryExpr(e, op, parseExpr(ts));
+    }
+    else {
+        return e;
     }
 }
 

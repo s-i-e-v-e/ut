@@ -13,6 +13,7 @@ import {
 } from "./mod.internal.ts";
 import {
     ArrayConstructor,
+    ArrayExpr,
     BinaryExpr,
     ForeignFunction,
     Function,
@@ -24,6 +25,7 @@ import {
     Stmt,
     Struct,
     Type,
+    Expr,
 } from "./mod.ts";
 import {
     Errors,
@@ -266,7 +268,7 @@ function buildBinaryExpr(left: any, op: string, right: any) {
     };
 }
 
-function _parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
+function _parseExpr(ts: TokenStream, e1?: Expr, op?: string): any {
     let e;
     if (ts.nextIsLiteral()) {
         e = parseLiteral(ts);
@@ -295,7 +297,7 @@ function _parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
     return e;
 }
 
-function parseExpr(ts: TokenStream, precedence?: number, e1?: IDExpr, op?: string): any {
+function parseExpr(ts: TokenStream, precedence?: number, e1?: Expr, op?: string): any {
     precedence = precedence || 0;
     const e = e1 && !op ? e1 : _parseExpr(ts, e1, op);
 
@@ -403,17 +405,17 @@ function parseForStmt(ts: TokenStream) {
     }
 }
 
-function parseVarAssignment(ts: TokenStream, ide: IDExpr) {
+function parseVarAssignment(ts: TokenStream, lhs: Expr) {
     if (ts.consumeIfNextIs("=")) {
         return {
             nodeType: NodeType.VarAssnStmt,
-            lhs: ide,
+            lhs: lhs,
             rhs: parseExpr(ts),
-            loc: ide.loc,
+            loc: lhs.loc,
         };
     }
     else {
-        const e = parseExpr(ts, 0, ide) as BinaryExpr;
+        const e = parseExpr(ts, 0, lhs) as BinaryExpr;
 
         // rewrite
         switch (e.op) {
@@ -429,9 +431,9 @@ function parseVarAssignment(ts: TokenStream, ide: IDExpr) {
 
         return {
             nodeType: NodeType.VarAssnStmt,
-            lhs: ide,
+            lhs: lhs,
             rhs: e,
-            loc: ide.loc,
+            loc: lhs.loc,
         };
     }
 }
@@ -467,11 +469,20 @@ function parseBody(ts: TokenStream) {
         else {
             const ide = parseIDExpr(ts);
             if (ts.nextIs("(")) {
-                xs.push({
-                    nodeType: NodeType.FunctionApplicationStmt,
-                    fa: parseFunctionApplication(ts, ide),
-                    loc: ide.loc,
-                });
+                const fa = parseFunctionApplication(ts, ide);
+                if (ts.nextIs(";")) {
+                    xs.push({
+                        nodeType: NodeType.FunctionApplicationStmt,
+                        fa: fa,
+                        loc: ide.loc,
+                    });
+                }
+                else {
+                    const ae = fa as ArrayExpr;
+                    ae.nodeType = NodeType.ArrayExpr;
+                    ae.isLeft = true;
+                    xs.push(parseVarAssignment(ts, ae));
+                }
             }
             else {
                 xs.push(parseVarAssignment(ts, ide));

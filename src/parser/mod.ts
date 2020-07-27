@@ -156,9 +156,10 @@ export interface FunctionApplication extends RvalueExpr {
     args: Expr[];
 }
 
-export interface ArrayExpr extends RvalueExpr {
+export interface ArrayExpr extends LvalueExpr {
     id: string;
     args: Expr[];
+    isLeft: boolean;
 }
 
 export interface ArrayConstructor extends RvalueExpr {

@@ -219,8 +219,17 @@ export default class Vm {
                 case VmOperation.MOV_R_RO: {
                     const [rd, rs] = this.parse_r_r();
                     const offset = this.registers[rs];
-                    this.registers[Number(rd)] = this.read_u64(offset);
-                    Logger.debug(`MOV r${rd}, [r${rs}] // [${offset}]`);
+                    const n = this.read_u64(offset);
+                    this.registers[Number(rd)] = n;
+                    Logger.debug(`MOV r${rd}, [r${rs}] // ${n} = [${offset}]`);
+                    break;
+                }
+                case VmOperation.MOV_RO_R: {
+                    const [rd, rs] = this.parse_r_r();
+                    const offset = this.registers[rd];
+                    const n = this.registers[Number(rs)];
+                    this.write_u64(offset, n);
+                    Logger.debug(`MOV [r${rd}], r${rs} // [${offset}] = ${n}`);
                     break;
                 }
                 case VmOperation.MOV_R_M: {

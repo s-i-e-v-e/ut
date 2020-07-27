@@ -85,11 +85,11 @@ function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
     }
 }
 
-function checkTypes(st: SymbolTable, block: Block, v: Variable, expr: Expr, loc: Location) {
-    const ltype = v.type;
+function checkTypes(st: SymbolTable, block: Block, xx: Type|Expr, expr: Expr, loc: Location) {
+    const ltype = (xx as Expr).nodeType ? getExprType(st, block, xx as Expr) : xx as Type;
     const rtype = getExprType(st, block, expr);
 
-    if (!typeExists(st, ltype, v.loc)) Errors.raiseUnknownType(ltype, loc);
+    if (!typeExists(st, ltype, loc)) Errors.raiseUnknownType(ltype, loc);
     if (!typesMatch(ltype, rtype)) Errors.raiseTypeMismatch(ltype, rtype, loc);
 }
 
@@ -164,7 +164,8 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
         case NodeType.FunctionApplication: {
             const x = e as FunctionApplication;
             if (st.varExists(x.id)) {
-                e.nodeType = NodeType.ArrayExpr
+                e.nodeType = NodeType.ArrayExpr;
+                (e as ArrayExpr).isLeft = false;
                 ty = getExprType(st, block, e);
             }
             else {
@@ -244,7 +245,7 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
             // check
             if (!st.typeExists(x.var.type)) Errors.raiseUnknownType(x.var.type, x.var.loc);
             st.addVar(x.var);
-            checkTypes(st, block, x.var, x.expr, x.loc);
+            checkTypes(st, block, x.var.type, x.expr, x.loc);
             break;
         }
         case NodeType.VarAssnStmt: {
@@ -254,7 +255,7 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
             // check assignments to immutable vars
             if (!v.isMutable) Errors.raiseImmutableVar(v, x.loc);
 
-            checkTypes(st, block, v, x.rhs, x.loc);
+            checkTypes(st, block, x.lhs, x.rhs, x.loc);
             break;
         }
         case NodeType.FunctionApplicationStmt: {

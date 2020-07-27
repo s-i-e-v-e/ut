@@ -213,6 +213,13 @@ export class VmCodeBuilder {
         this.cs.write_u8(a << 4 | b);
     }
 
+    mov_ro_r(rd: string, rs: string) {
+        this.cs.write_u8(VmOperation.MOV_RO_R);
+        const a = registers[rd];
+        const b = registers[rs];
+        this.cs.write_u8(a << 4 | b);
+    }
+
     push_i(x: number) {
         this.cs.write_u8(VmOperation.PUSH_I);
         this.cs.write_u64(x);

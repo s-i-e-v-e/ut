@@ -261,7 +261,12 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
             b.add_r_r(t2, t1);
 
             //
-            b.mov_r_ro(rd, t2);
+            if (x.isLeft) {
+                b.mov_r_r(rd, t2);
+            }
+            else {
+                b.mov_r_ro(rd, t2);
+            }
             regs.freeReg(t0);
             regs.freeReg(t1);
             regs.freeReg(t2);
@@ -309,8 +314,13 @@ function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
-            const rd = regs.getReg(x.lhs.id);
-            emitExpr(b, regs, rd, x.rhs);
+            const rd = regs.useReg();
+            emitExpr(b, regs, rd, x.lhs);
+            const rs = regs.useReg();
+            emitExpr(b, regs, rs, x.rhs);
+            b.mov_ro_r(rd, rs);
+            regs.freeReg(rd);
+            regs.freeReg(rs);
             break;
         }
         case NodeType.FunctionApplicationStmt: {

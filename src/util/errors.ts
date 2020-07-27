@@ -7,14 +7,15 @@
  */
 import {
     Location,
-    toTypeString,
-    Type,
-    Variable,
+    P,
 } from "../parser/mod.ts";
 import {
     CharacterStream,
     Token,
 } from "../parser/mod.internal.ts";
+const toTypeString = P.toTypeString;
+type Type = P.Type;
+type Variable = P.Variable;
 
 function buildErrorString(msg: string, loc: Location) {
     const path = loc.path.replaceAll(/\\/g, "/");

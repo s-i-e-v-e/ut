@@ -12,20 +12,9 @@ import {
     lex,
 } from "./mod.internal.ts";
 import {
-    ArrayConstructor,
-    ArrayExpr,
-    BinaryExpr,
-    ForeignFunction,
-    Function,
-    IDExpr,
-    KnownTypes,
     Location,
-    NodeType,
-    Parameter,
-    Stmt,
-    Struct,
-    Type,
-    Expr,
+    P,
+    A,
 } from "./mod.ts";
 import {
     Errors,
@@ -33,12 +22,17 @@ import {
     Dictionary,
     SourceFile,
 } from "../util/mod.ts";
+const NodeType = A.NodeType;
+const KnownTypes = P.KnownTypes;
+type Expr = A.Expr;
+type Stmt = A.Stmt;
+type Type = P.Type;
 
 function parseID(ts: TokenStream) {
     return ts.nextMustBe(TokenType.TK_ID).lexeme;
 }
 
-function parseIDExpr(ts: TokenStream): IDExpr {
+function parseIDExpr(ts: TokenStream): A.IDExpr {
     const loc = ts.loc();
     const id = parseID(ts);
 
@@ -173,9 +167,9 @@ function parseExprList(ts: TokenStream) {
     return xs;
 }
 
-function parseTypeConstructor(ts: TokenStream): ArrayConstructor {
+function parseTypeConstructor(ts: TokenStream): A.ArrayConstructor {
     const loc = ts.loc();
-    const ty: Type = parseType(ts);
+    const ty = parseType(ts);
     if (ty.id === "Array") {
         // is array constructor
         const t = ts.peek();
@@ -190,7 +184,7 @@ function parseTypeConstructor(ts: TokenStream): ArrayConstructor {
             if (!args.length) Errors.raiseArrayInitArgs(t);
         }
         ts.nextMustBe(")");
-        return <ArrayConstructor>{
+        return <A.ArrayConstructor>{
             nodeType: NodeType.ArrayConstructor,
             loc: loc,
             type: ty,
@@ -242,7 +236,7 @@ function parseIfExpr(ts: TokenStream, isStmt: boolean) {
     };
 }
 
-function parseFunctionApplication(ts: TokenStream, ide: IDExpr) {
+function parseFunctionApplication(ts: TokenStream, ide: A.IDExpr) {
     ts.nextMustBe("(");
     const xs = parseExprList(ts);
     ts.nextMustBe(")");
@@ -254,8 +248,8 @@ function parseFunctionApplication(ts: TokenStream, ide: IDExpr) {
     };
 }
 
-function parseBinaryExpr(ts: TokenStream, precedence: number, e1: IDExpr, op: string): BinaryExpr {
-    return <BinaryExpr>parseExpr(ts, precedence, e1, op);
+function parseBinaryExpr(ts: TokenStream, precedence: number, e1: A.IDExpr, op: string): A.BinaryExpr {
+    return <A.BinaryExpr>parseExpr(ts, precedence, e1, op);
 }
 
 function buildBinaryExpr(left: any, op: string, right: any) {
@@ -458,7 +452,7 @@ function parseVarAssignment(ts: TokenStream, lhs: Expr) {
         };
     }
     else {
-        const e = parseExpr(ts, 0, lhs) as BinaryExpr;
+        const e = parseExpr(ts, 0, lhs) as A.BinaryExpr;
 
         // rewrite
         switch (e.op) {
@@ -526,7 +520,7 @@ function parseBody(ts: TokenStream) {
                     });
                 }
                 else {
-                    const ae = fa as ArrayExpr;
+                    const ae = fa as A.ArrayExpr;
                     ae.nodeType = NodeType.ArrayExpr;
                     ae.emitValue = false;
                     xs.push(parseVarAssignment(ts, ae));
@@ -543,7 +537,7 @@ function parseBody(ts: TokenStream) {
 }
 
 function parseVariableList(ts: TokenStream, isMutable: boolean) {
-    const xs = new Array<Parameter>();
+    const xs = new Array<P.Parameter>();
     while (ts.peek().lexeme !== ")") {
         xs.push(parseVarDef(ts, isMutable, true));
         if (ts.peek().lexeme === ")") continue;
@@ -592,7 +586,7 @@ function parseFunctionPrototype(ts: TokenStream) {
     };
 }
 
-function parseFunction(ts: TokenStream): Function {
+function parseFunction(ts: TokenStream): P.Function {
     const loc = ts.loc();
     const fp = parseFunctionPrototype(ts);
     ts.nextMustBe("{");
@@ -606,7 +600,7 @@ function parseFunction(ts: TokenStream): Function {
     };
 }
 
-function parseForeignFunction(ts: TokenStream): ForeignFunction {
+function parseForeignFunction(ts: TokenStream): P.ForeignFunction {
     const loc = ts.loc();
     ts.nextMustBe("foreign");
     const fp = parseFunctionPrototype(ts);
@@ -617,7 +611,7 @@ function parseForeignFunction(ts: TokenStream): ForeignFunction {
     };
 }
 
-function parseStruct(ts: TokenStream): Struct {
+function parseStruct(ts: TokenStream): P.Struct {
     const loc = ts.loc();
     ts.nextMustBe("struct");
     const ty = parseType(ts);
@@ -632,9 +626,9 @@ function parseStruct(ts: TokenStream): Struct {
 }
 
 export function parseModule(ts: TokenStream, path: string) {
-    const xs = new Array<Struct>();
-    const ys = new Array<ForeignFunction>();
-    const zs = new Array<Function>();
+    const xs = new Array<P.Struct>();
+    const ys = new Array<P.ForeignFunction>();
+    const zs = new Array<P.Function>();
     while (!ts.eof()) {
         if (ts.nextIs("struct")) {
             xs.push(parseStruct(ts));

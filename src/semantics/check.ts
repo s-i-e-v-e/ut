@@ -7,35 +7,9 @@
  */
 
 import {
-    ArrayConstructor,
-    ArrayExpr,
-    BinaryExpr,
-    Block,
-    CastExpr,
-    Expr,
-    ForeignFunction,
-    ForStmt,
-    Function,
-    FunctionApplication,
-    FunctionApplicationStmt,
-    FunctionPrototype,
-    GenericType,
-    IDExpr,
-    IfExpr,
-    IfStmt,
-    KnownTypes,
     Location,
-    Module,
-    NodeType,
-    ReferenceExpr,
-    ReturnExpr,
-    ReturnStmt,
-    Stmt,
-    Struct,
-    Type,
-    VarAssnStmt,
-    VarInitStmt,
-    DereferenceExpr,
+    P,
+    A,
 } from "../parser/mod.ts";
 import {
     SymbolTable,
@@ -44,6 +18,13 @@ import {
     Errors,
     Logger,
 } from "../util/mod.ts";
+const KnownTypes = P.KnownTypes;
+type Type = P.Type;
+type GenericType = P.GenericType;
+type Block = P.Block;
+type Stmt = A.Stmt;
+type Expr = A.Expr;
+const NodeType = A.NodeType;
 
 function typesMatch(t1: Type, t2: Type) {
     const g1 = t1 as GenericType;
@@ -117,12 +98,12 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             break;
         }
         case NodeType.IDExpr: {
-            const x = e as IDExpr;
+            const x = e as A.IDExpr;
             ty = getVar(st, x.id, x.loc).type;
             break;
         }
         case NodeType.BinaryExpr: {
-            const x = e as BinaryExpr;
+            const x = e as A.BinaryExpr;
 
             const ta = getExprType(st, block, x.left);
             const tb = getExprType(st, block, x.right);
@@ -164,9 +145,9 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             break;
         }
         case NodeType.FunctionApplication: {
-            const x = e as FunctionApplication;
+            const x = e as A.FunctionApplication;
             if (st.varExists(x.id)) {
-                const y = x as ArrayExpr;
+                const y = x as A.ArrayExpr;
                 y.nodeType = NodeType.ArrayExpr;
                 y.emitValue = true;
                 ty = getExprType(st, block, e);
@@ -177,13 +158,13 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             break;
         }
         case NodeType.ArrayExpr: {
-            const x = e as ArrayExpr;
+            const x = e as A.ArrayExpr;
             const at = getVar(st, x.id, x.loc).type as GenericType;
             ty = at.typeParameters[0];
             break;
         }
         case NodeType.ArrayConstructor: {
-            const x = e as ArrayConstructor;
+            const x = e as A.ArrayConstructor;
             if (x.args) {
                 // check arg types
                 // get type of first arg
@@ -207,7 +188,7 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             return x.type;
         }
         case NodeType.ReturnExpr: {
-            const x = e as ReturnExpr;
+            const x = e as A.ReturnExpr;
             ty = getExprType(st, block, x.expr);
             if (block.returnType === KnownTypes.NotInferred) {
                 block.returnType = ty;
@@ -218,7 +199,7 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             break;
         }
         case NodeType.IfExpr: {
-            const x = e as IfExpr;
+            const x = e as A.IfExpr;
             const t = getExprType(st, block, x.condition);
             if (t !== KnownTypes.Bool) Errors.raiseIfConditionError(t, x.loc);
 
@@ -229,13 +210,13 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             break;
         }
         case NodeType.CastExpr: {
-            const x = e as CastExpr;
+            const x = e as A.CastExpr;
             const t = getExprType(st, block, x.expr);
             ty = x.type;
             break;
         }
         case NodeType.ReferenceExpr: {
-            const x = e as ReferenceExpr;
+            const x = e as A.ReferenceExpr;
             const t = getExprType(st, block, x.expr);
             switch (x.expr.nodeType) {
                 case NodeType.IDExpr:
@@ -252,12 +233,12 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             break;
         }
         case NodeType.DereferenceExpr: {
-            const x = e as DereferenceExpr;
+            const x = e as A.DereferenceExpr;
             const t = getExprType(st, block, x.expr) as GenericType;
             ty = t.typeParameters ? t.typeParameters[0] : t;
             break;
         }
-        default: Errors.raiseDebug(JSON.stringify(e));
+        default: Errors.raiseDebug(JSON.stringify(e.nodeType));
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
     return ty;
@@ -266,7 +247,7 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
 function doStmt(st: SymbolTable, block: Block, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
-            const x = s as VarInitStmt;
+            const x = s as A.VarInitStmt;
 
             // infer
             const ty = getExprType(st, block, x.expr);
@@ -281,8 +262,8 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
             break;
         }
         case NodeType.VarAssnStmt: {
-            const x = s as VarAssnStmt;
-            const ide = x.lhs.nodeType === NodeType.DereferenceExpr ? (x.lhs as DereferenceExpr).expr : x.lhs as IDExpr;
+            const x = s as A.VarAssnStmt;
+            const ide = x.lhs.nodeType === NodeType.DereferenceExpr ? (x.lhs as A.DereferenceExpr).expr : x.lhs as A.IDExpr;
             const v = getVar(st, ide.id, x.loc);
 
             // check assignments to immutable vars
@@ -292,7 +273,7 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
             break;
         }
         case NodeType.FunctionApplicationStmt: {
-            const x = s as FunctionApplicationStmt;
+            const x = s as A.FunctionApplicationStmt;
             const f = getFunction(st, x.fa.id, x.fa.loc);
             if (x.fa.args.length != f.params.length) Errors.raiseFunctionParameterCountMismatch(x.fa.id, x.loc);
 
@@ -304,22 +285,22 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
             break;
         }
         case NodeType.ReturnStmt: {
-            const x = s as ReturnStmt;
-            getExprType(st, block, x as ReturnExpr);
+            const x = s as A.ReturnStmt;
+            getExprType(st, block, x as A.ReturnExpr);
             break;
         }
         case NodeType.IfStmt: {
-            const x = s as IfStmt;
+            const x = s as A.IfStmt;
             getExprType(st, x.ie, x.ie);
             break;
         }
         case NodeType.ReturnExpr: {
-            const x = s as ReturnExpr;
+            const x = s as A.ReturnExpr;
             getExprType(st, block, x);
             break;
         }
         case NodeType.ForStmt: {
-            const x = s as ForStmt;
+            const x = s as A.ForStmt;
             st = st.newTable();
 
             doStmt(st, block, x.init);
@@ -340,18 +321,18 @@ function doBody(st: SymbolTable, block: Block, xs: Stmt[]) {
     xs.forEach(y => doStmt(st, block, y));
 }
 
-function doFunctionReturnType(st: SymbolTable, fp: FunctionPrototype) {
+function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {
     if (!st.typeExists(fp.returnType)) Errors.raiseUnknownType(fp.returnType, fp.loc);
 }
 
-function doFunctionPrototype(st: SymbolTable, fp: FunctionPrototype) {
+function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
     fp.params.forEach(x => {
         if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
         st.addVar(x);
     })
 }
 
-function doFunction(st: SymbolTable, f: Function) {
+function doFunction(st: SymbolTable, f: P.Function) {
     if (f.proto.id === "main" && f.proto.returnType === KnownTypes.NotInferred) {
         f.proto.returnType = KnownTypes.Void;
     }
@@ -360,7 +341,7 @@ function doFunction(st: SymbolTable, f: Function) {
     f.tag = st;
 }
 
-function doForeignFunction(st: SymbolTable, f: ForeignFunction) {
+function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
     if (f.proto.returnType === KnownTypes.NotInferred) {
         f.proto.returnType = KnownTypes.Void;
     }
@@ -368,13 +349,13 @@ function doForeignFunction(st: SymbolTable, f: ForeignFunction) {
     doFunctionPrototype(st, f.proto);
 }
 
-function doStruct(st: SymbolTable, s: Struct) {
+function doStruct(st: SymbolTable, s: P.Struct) {
     s.members.forEach(x => {
         if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
     })
 }
 
-export default function check(m: Module) {
+export default function check(m: P.Module) {
     Logger.info(`Type checking: ${m.path}`);
 
     const global = SymbolTable.build();

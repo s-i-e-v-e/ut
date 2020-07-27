@@ -6,19 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    BooleanLiteral,
-    Expr,
-    Function,
-    FunctionApplicationStmt,
-    IDExpr,
-    Module,
-    NodeType,
-    NumberLiteral,
-    Stmt,
-    StringLiteral,
-    VarAssnStmt,
-    VarInitStmt,
-    DereferenceExpr,
+    A,
+    P,
 } from "../parser/mod.ts";
 import {
     Block,
@@ -29,32 +18,33 @@ import {
     Errors,
     Logger,
 } from "../util/mod.ts";
+const NodeType = A.NodeType;
 
-function doExpr(b: Block, e: Expr) {
+function doExpr(b: Block, e: A.Expr) {
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
-            const x = e as BooleanLiteral;
+            const x = e as A.BooleanLiteral;
             return {
                 value: x.value ? 1n : 0n,
                 opType: OperationType.ReadImmediateInteger,
             };
         }
         case NodeType.StringLiteral: {
-            const x = e as StringLiteral;
+            const x = e as A.StringLiteral;
             return {
                 value: x.value,
                 opType: OperationType.ReadImmediateString,
             };
         }
         case NodeType.NumberLiteral: {
-            const x = e as NumberLiteral;
+            const x = e as A.NumberLiteral;
             return {
                 value: x.value,
                 opType: OperationType.ReadImmediateInteger,
             };
         }
         case NodeType.IDExpr: {
-            const x = e as IDExpr;
+            const x = e as A.IDExpr;
             return {
                 id: b.getVar(x.id),
                 opType: OperationType.ReadID,
@@ -64,21 +54,21 @@ function doExpr(b: Block, e: Expr) {
     }
 }
 
-function doStmt(b: Block, s: Stmt) {
+function doStmt(b: Block, s: A.Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
-            const x = s as VarInitStmt;
+            const x = s as A.VarInitStmt;
             b.defineVar(x.var);
             break;
         }
         case NodeType.VarAssnStmt: {
-            const x = s as VarAssnStmt;
-            const ide = x.lhs.nodeType === NodeType.DereferenceExpr ? (x.lhs as DereferenceExpr).expr : x.lhs as IDExpr;
+            const x = s as A.VarAssnStmt;
+            const ide = x.lhs.nodeType === NodeType.DereferenceExpr ? (x.lhs as A.DereferenceExpr).expr : x.lhs as A.IDExpr;
             b.useVar(ide.id, doExpr(b, x.rhs));
             break;
         }
         case NodeType.FunctionApplicationStmt: {
-            const x = s as FunctionApplicationStmt;
+            const x = s as A.FunctionApplicationStmt;
             const xs = [];
             for (let i = 0; i < x.fa.args.length; i += 1) {
                 const ev = doExpr(b, x.fa.args[i]);
@@ -99,13 +89,13 @@ function doStmt(b: Block, s: Stmt) {
     }
 }
 
-function doFunction(b: Block, f: Function) {
+function doFunction(b: Block, f: P.Function) {
     b = b.newBlock(f.proto.id);
     f.proto.params.forEach(x => b.defineVar(x));
     f.body.forEach(x => doStmt(b, x));
 }
 
-export default function transform(m: Module) {
+export default function transform(m: P.Module) {
     Logger.info(`Transforming: ${m.path}`);
 
     const b = Block.build(m.path);

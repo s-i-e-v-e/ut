@@ -7,31 +7,8 @@
  */
 
 import {
-    ArrayConstructor,
-    ArrayExpr,
-    BinaryExpr,
-    BooleanLiteral,
-    CastExpr,
-    DereferenceExpr,
-    Expr,
-    ForStmt,
-    Function,
-    FunctionApplication,
-    FunctionApplicationStmt,
-    IDExpr,
-    IfExpr,
-    IfStmt,
-    Module,
-    NodeType,
-    NumberLiteral,
-    ReferenceExpr,
-    ReturnExpr,
-    ReturnStmt,
-    Stmt,
-    StringLiteral,
-    VarAssnStmt,
-    VarInitStmt,
-    RefExpr,
+    P,
+    A,
 } from "../parser/mod.ts";
 import {
     ByteBuffer,
@@ -43,6 +20,9 @@ import {
     Dictionary,
     Logger,
 } from "../util/mod.ts";
+const NodeType = A.NodeType;
+type Expr = A.Expr;
+type Stmt = A.Stmt;
 
 export class Registers {
     private static REG_MAX = 15;
@@ -108,22 +88,22 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
     const rd = typeof rd_or_f === "string" ? rd_or_f as string: "";
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
-            const x = e as BooleanLiteral;
+            const x = e as A.BooleanLiteral;
             b.mov_r_i(rd, x.value ? 1 : 0);
             break;
         }
         case NodeType.StringLiteral: {
-            const x = e as StringLiteral;
+            const x = e as A.StringLiteral;
             b.mov_r_str(rd, x.value);
             break;
         }
         case NodeType.NumberLiteral: {
-            const x = e as NumberLiteral;
+            const x = e as A.NumberLiteral;
             b.mov_r_i(rd, Number(x.value));
             break;
         }
         case NodeType.IDExpr: {
-            const x = e as IDExpr;
+            const x = e as A.IDExpr;
 
             if (typeof rd_or_f !== "string") {
                 const f = rd_or_f as SetReg;
@@ -135,7 +115,7 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
             break;
         }
         case NodeType.BinaryExpr: {
-            const x = e as BinaryExpr;
+            const x = e as A.BinaryExpr;
 
             const t1 = regs.useReg();
             emitExpr(b, regs, t1, x.left);
@@ -209,7 +189,7 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
             break;
         }
         case NodeType.FunctionApplication: {
-            const x = e as FunctionApplication;
+            const x = e as A.FunctionApplication;
 
             // push used regs to stack
             const saved = regs.save(b);
@@ -232,7 +212,7 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
             break;
         }
         case NodeType.ArrayConstructor: {
-            const x = e as ArrayConstructor;
+            const x = e as A.ArrayConstructor;
 
             const args = x.args!;
             const n = args.length;
@@ -257,7 +237,7 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
             break;
         }
         case NodeType.ArrayExpr: {
-            const x = e as ArrayExpr;
+            const x = e as A.ArrayExpr;
 
             const t0 = regs.useReg();
             emitExpr(b, regs, t0, x.args[0]);
@@ -287,12 +267,12 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
             break;
         }
         case NodeType.ReturnExpr: {
-            const x = e as ReturnExpr;
+            const x = e as A.ReturnExpr;
             emitExpr(b, regs, rd, x.expr);
             break;
         }
         case NodeType.IfExpr: {
-            const x = e as IfExpr;
+            const x = e as A.IfExpr;
 
             const t0 = regs.useReg();
             emitExpr(b, regs, t0, x.condition);
@@ -315,14 +295,14 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
             break;
         }
         case NodeType.CastExpr: {
-            const x = e as CastExpr;
+            const x = e as A.CastExpr;
             emitExpr(b, regs, rd, x.expr);
             break;
         }
         case NodeType.ReferenceExpr: {
-            const x = e as ReferenceExpr;
-            if ((x.expr as RefExpr).emitValue) {
-                const y = x.expr as RefExpr;
+            const x = e as A.ReferenceExpr;
+            if ((x.expr as A.RefExpr).emitValue) {
+                const y = x.expr as A.RefExpr;
                 const old = y.emitValue;
                 y.emitValue = false;
                 emitExpr(b, regs, rd, x.expr);
@@ -334,7 +314,7 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
             break;
         }
         case NodeType.DereferenceExpr: {
-            const x = e as DereferenceExpr;
+            const x = e as A.DereferenceExpr;
 
             const f = (rs: string) => {
 
@@ -368,13 +348,13 @@ function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
     Logger.debug("===============");
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
-            const x = s as VarInitStmt;
+            const x = s as A.VarInitStmt;
             const rd = regs.useReg(x.var.id);
             emitExpr(b, regs, rd, x.expr);
             break;
         }
         case NodeType.VarAssnStmt: {
-            const x = s as VarAssnStmt;
+            const x = s as A.VarAssnStmt;
 
             const f = (rd: string, emitValue: boolean) => {
                 const rs = regs.useReg();
@@ -394,32 +374,32 @@ function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
             break;
         }
         case NodeType.FunctionApplicationStmt: {
-            const x = s as FunctionApplicationStmt;
+            const x = s as A.FunctionApplicationStmt;
             const rd = regs.useReg();
             emitExpr(b, regs, rd, x.fa);
             regs.freeReg(rd);
             break;
         }
         case NodeType.ReturnStmt: {
-            const x = s as ReturnStmt;
+            const x = s as A.ReturnStmt;
             emitExpr(b, regs, "r0", x.expr);
             b.ret();
             break;
         }
         case NodeType.ReturnExpr: {
-            const x = s as ReturnExpr;
+            const x = s as A.ReturnExpr;
             emitExpr(b, regs, rd, x);
             break;
         }
         case NodeType.IfStmt: {
-            const x = s as IfStmt;
+            const x = s as A.IfStmt;
             const rd = regs.useReg();
             emitExpr(b, regs, rd, x.ie);
             regs.freeReg(rd);
             break;
         }
         case NodeType.ForStmt: {
-            const x = s as ForStmt;
+            const x = s as A.ForStmt;
 
             emitStmt(b, regs, rd, x.init);
 
@@ -447,7 +427,7 @@ function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
     Logger.debug("##===========##");
 }
 
-function emitFunction(b: VmCodeBuilder, f: Function) {
+function emitFunction(b: VmCodeBuilder, f: P.Function) {
     b.startFunction(f.proto.id);
     const regs = Registers.build();
     f.proto.params.forEach(x => regs.useReg(x.id));
@@ -455,7 +435,7 @@ function emitFunction(b: VmCodeBuilder, f: Function) {
     b.ret();
 }
 
-export default function vm_gen_code(m: Module) {
+export default function vm_gen_code(m: P.Module) {
     const b = VmCodeBuilder.build();
 
     // ivt - first 1024 bytes

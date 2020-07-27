@@ -330,6 +330,22 @@ export class VmCodeBuilder {
         write_r(this.cs, rd, VmOperation.SET_NE);
     }
 
+    setlt(rd: string) {
+        write_r(this.cs, rd, VmOperation.SET_LT);
+    }
+
+    setle(rd: string) {
+        write_r(this.cs, rd, VmOperation.SET_LE);
+    }
+
+    setgt(rd: string) {
+        write_r(this.cs, rd, VmOperation.SET_GT);
+    }
+
+    setge(rd: string) {
+        write_r(this.cs, rd, VmOperation.SET_GE);
+    }
+
     asBytes() {
         // finalize reloc
         for (const r of this.reloc) {

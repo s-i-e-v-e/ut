@@ -33,6 +33,7 @@ import {
     IfStmt,
     IfExpr,
     ReturnExpr,
+    ForStmt,
 } from "../parser/mod.ts";
 import {
     SymbolTable,
@@ -126,10 +127,6 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             if (!typesMatch(ta, tb)) Errors.raiseTypeMismatch(ta, tb, x.loc);
 
             switch (x.op) {
-                case ">":
-                case "<":
-                case ">=":
-                case "<=":
                 case "%":
                 case "*":
                 case "/":
@@ -137,6 +134,14 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
                 case "-": {
                     ty = ta;
                     if (ty !== KnownTypes.Integer) Errors.raiseMathTypeError(ty, x.loc);
+                    break;
+                }
+                case ">":
+                case "<":
+                case ">=":
+                case "<=": {
+                    if (ta !== KnownTypes.Integer) Errors.raiseMathTypeError(ta, x.loc);
+                    ty = KnownTypes.Bool;
                     break;
                 }
                 case "==":
@@ -277,6 +282,18 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
         case NodeType.ReturnExpr: {
             const x = s as ReturnExpr;
             getExprType(st, block, x);
+            break;
+        }
+        case NodeType.ForStmt: {
+            const x = s as ForStmt;
+
+            doStmt(st, block, x.init);
+
+            const t = getExprType(st, block, x.condition);
+            if (t !== KnownTypes.Bool) Errors.raiseForConditionError(t, x.loc);
+
+            doStmt(st, block, x.update);
+            x.body.forEach(y => doStmt(st, block, y));
             break;
         }
         default: Errors.raiseDebug();

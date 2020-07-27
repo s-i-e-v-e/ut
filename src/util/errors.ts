@@ -192,6 +192,10 @@ export default class Errors {
         throw new this.TypeMismatch(buildErrorString(`IF condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
     }
 
+    static raiseForConditionError(t: Type, loc: Location): never {
+        throw new this.TypeMismatch(buildErrorString(`FOR condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
+    }
+
     static raiseUnknownIdentifier(id: string, loc: Location): never {
         throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
     }

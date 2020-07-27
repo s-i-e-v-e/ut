@@ -27,6 +27,7 @@ import {
     IfStmt,
     IfExpr,
     ReturnExpr,
+    ForStmt,
 } from "../parser/mod.ts";
 import {
     ByteBuffer,
@@ -167,6 +168,26 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
                     b.or_r_r(t1, t2);
                     break;
                 }
+                case "<": {
+                    b.cmp_r_r(t1, t2);
+                    b.setlt(t1);
+                    break;
+                }
+                case ">": {
+                    b.cmp_r_r(t1, t2);
+                    b.setgt(t1);
+                    break;
+                }
+                case "<=": {
+                    b.cmp_r_r(t1, t2);
+                    b.setle(t1);
+                    break;
+                }
+                case ">=": {
+                    b.cmp_r_r(t1, t2);
+                    b.setge(t1);
+                    break;
+                }
                 default: Errors.raiseDebug(x.op);
             }
             b.mov_r_r(rd, t1);
@@ -258,6 +279,7 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
             const t0 = regs.useReg();
             emitExpr(b, regs, t0, x.condition);
             b.cmp_r_i(t0, 1);
+            regs.freeReg(t0);
 
             const gotoElse = `else-${b.codeOffset()}`;
             b.jnz(gotoElse);
@@ -315,6 +337,30 @@ function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
             const rd = regs.useReg();
             emitExpr(b, regs, rd, x.ie);
             regs.freeReg(rd);
+            break;
+        }
+        case NodeType.ForStmt: {
+            const x = s as ForStmt;
+
+            emitStmt(b, regs, rd, x.init);
+
+            const startOffset = b.codeOffset();
+            const gotoStart = `start-${startOffset}`;
+            const t0 = regs.useReg();
+            emitExpr(b, regs, t0, x.condition);
+            b.cmp_r_i(t0, 1);
+            regs.freeReg(t0);
+
+            const gotoEnd = `end-${b.codeOffset()}`;
+            b.jnz(gotoEnd);
+            x.body.forEach(x => emitStmt(b, regs, rd, x));
+            emitStmt(b, regs, rd, x.update);
+            b.jmp(gotoStart);
+            const endOffset = b.codeOffset();
+
+            b.mapCodeOffset(gotoStart, startOffset);
+            b.mapCodeOffset(gotoEnd, endOffset);
+
             break;
         }
         default: Errors.raiseDebug(""+s.nodeType);

@@ -361,6 +361,12 @@ function parseVarDef(ts: TokenStream, isMutable: boolean, force: boolean) {
 }
 
 function parseVarInit(ts: TokenStream, isMutable: boolean) {
+    if (isMutable) {
+        ts.nextMustBe("var");
+    }
+    else {
+        ts.nextMustBe("let");
+    }
     const loc = ts.loc();
     const v = parseVarDef(ts, isMutable, false);
     ts.nextMustBe("=");
@@ -373,15 +379,72 @@ function parseVarInit(ts: TokenStream, isMutable: boolean) {
     }
 }
 
+function parseForStmt(ts: TokenStream) {
+    const loc = ts.loc();
+    ts.nextMustBe("for");
+    ts.nextMustBe("(");
+    const init = ts.consumeIfNextIs(";") ? undefined : parseVarInit(ts, true);
+    if (init) ts.nextMustBe(";");
+    const condition = ts.consumeIfNextIs(";") ? undefined : parseExpr(ts);
+    if (condition) ts.nextMustBe(";");
+    const update = ts.nextIs(")") ? undefined : parseVarAssignment(ts, parseIDExpr(ts));
+    ts.nextMustBe(")");
+    ts.nextMustBe("{");
+    const body = parseBody(ts);
+    ts.nextMustBe("}");
+
+    return {
+        nodeType: NodeType.ForStmt,
+        init: init,
+        condition: condition,
+        update: update,
+        body: body,
+        loc: loc,
+    }
+}
+
+function parseVarAssignment(ts: TokenStream, ide: IDExpr) {
+    if (ts.consumeIfNextIs("=")) {
+        return {
+            nodeType: NodeType.VarAssnStmt,
+            lhs: ide,
+            rhs: parseExpr(ts),
+            loc: ide.loc,
+        };
+    }
+    else {
+        const e = parseExpr(ts, 0, ide) as BinaryExpr;
+
+        // rewrite
+        switch (e.op) {
+            case "+=": e.op = "+"; break;
+            case "-=": e.op = "-"; break;
+            case "*=": e.op = "*"; break;
+            case "/=": e.op = "/"; break;
+            case "%=": e.op = "%"; break;
+            case "&=": e.op = "&"; break;
+            case "|=": e.op = "|"; break;
+            default: Errors.raiseDebug();
+        }
+
+        return {
+            nodeType: NodeType.VarAssnStmt,
+            lhs: ide,
+            rhs: e,
+            loc: ide.loc,
+        };
+    }
+}
+
 function parseBody(ts: TokenStream) {
     const xs = new Array<any>();
 
     while (!ts.nextIs("}")) {
         const loc = ts.loc();
-        if (ts.consumeIfNextIs("let")) {
+        if (ts.nextIs("let")) {
             xs.push(parseVarInit(ts, false));
         }
-        else if (ts.consumeIfNextIs("var")) {
+        else if (ts.nextIs("var")) {
             xs.push(parseVarInit(ts, true));
         }
         else if (ts.consumeIfNextIs("return")) {
@@ -398,17 +461,12 @@ function parseBody(ts: TokenStream) {
                 loc: loc,
             });
         }
+        else if (ts.nextIs("for")) {
+            xs.push(parseForStmt(ts));
+        }
         else {
             const ide = parseIDExpr(ts);
-            if (ts.consumeIfNextIs("=")) {
-                xs.push({
-                    nodeType: NodeType.VarAssnStmt,
-                    lhs: ide,
-                    rhs: parseExpr(ts),
-                    loc: ide.loc,
-                });
-            }
-            else if (ts.nextIs("(")) {
+            if (ts.nextIs("(")) {
                 xs.push({
                     nodeType: NodeType.FunctionApplicationStmt,
                     fa: parseFunctionApplication(ts, ide),
@@ -416,26 +474,7 @@ function parseBody(ts: TokenStream) {
                 });
             }
             else {
-                const e = parseExpr(ts, 0, ide) as BinaryExpr;
-
-                // rewrite
-                switch (e.op) {
-                    case "+=": e.op = "+"; break;
-                    case "-=": e.op = "-"; break;
-                    case "*=": e.op = "*"; break;
-                    case "/=": e.op = "/"; break;
-                    case "%=": e.op = "%"; break;
-                    case "&=": e.op = "&"; break;
-                    case "|=": e.op = "|"; break;
-                    default: Errors.raiseDebug();
-                }
-
-                xs.push({
-                    nodeType: NodeType.VarAssnStmt,
-                    lhs: ide,
-                    rhs: e,
-                    loc: ide.loc,
-                });
+                xs.push(parseVarAssignment(ts, ide));
             }
         }
         ts.nextMustBe(";");

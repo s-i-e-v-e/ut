@@ -36,6 +36,8 @@ export default class Vm {
     ];
     private readonly FLAGS = {
         ZF: 0n,
+        SF: 0n,
+        OF: 0n,
     };
     private readonly memory: Uint8Array;
     private readonly dv: DataView;
@@ -132,6 +134,8 @@ export default class Vm {
     private updateFlags(rd: bigint|number, isReg: boolean = true) {
         const v = isReg ? this.registers[Number(rd)] : rd;
         this.FLAGS.ZF = v === 0n ? 1n : 0n;
+        this.FLAGS.SF = v < 0n ? 1n : 0n;
+        this.FLAGS.OF = 0n;
     }
 
     private set(rd: bigint|number, flag: boolean) {
@@ -272,6 +276,30 @@ export default class Vm {
                     const rs = this.parse_r();
                     Logger.debug(`SET_NE r${rs}`);
                     this.set(rs, !this.FLAGS.ZF);
+                    break;
+                }
+                case VmOperation.SET_LT: {
+                    const rs = this.parse_r();
+                    Logger.debug(`SET_LT r${rs}`);
+                    this.set(rs, this.FLAGS.SF != this.FLAGS.OF);
+                    break;
+                }
+                case VmOperation.SET_LE: {
+                    const rs = this.parse_r();
+                    Logger.debug(`SET_LE r${rs}`);
+                    this.set(rs, !!this.FLAGS.ZF || (this.FLAGS.SF != this.FLAGS.OF));
+                    break;
+                }
+                case VmOperation.SET_GE: {
+                    const rs = this.parse_r();
+                    Logger.debug(`SET_GE r${rs}`);
+                    this.set(rs, this.FLAGS.SF == this.FLAGS.OF);
+                    break;
+                }
+                case VmOperation.SET_GT: {
+                    const rs = this.parse_r();
+                    Logger.debug(`SET_GT r${rs}`);
+                    this.set(rs, !this.FLAGS.ZF && (this.FLAGS.SF == this.FLAGS.OF));
                     break;
                 }
                 case VmOperation.PUSH: {

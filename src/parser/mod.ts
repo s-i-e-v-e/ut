@@ -86,6 +86,7 @@ export enum NodeType {
     ReturnExpr,
     ArrayExpr,
     BinaryExpr,
+    ForStmt,
 }
 
 export interface AstNode {
@@ -114,6 +115,13 @@ export interface IfStmt extends Stmt {
 
 export interface ReturnStmt extends Stmt {
     expr: Expr;
+}
+
+export interface ForStmt extends Stmt {
+    init: VarInitStmt;
+    condition: Expr;
+    update: VarAssnStmt;
+    body: Stmt[];
 }
 
 export interface Expr extends AstNode {

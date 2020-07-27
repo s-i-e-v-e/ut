@@ -218,8 +218,8 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             const t = getExprType(st, block, x.condition);
             if (t !== KnownTypes.Bool) Errors.raiseIfConditionError(t, x.loc);
 
-            x.ifBranch.forEach(y => doStmt(st, x, y));
-            x.elseBranch.forEach(y => doStmt(st, x, y));
+            doBody(st, x, x.ifBranch);
+            doBody(st, x, x.elseBranch);
             x.returnType = x.returnType === KnownTypes.NotInferred ? KnownTypes.Void: x.returnType;
             ty = x.returnType;
             break;
@@ -286,6 +286,7 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
         }
         case NodeType.ForStmt: {
             const x = s as ForStmt;
+            st = st.newTable();
 
             doStmt(st, block, x.init);
 
@@ -293,11 +294,16 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
             if (t !== KnownTypes.Bool) Errors.raiseForConditionError(t, x.loc);
 
             doStmt(st, block, x.update);
-            x.body.forEach(y => doStmt(st, block, y));
+            doBody(st, block, x.body);
             break;
         }
         default: Errors.raiseDebug();
     }
+}
+
+function doBody(st: SymbolTable, block: Block, xs: Stmt[]) {
+    st = st.newTable();
+    xs.forEach(y => doStmt(st, block, y));
 }
 
 function doFunctionReturnType(st: SymbolTable, fp: FunctionPrototype) {
@@ -361,7 +367,7 @@ export default function check(m: Module) {
 
     for (const x of m.functions) {
         const st = x.tag as SymbolTable;
-        x.body.forEach(y => doStmt(st, x.proto, y));
+        doBody(st, x.proto, x.body);
     }
 
     // check return types

@@ -114,7 +114,6 @@ export class VmCodeBuilder {
     private readonly cs: ByteBuffer
     private readonly ds: ByteBuffer;
     private readonly rds: ByteBuffer;
-    private readonly functions: Dictionary<number>;
     private readonly labels: Dictionary<number>;
     private readonly reloc: Array<Reloc>;
 
@@ -122,7 +121,6 @@ export class VmCodeBuilder {
         this.cs = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.ds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.rds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
-        this.functions = {};
         this.labels = {};
         this.reloc = [];
 
@@ -144,16 +142,16 @@ export class VmCodeBuilder {
     }
 
     addForeignFunction(id: string, idx: number) {
-        this.functions[id] = idx * 8;
-        Logger.debug(`addForeignFunction:: ${id} => ${this.functions[id]}`);
+        this.labels[id] = idx * 8;
+        Logger.debug(`addForeignFunction:: ${id} => ${this.labels[id]}`);
     }
 
     startFunction(id: string) {
         while ((this.cs.offset() % Vm.IVT_END) !== 0) {
             this.cs.write_u8(0xCC);
         }
-        this.functions[id] = this.cs.offset();
-        Logger.debug(`startFunction:: ${id} => ${this.functions[id]}`);
+        this.labels[id] = this.cs.offset();
+        Logger.debug(`startFunction:: ${id} => ${this.labels[id]}`);
     }
 
     private putStr(x: string) {
@@ -255,7 +253,7 @@ export class VmCodeBuilder {
     }
 
     call(id: string) {
-        this.goto(VmOperation.CALL, id, this.functions);
+        this.goto(VmOperation.CALL, id, this.labels);
     }
 
     ret() {
@@ -349,7 +347,7 @@ export class VmCodeBuilder {
     asBytes() {
         // finalize reloc
         for (const r of this.reloc) {
-            const offset = this.functions[r.id] ? this.functions[r.id] : this.labels[r.id];
+            const offset = this.labels[r.id];
             const dest = r.offset;
             this.cs.write_u64_at(offset, dest);
             Logger.debug(`reloc::${r.id}:${offset} @ ${dest}`)

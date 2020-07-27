@@ -252,7 +252,7 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
             const v = getVar(st, x.lhs.id, x.loc);
 
             // check assignments to immutable vars
-            if (!v.isMutable) Errors.raiseImmutableVar(v);
+            if (!v.isMutable) Errors.raiseImmutableVar(v, x.loc);
 
             checkTypes(st, block, v, x.rhs, x.loc);
             break;

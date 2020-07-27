@@ -200,8 +200,8 @@ export default class Errors {
         throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
     }
 
-    static raiseImmutableVar(v: Variable) {
-        throw new this.ImmutableVar(buildErrorString(`Cannot assign to immutable variable: ${v.id}`, v.loc));
+    static raiseImmutableVar(v: Variable, loc: Location) {
+        throw new this.ImmutableVar(buildErrorString(`Cannot assign to immutable variable: ${v.id}`, loc));
     }
 
     static raiseFunctionParameterCountMismatch(id: string, loc: Location) {

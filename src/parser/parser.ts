@@ -297,7 +297,7 @@ function _parseExpr(ts: TokenStream, e1?: IDExpr, op?: string): any {
 
 function parseExpr(ts: TokenStream, precedence?: number, e1?: IDExpr, op?: string): any {
     precedence = precedence || 0;
-    const e = _parseExpr(ts, e1, op);
+    const e = e1 && !op ? e1 : _parseExpr(ts, e1, op);
 
     interface Precedence {
         precedence: number;
@@ -408,10 +408,32 @@ function parseBody(ts: TokenStream) {
                     loc: ide.loc,
                 });
             }
-            else {
+            else if (ts.nextIs("(")) {
                 xs.push({
                     nodeType: NodeType.FunctionApplicationStmt,
                     fa: parseFunctionApplication(ts, ide),
+                    loc: ide.loc,
+                });
+            }
+            else {
+                const e = parseExpr(ts, 0, ide) as BinaryExpr;
+
+                // rewrite
+                switch (e.op) {
+                    case "+=": e.op = "+"; break;
+                    case "-=": e.op = "-"; break;
+                    case "*=": e.op = "*"; break;
+                    case "/=": e.op = "/"; break;
+                    case "%=": e.op = "%"; break;
+                    case "&=": e.op = "&"; break;
+                    case "|=": e.op = "|"; break;
+                    default: Errors.raiseDebug();
+                }
+
+                xs.push({
+                    nodeType: NodeType.VarAssnStmt,
+                    lhs: ide,
+                    rhs: e,
                     loc: ide.loc,
                 });
             }

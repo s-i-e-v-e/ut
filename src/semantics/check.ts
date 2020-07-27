@@ -166,8 +166,9 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
         case NodeType.FunctionApplication: {
             const x = e as FunctionApplication;
             if (st.varExists(x.id)) {
-                e.nodeType = NodeType.ArrayExpr;
-                (e as ArrayExpr).isLeft = false;
+                const y = x as ArrayExpr;
+                y.nodeType = NodeType.ArrayExpr;
+                y.emitValue = true;
                 ty = getExprType(st, block, e);
             }
             else {

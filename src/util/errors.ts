@@ -211,4 +211,13 @@ export default class Errors {
     static raiseIfExprMustReturn(loc: Location) {
         throw new this.IfExprMustReturn(buildErrorString(`IF/ELSE expression must return a value.`, loc));
     }
+
+    static debug() {
+        try {
+            throw new Error();
+        }
+        catch (e) {
+            // swallow
+        }
+    }
 }

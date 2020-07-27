@@ -288,7 +288,7 @@ function parseReferenceExpr(ts: TokenStream) {
     };
 }
 
-function parseDereferenceExpr(ts: TokenStream) {
+function parseDereferenceExpr(ts: TokenStream, emitValue: boolean) {
     const loc = ts.loc();
     ts.nextMustBe("*");
     return {
@@ -296,6 +296,7 @@ function parseDereferenceExpr(ts: TokenStream) {
         expr: parseIDExpr(ts),
         loc: loc,
         type: KnownTypes.NotInferred,
+        emitValue: emitValue,
     };
 }
 
@@ -314,7 +315,7 @@ function _parseExpr(ts: TokenStream, e1?: Expr, op?: string): any {
         e = parseReferenceExpr(ts);
     }
     else if (ts.nextIs("*")) {
-        e = parseDereferenceExpr(ts);
+        e = parseDereferenceExpr(ts, true);
     }
     else {
         const ide = parseIDExpr(ts);
@@ -510,7 +511,7 @@ function parseBody(ts: TokenStream) {
         }
         else {
             if (ts.nextIs("*")) {
-                const e = parseDereferenceExpr(ts);
+                const e = parseDereferenceExpr(ts, false);
                 xs.push(parseVarAssignment(ts, e));
             }
             else {
@@ -527,7 +528,7 @@ function parseBody(ts: TokenStream) {
                 else {
                     const ae = fa as ArrayExpr;
                     ae.nodeType = NodeType.ArrayExpr;
-                    ae.isLeft = true;
+                    ae.emitValue = false;
                     xs.push(parseVarAssignment(ts, ae));
                 }
             }

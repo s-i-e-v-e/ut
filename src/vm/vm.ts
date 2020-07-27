@@ -22,7 +22,7 @@ function read_u64_from_ptr(dv: DataView, p: bigint) {
 }
 
 export default class Vm {
-    public static readonly SEGMENT_SIZE = 1024;
+    public static readonly SEGMENT_SIZE = 1024*2;
     private ip: bigint;
     private hp: bigint; // heap pointer
     private sp: bigint; // stack pointer
@@ -110,7 +110,7 @@ export default class Vm {
         const rr = this.read_u8();
         const rd = (rr >>> 4) & 0x0F;
         const rs = rr & 0x0F;
-        if (ins) Logger.debug(`${ins} r${rd}, r${rs}`);
+        if (ins) Logger.debug(`${ins} r${rd}, r${rs} // r${rd} ! ${this.registers[Number(rs)]}`);
         return [rd, rs];
     }
 

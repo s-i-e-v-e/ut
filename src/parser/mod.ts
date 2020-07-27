@@ -104,7 +104,7 @@ export interface VarInitStmt extends Stmt {
 }
 
 export interface VarAssnStmt extends Stmt {
-    lhs: Expr;
+    lhs: LvalueExpr;
     rhs: Expr;
 }
 
@@ -132,6 +132,7 @@ export interface Expr extends AstNode {
 }
 
 export interface LvalueExpr extends Expr {}
+
 export interface RvalueExpr extends Expr {}
 
 export interface IDExpr extends LvalueExpr {
@@ -149,11 +150,15 @@ export interface CastExpr extends RvalueExpr {
     type: Type,
 }
 
+export interface RefExpr extends LvalueExpr {
+    emitValue: boolean;
+}
+
 export interface ReferenceExpr extends RvalueExpr {
     expr: LvalueExpr;
 }
 
-export interface DereferenceExpr extends LvalueExpr {
+export interface DereferenceExpr extends RefExpr {
     expr: IDExpr;
 }
 
@@ -172,10 +177,9 @@ export interface FunctionApplication extends RvalueExpr {
     args: Expr[];
 }
 
-export interface ArrayExpr extends LvalueExpr {
+export interface ArrayExpr extends RefExpr {
     id: string;
     args: Expr[];
-    isLeft: boolean;
 }
 
 export interface ArrayConstructor extends RvalueExpr {

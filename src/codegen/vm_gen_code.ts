@@ -7,30 +7,31 @@
  */
 
 import {
-    Module,
-    Stmt,
+    ArrayConstructor,
+    ArrayExpr,
+    BinaryExpr,
+    BooleanLiteral,
+    CastExpr,
+    DereferenceExpr,
+    Expr,
+    ForStmt,
     Function,
+    FunctionApplication,
     FunctionApplicationStmt,
+    IDExpr,
+    IfExpr,
+    IfStmt,
+    Module,
     NodeType,
+    NumberLiteral,
+    ReferenceExpr,
+    ReturnExpr,
+    ReturnStmt,
+    Stmt,
+    StringLiteral,
     VarAssnStmt,
     VarInitStmt,
-    Expr,
-    BooleanLiteral,
-    IDExpr,
-    NumberLiteral,
-    StringLiteral,
-    ArrayConstructor,
-    FunctionApplication,
-    ArrayExpr,
-    ReturnStmt,
-    BinaryExpr,
-    IfStmt,
-    IfExpr,
-    ReturnExpr,
-    ForStmt,
-    CastExpr,
-    ReferenceExpr,
-    DereferenceExpr,
+    RefExpr,
 } from "../parser/mod.ts";
 import {
     ByteBuffer,
@@ -58,7 +59,7 @@ export class Registers {
             if (this.registerIDs[r] === undefined) {
                 this.registerIDs[r] = id || "1";
                 if (id) this.idRegisters[id] = r;
-                Logger.debug(`use-reg: ${r}`);
+                Logger.debug2(`use-reg: ${r}`);
                 return r;
             }
         }
@@ -69,7 +70,7 @@ export class Registers {
         const id = this.registerIDs[r];
         this.registerIDs[r] = undefined;
         if (id) this.idRegisters[id] = undefined;
-        Logger.debug(`free-reg: ${r}`);
+        Logger.debug2(`free-reg: ${r}`);
     }
 
     getReg(id: string) {
@@ -101,7 +102,10 @@ export class Registers {
     }
 }
 
-function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr, emitReference: boolean = false) {
+type SetReg = (rd: string, emitValue: boolean) => undefined;
+
+function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: Expr) {
+    const rd = typeof rd_or_f === "string" ? rd_or_f as string: "";
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
             const x = e as BooleanLiteral;
@@ -120,8 +124,10 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr, emitRe
         }
         case NodeType.IDExpr: {
             const x = e as IDExpr;
-            if (emitReference) {
-                b.mov_r_i(rd, 0);
+
+            if (typeof rd_or_f !== "string") {
+                const f = rd_or_f as SetReg;
+                f(regs.getReg(x.id), false);
             }
             else {
                 b.mov_r_r(rd, regs.getReg(x.id));
@@ -269,11 +275,11 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr, emitRe
             b.add_r_r(t2, t1);
 
             //
-            if (x.isLeft || emitReference) {
-                b.mov_r_r(rd, t2);
+            if (x.emitValue) {
+                b.mov_r_ro(rd, t2);
             }
             else {
-                b.mov_r_ro(rd, t2);
+                b.mov_r_r(rd, t2);
             }
             regs.freeReg(t0);
             regs.freeReg(t1);
@@ -315,12 +321,43 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr, emitRe
         }
         case NodeType.ReferenceExpr: {
             const x = e as ReferenceExpr;
-            emitExpr(b, regs, rd, x.expr, true);
+            if ((x.expr as RefExpr).emitValue) {
+                const y = x.expr as RefExpr;
+                const old = y.emitValue;
+                y.emitValue = false;
+                emitExpr(b, regs, rd, x.expr);
+                y.emitValue = old;
+            }
+            else {
+                emitExpr(b, regs, rd, x.expr);
+            }
             break;
         }
         case NodeType.DereferenceExpr: {
             const x = e as DereferenceExpr;
-            emitExpr(b, regs, rd, x.expr);
+
+            const f = (rs: string) => {
+
+                if (typeof rd_or_f !== "string") {
+                    const ff = rd_or_f as SetReg;
+                    const old = x.emitValue;
+                    x.emitValue = true;
+                    ff(rs, x.emitValue);
+                    x.emitValue = old;
+                }
+                else {
+                    if (x.emitValue) {
+                        b.mov_r_ro(rd, rs);
+                    }
+                    else {
+                        b.mov_r_r(rd, rs);
+                    }
+                }
+
+                return undefined;
+            }
+
+            emitExpr(b, regs, f, x.expr);
             break;
         }
         default: Errors.raiseDebug(JSON.stringify(e.nodeType));
@@ -328,6 +365,7 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr, emitRe
 }
 
 function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
+    Logger.debug("===============");
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as VarInitStmt;
@@ -337,13 +375,22 @@ function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
-            const rd = regs.useReg();
-            emitExpr(b, regs, rd, x.lhs);
-            const rs = regs.useReg();
-            emitExpr(b, regs, rs, x.rhs);
-            b.mov_ro_r(rd, rs);
-            regs.freeReg(rd);
-            regs.freeReg(rs);
+
+            const f = (rd: string, emitValue: boolean) => {
+                const rs = regs.useReg();
+                emitExpr(b, regs, rs, x.rhs);
+
+                if (emitValue) {
+                    b.mov_ro_r(rd, rs);
+                }
+                else {
+                    b.mov_r_r(rd, rs);
+                }
+
+                regs.freeReg(rs);
+                return undefined;
+            }
+            emitExpr(b, regs, f, x.lhs);
             break;
         }
         case NodeType.FunctionApplicationStmt: {
@@ -397,6 +444,7 @@ function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
         }
         default: Errors.raiseDebug(""+s.nodeType);
     }
+    Logger.debug("##===========##");
 }
 
 function emitFunction(b: VmCodeBuilder, f: Function) {

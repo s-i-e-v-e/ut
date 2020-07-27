@@ -25,7 +25,7 @@ export default async function run(path: string) {
         check(m);
 
         const vme = vm_gen_code(m);
-        const vm = Vm.build();
+        const vm = Vm.build(vme.importsOffset);
         const xs = vme.asBytes();
         //await Deno.writeFile("./dump.bin", xs);
         vm.exec(xs);

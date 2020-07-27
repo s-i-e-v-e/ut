@@ -110,23 +110,24 @@ export class VmCodeBuilder {
     private static readonly CS_BASE = 0;
     private static readonly DS_BASE = VmCodeBuilder.SEGMENT_SIZE;
     private static readonly RDS_BASE = VmCodeBuilder.SEGMENT_SIZE*2;
+    private static readonly IMPORTS_BASE = VmCodeBuilder.SEGMENT_SIZE*3;
 
     private readonly cs: ByteBuffer
     private readonly ds: ByteBuffer;
     private readonly rds: ByteBuffer;
+    private readonly imports: ByteBuffer;
     private readonly labels: Dictionary<number>;
     private readonly reloc: Array<Reloc>;
+    public readonly importsOffset: bigint;
 
     private constructor() {
+        this.importsOffset = BigInt(VmCodeBuilder.IMPORTS_BASE);
         this.cs = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.ds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.rds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
+        this.imports = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.labels = {};
         this.reloc = [];
-
-        for (let i = 0; i < Vm.IVT_END; i += 1) {
-            this.cs.write_u8(0xEE);
-        }
     }
 
     static build() {
@@ -141,15 +142,21 @@ export class VmCodeBuilder {
         this.labels[id] = offset;
     }
 
-    addForeignFunction(id: string, idx: number) {
-        this.labels[id] = idx * 8;
+    addForeignFunction(id: string) {
+        const offs = this.imports.offset();
+        this.imports.write_str(id);
+        this.labels[id] = VmCodeBuilder.IMPORTS_BASE + offs;
         Logger.debug(`addForeignFunction:: ${id} => ${this.labels[id]}`);
     }
 
-    startFunction(id: string) {
-        while ((this.cs.offset() % Vm.IVT_END) !== 0) {
+    private padding() {
+        while ((this.cs.offset() % 256) !== 0) {
             this.cs.write_u8(0xCC);
         }
+    }
+
+    startFunction(id: string) {
+        this.padding();
         this.labels[id] = this.cs.offset();
         Logger.debug(`startFunction:: ${id} => ${this.labels[id]}`);
     }
@@ -345,6 +352,8 @@ export class VmCodeBuilder {
     }
 
     asBytes() {
+        this.padding();
+
         // finalize reloc
         for (const r of this.reloc) {
             const offset = this.labels[r.id];
@@ -353,10 +362,11 @@ export class VmCodeBuilder {
             Logger.debug(`reloc::${r.id}:${offset} @ ${dest}`)
         }
 
-        const xs = new Uint8Array(VmCodeBuilder.SEGMENT_SIZE * 3);
+        const xs = new Uint8Array(VmCodeBuilder.SEGMENT_SIZE * 4);
         xs.set(this.cs.asBytes(), 0);
         xs.set(this.ds.asBytes(), VmCodeBuilder.SEGMENT_SIZE);
         xs.set(this.rds.asBytes(), VmCodeBuilder.SEGMENT_SIZE * 2);
+        xs.set(this.imports.asBytes(), VmCodeBuilder.SEGMENT_SIZE * 3);
         return xs;
     }
 }

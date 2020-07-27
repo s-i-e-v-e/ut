@@ -13,9 +13,6 @@ import {
 import {
     VmOperation
 } from "./mod.internal.ts";
-import {
-    FFI
-} from "./mod.ts";
 
 function read_u64_from_ptr(dv: DataView, p: bigint) {
     const upper = BigInt(dv.getUint32(Number(p)));
@@ -26,7 +23,6 @@ function read_u64_from_ptr(dv: DataView, p: bigint) {
 
 export default class Vm {
     public static readonly SEGMENT_SIZE = 1024;
-    public static readonly IVT_END = 128;
     private ip: bigint;
     private hp: bigint; // heap pointer
     private sp: bigint; // stack pointer
@@ -43,17 +39,17 @@ export default class Vm {
     private readonly dv: DataView;
     private readonly dec: TextDecoder;
 
-    private constructor() {
+    private constructor(private readonly imports: bigint) {
         this.memory = new Uint8Array(Vm.SEGMENT_SIZE*8);
         this.dv = new DataView(this.memory.buffer);
         this.dec = new TextDecoder();
-        this.ip = BigInt(Vm.IVT_END);
+        this.ip = 0n;
         this.hp = BigInt(Vm.SEGMENT_SIZE*3);
         this.sp = BigInt(this.memory.length - 8);
     }
 
-    static build() {
-        return new Vm;
+    static build(imports: bigint) {
+        return new Vm(imports);
     }
 
     private read_u8() {
@@ -317,26 +313,27 @@ export default class Vm {
                 case VmOperation.CALL: {
                     const offset = this.read_u64();
                     Logger.debug(`CALL ${offset}`);
-                    if (offset < Vm.IVT_END) {
-                        switch (Number(offset)/8) {
-                            case FFI.Sys_exit: {
+                    if (offset >= this.imports) {
+                        const fn = this.read_str(offset);
+                        switch (fn) {
+                            case "sys-exit": {
                                 Deno.exit(Number(this.registers[0]));
                                 break;
                             }
-                            case FFI.Sys_println: {
+                            case "sys-println": {
                                 const str = this.read_str(this.registers[0]);
                                 console.log(str);
                                 break;
                             }
-                            case FFI.Sys_u64_println: {
+                            case "sys-u64-println": {
                                 console.log(`${this.registers[0]}`);
                                 break;
                             }
-                            case FFI.Sys_bool_println: {
+                            case "sys-bool-println": {
                                 console.log(`${this.registers[0] === 1n}`);
                                 break;
                             }
-                            default: Errors.raiseDebug();
+                            default: Errors.raiseDebug(`Unknown foreign function: ${fn}`);
                         }
                     }
                     else {

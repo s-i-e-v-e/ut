@@ -31,7 +31,6 @@ import {
 } from "../parser/mod.ts";
 import {
     ByteBuffer,
-    ForeignFunctions,
     registers,
     VmCodeBuilder
 } from "../vm/mod.ts";
@@ -379,7 +378,7 @@ export default function vm_gen_code(m: Module) {
     const b = VmCodeBuilder.build();
 
     // ivt - first 1024 bytes
-    m.foreignFunctions.forEach(x => b.addForeignFunction(x.proto.id, ForeignFunctions[x.proto.id]));
+    m.foreignFunctions.forEach(x => b.addForeignFunction(x.proto.id));
 
     // first, main
     const main = m.functions.filter(x => x.proto.id === "main")[0];

@@ -28,6 +28,9 @@ import {
     IfExpr,
     ReturnExpr,
     ForStmt,
+    CastExpr,
+    ReferenceExpr,
+    DereferenceExpr,
 } from "../parser/mod.ts";
 import {
     ByteBuffer,
@@ -98,7 +101,7 @@ export class Registers {
     }
 }
 
-function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
+function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr, emitReference: boolean = false) {
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
             const x = e as BooleanLiteral;
@@ -117,7 +120,12 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
         }
         case NodeType.IDExpr: {
             const x = e as IDExpr;
-            b.mov_r_r(rd, regs.getReg(x.id));
+            if (emitReference) {
+                b.mov_r_i(rd, 0);
+            }
+            else {
+                b.mov_r_r(rd, regs.getReg(x.id));
+            }
             break;
         }
         case NodeType.BinaryExpr: {
@@ -261,7 +269,7 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
             b.add_r_r(t2, t1);
 
             //
-            if (x.isLeft) {
+            if (x.isLeft || emitReference) {
                 b.mov_r_r(rd, t2);
             }
             else {
@@ -298,6 +306,21 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd: string, e: Expr) {
 
             b.mapCodeOffset(gotoElse, elseOffset);
             b.mapCodeOffset(gotoEnd, endOffset);
+            break;
+        }
+        case NodeType.CastExpr: {
+            const x = e as CastExpr;
+            emitExpr(b, regs, rd, x.expr);
+            break;
+        }
+        case NodeType.ReferenceExpr: {
+            const x = e as ReferenceExpr;
+            emitExpr(b, regs, rd, x.expr, true);
+            break;
+        }
+        case NodeType.DereferenceExpr: {
+            const x = e as DereferenceExpr;
+            emitExpr(b, regs, rd, x.expr);
             break;
         }
         default: Errors.raiseDebug(JSON.stringify(e.nodeType));

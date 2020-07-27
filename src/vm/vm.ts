@@ -342,6 +342,10 @@ export default class Vm {
                                 console.log(`${this.registers[0] === 1n}`);
                                 break;
                             }
+                            case "sys-ptr-println": {
+                                console.log(`ptr:${this.registers[0]}`);
+                                break;
+                            }
                             default: Errors.raiseDebug(`Unknown foreign function: ${fn}`);
                         }
                     }

@@ -87,6 +87,9 @@ export enum NodeType {
     ArrayExpr,
     BinaryExpr,
     ForStmt,
+    ReferenceExpr,
+    DereferenceExpr,
+    CastExpr,
 }
 
 export interface AstNode {
@@ -101,7 +104,7 @@ export interface VarInitStmt extends Stmt {
 }
 
 export interface VarAssnStmt extends Stmt {
-    lhs: IDExpr;
+    lhs: Expr;
     rhs: Expr;
 }
 
@@ -139,6 +142,19 @@ export interface BinaryExpr extends RvalueExpr {
     left: Expr;
     op: string,
     right: Expr;
+}
+
+export interface CastExpr extends RvalueExpr {
+    expr: Expr;
+    type: Type,
+}
+
+export interface ReferenceExpr extends RvalueExpr {
+    expr: LvalueExpr;
+}
+
+export interface DereferenceExpr extends LvalueExpr {
+    expr: IDExpr;
 }
 
 /**
@@ -252,6 +268,7 @@ export const KnownTypes = {
     Bool: newType("Bool"),
     String: newType("String"),
     Integer: newType("Integer"),
+    Pointer: newType("Pointer"),
     Array: newType("Array"),
 };
 

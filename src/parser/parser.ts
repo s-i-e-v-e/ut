@@ -268,6 +268,37 @@ function buildBinaryExpr(left: any, op: string, right: any) {
     };
 }
 
+function parseCastExpr(ts: TokenStream, e: any) {
+    ts.nextMustBe("as");
+    return {
+        nodeType: NodeType.CastExpr,
+        expr: e,
+        loc: e.loc,
+        type: parseType(ts),
+    };
+}
+
+function parseReferenceExpr(ts: TokenStream) {
+    const loc = ts.loc();
+    ts.nextMustBe("&");
+    return {
+        nodeType: NodeType.ReferenceExpr,
+        expr: parseExpr(ts),
+        loc: loc,
+    };
+}
+
+function parseDereferenceExpr(ts: TokenStream) {
+    const loc = ts.loc();
+    ts.nextMustBe("*");
+    return {
+        nodeType: NodeType.DereferenceExpr,
+        expr: parseIDExpr(ts),
+        loc: loc,
+        type: KnownTypes.NotInferred,
+    };
+}
+
 function _parseExpr(ts: TokenStream, e1?: Expr, op?: string): any {
     let e;
     if (ts.nextIsLiteral()) {
@@ -279,6 +310,12 @@ function _parseExpr(ts: TokenStream, e1?: Expr, op?: string): any {
     else if (ts.nextIs("if")) {
         e = parseIfExpr(ts, false);
     }
+    else if (ts.nextIs("&")) {
+        e = parseReferenceExpr(ts);
+    }
+    else if (ts.nextIs("*")) {
+        e = parseDereferenceExpr(ts);
+    }
     else {
         const ide = parseIDExpr(ts);
         if (ts.nextIs("(")) {
@@ -288,11 +325,16 @@ function _parseExpr(ts: TokenStream, e1?: Expr, op?: string): any {
             e = ide;
         }
     }
+
     if (e1) {
         e = buildBinaryExpr(e1, op!, e);
     }
     else {
         // ignore
+    }
+
+    if (ts.nextIs("as")) {
+        e = parseCastExpr(ts, e);
     }
     return e;
 }
@@ -467,6 +509,11 @@ function parseBody(ts: TokenStream) {
             xs.push(parseForStmt(ts));
         }
         else {
+            if (ts.nextIs("*")) {
+                const e = parseDereferenceExpr(ts);
+                xs.push(parseVarAssignment(ts, e));
+            }
+            else {
             const ide = parseIDExpr(ts);
             if (ts.nextIs("(")) {
                 const fa = parseFunctionApplication(ts, ide);
@@ -486,6 +533,7 @@ function parseBody(ts: TokenStream) {
             }
             else {
                 xs.push(parseVarAssignment(ts, ide));
+            }
             }
         }
         ts.nextMustBe(";");

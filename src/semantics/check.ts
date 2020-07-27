@@ -8,32 +8,34 @@
 
 import {
     ArrayConstructor,
+    ArrayExpr,
+    BinaryExpr,
+    Block,
+    CastExpr,
     Expr,
     ForeignFunction,
+    ForStmt,
     Function,
     FunctionApplication,
     FunctionApplicationStmt,
     FunctionPrototype,
     GenericType,
     IDExpr,
+    IfExpr,
+    IfStmt,
     KnownTypes,
     Location,
     Module,
     NodeType,
+    ReferenceExpr,
+    ReturnExpr,
     ReturnStmt,
     Stmt,
     Struct,
     Type,
     VarAssnStmt,
-    Variable,
     VarInitStmt,
-    ArrayExpr,
-    BinaryExpr,
-    Block,
-    IfStmt,
-    IfExpr,
-    ReturnExpr,
-    ForStmt,
+    DereferenceExpr,
 } from "../parser/mod.ts";
 import {
     SymbolTable,
@@ -225,6 +227,35 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             ty = x.returnType;
             break;
         }
+        case NodeType.CastExpr: {
+            const x = e as CastExpr;
+            const t = getExprType(st, block, x.expr);
+            ty = x.type;
+            break;
+        }
+        case NodeType.ReferenceExpr: {
+            const x = e as ReferenceExpr;
+            const t = getExprType(st, block, x.expr);
+            switch (x.expr.nodeType) {
+                case NodeType.IDExpr:
+                case NodeType.ArrayExpr: {
+                    ty = {
+                        id: KnownTypes.Pointer.id,
+                        typeParameters: [t],
+                        loc: x.loc,
+                    } as GenericType;
+                    break;
+                }
+                default: Errors.raiseDebug("can only acquire reference to lvalues");
+            }
+            break;
+        }
+        case NodeType.DereferenceExpr: {
+            const x = e as DereferenceExpr;
+            const t = getExprType(st, block, x.expr) as GenericType;
+            ty = t.typeParameters ? t.typeParameters[0] : t;
+            break;
+        }
         default: Errors.raiseDebug(JSON.stringify(e));
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
@@ -250,7 +281,8 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
-            const v = getVar(st, x.lhs.id, x.loc);
+            const ide = x.lhs.nodeType === NodeType.DereferenceExpr ? (x.lhs as DereferenceExpr).expr : x.lhs as IDExpr;
+            const v = getVar(st, ide.id, x.loc);
 
             // check assignments to immutable vars
             if (!v.isMutable) Errors.raiseImmutableVar(v, x.loc);
@@ -349,6 +381,7 @@ export default function check(m: Module) {
     global.addType(KnownTypes.Bool);
     global.addType(KnownTypes.String);
     global.addType(KnownTypes.Void);
+    global.addType(KnownTypes.Pointer);
     global.addType(KnownTypes.Array);
 
     for (const x of m.structs) {

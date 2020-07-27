@@ -18,6 +18,7 @@ import {
     StringLiteral,
     VarAssnStmt,
     VarInitStmt,
+    DereferenceExpr,
 } from "../parser/mod.ts";
 import {
     Block,
@@ -72,7 +73,8 @@ function doStmt(b: Block, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as VarAssnStmt;
-            b.useVar(x.lhs.id, doExpr(b, x.rhs));
+            const ide = x.lhs.nodeType === NodeType.DereferenceExpr ? (x.lhs as DereferenceExpr).expr : x.lhs as IDExpr;
+            b.useVar(ide.id, doExpr(b, x.rhs));
             break;
         }
         case NodeType.FunctionApplicationStmt: {

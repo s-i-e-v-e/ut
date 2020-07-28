@@ -22,7 +22,6 @@ const NodeType = A.NodeType;
 type Expr = A.Expr;
 type Stmt = A.Stmt;
 
-
 function derefer(b: VmCodeBuilder, store: Store, r: Store) {
     if (store.isWrite) {
         if (store.isValue) {
@@ -52,7 +51,7 @@ function derefer(b: VmCodeBuilder, store: Store, r: Store) {
     }
 }
 
-function _emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfStmt: boolean) {
+function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfStmt: boolean) {
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
             const x = e as A.BooleanLiteral;
@@ -193,7 +192,7 @@ function _emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfS
             const x = e as A.DereferenceExpr;
 
             const r = ac.tmp();
-            _emitExpr(b, ac, r, x.expr, isIfStmt);
+            emitExpr(b, ac, r, x.expr, isIfStmt);
             derefer(b, store, r);
             r.free();
             break;
@@ -282,32 +281,6 @@ function _emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfS
             store.isValue = old;
             break;
         }
-        case NodeType.LExpr: {
-            const x = e as A.LExpr;
-            emitExpr(b, ac, store, x, isIfStmt);
-            break;
-        }
-        case NodeType.RExpr: {
-            const x = e as A.RExpr;
-            emitExpr(b, ac, store, x, isIfStmt);
-            break;
-        }
-        default: Errors.raiseDebug(NodeType[e.nodeType]);
-    }
-}
-
-function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfStmt: boolean) {
-    switch (e.nodeType) {
-        case NodeType.LExpr: {
-            const x = e as A.LExpr;
-            _emitExpr(b, ac, store, x.expr, isIfStmt);
-            break;
-        }
-        case NodeType.RExpr: {
-            const x = e as A.RExpr;
-            _emitExpr(b, ac, store, x.expr, isIfStmt);
-            break;
-        }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
 }
@@ -335,7 +308,7 @@ function emitStmt(b: VmCodeBuilder, ac: Allocator, s: Stmt, isIfStmt: boolean) {
         }
         case NodeType.ExprStmt: {
             const x = s as A.ExprStmt;
-            const isIfStmt = x.expr.expr.nodeType === NodeType.IfExpr;
+            const isIfStmt = x.expr.nodeType === NodeType.IfExpr;
             const r = ac.from("r0");
             emitExpr(b, ac, r, x.expr, isIfStmt);
             break;

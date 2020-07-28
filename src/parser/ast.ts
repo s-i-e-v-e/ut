@@ -11,9 +11,6 @@ export enum NodeType {
     VarAssnStmt,
     ForStmt,
 
-    LExpr,
-    RExpr,
-
     IDExpr,
     FunctionApplication,
     IfExpr,
@@ -42,22 +39,22 @@ export interface AstNode {
 export interface Stmt extends AstNode {}
 
 export interface ExprStmt extends Stmt {
-    expr: RExpr;
+    expr: Expr;
 }
 
 export interface VarInitStmt extends Stmt {
     var: P.Variable;
-    expr: RExpr;
+    expr: Expr;
 }
 
 export interface VarAssnStmt extends Stmt {
-    lhs: LExpr;
-    rhs: RExpr;
+    lhs: Expr;
+    rhs: Expr;
 }
 
 export interface ForStmt extends Stmt {
     init?: VarInitStmt;
-    condition?: RExpr;
+    condition?: Expr;
     update?: VarAssnStmt;
     body: Stmt[];
 }
@@ -66,45 +63,32 @@ export interface Expr extends AstNode {
     type: P.Type,
 }
 
-export interface LVExpr extends Expr {}
-export interface RVExpr extends Expr {}
-
-export interface LExpr extends Expr {
-    expr: LVExpr;
-}
-
-export interface RExpr extends Expr {
-    expr: LVExpr|RVExpr;
-}
-
-export interface IDExpr extends LVExpr {
+export interface IDExpr extends Expr {
     id: string;
 }
 
-export interface RefExpr extends LVExpr {}
-
-export interface ArrayExpr extends RefExpr {
+export interface ArrayExpr extends Expr {
     id: string;
-    args: RExpr[];
+    args: Expr[];
 }
 
-export interface DereferenceExpr extends RefExpr {
+export interface DereferenceExpr extends Expr {
     expr: IDExpr|DereferenceExpr;
 }
 
-export interface BinaryExpr extends RVExpr {
-    left: RExpr;
+export interface BinaryExpr extends Expr {
+    left: Expr;
     op: string,
-    right: RExpr;
+    right: Expr;
 }
 
-export interface CastExpr extends RVExpr {
-    expr: LExpr;
+export interface CastExpr extends Expr {
+    expr: Expr;
     type: P.Type,
 }
 
-export interface ReferenceExpr extends RVExpr {
-    expr: LExpr;
+export interface ReferenceExpr extends Expr {
+    expr: Expr;
 }
 
 /**
@@ -117,27 +101,27 @@ export interface ReferenceExpr extends RVExpr {
  * { foo()(0) = 7; } ----> { let x = foo(); x(0) = 7; }
  *
  */
-export interface FunctionApplication extends RVExpr {
+export interface FunctionApplication extends Expr {
     id: string;
-    args: RExpr[];
+    args: Expr[];
 }
 
-export interface ArrayConstructor extends RVExpr {
-    sizeExpr: RExpr | undefined;
-    args: RExpr[] | undefined;
+export interface ArrayConstructor extends Expr {
+    sizeExpr: Expr | undefined;
+    args: Expr[] | undefined;
 }
 
-export interface IfExpr extends RVExpr {
-    condition: RExpr;
+export interface IfExpr extends Expr {
+    condition: Expr;
     ifBranch: Stmt[];
     elseBranch: Stmt[];
 }
 
-export interface ReturnExpr extends RVExpr {
-    expr: RExpr;
+export interface ReturnExpr extends Expr {
+    expr: Expr;
 }
 
-export interface Literal extends RVExpr {}
+export interface Literal extends Expr {}
 export interface StringLiteral extends Literal {
     value: string,
 }
@@ -148,7 +132,7 @@ export interface NumberLiteral extends Literal {
     value: BigInt,
 }
 
-export function buildExprStmt(re: RExpr, loc?: Location): ExprStmt {
+export function buildExprStmt(re: Expr, loc?: Location): ExprStmt {
     return {
         nodeType: NodeType.ExprStmt,
         expr: re,
@@ -156,9 +140,7 @@ export function buildExprStmt(re: RExpr, loc?: Location): ExprStmt {
     };
 }
 
-export function buildVarAssnStmt(le: LExpr, re: RExpr): VarAssnStmt {
-    if (le.nodeType !== NodeType.LExpr) throw new Error();
-    if (re.nodeType !== NodeType.RExpr) throw new Error();
+export function buildVarAssnStmt(le: Expr, re: Expr): VarAssnStmt {
     return {
         nodeType: NodeType.VarAssnStmt,
         lhs: le,
@@ -167,25 +149,7 @@ export function buildVarAssnStmt(le: LExpr, re: RExpr): VarAssnStmt {
     };
 }
 
-export function buildLExpr(e: LVExpr, loc?: Location): LExpr {
-    return {
-        nodeType: NodeType.LExpr,
-        expr: e,
-        loc: loc || e.loc,
-        type: e.type,
-    };
-}
-
-export function buildRExpr(e: LVExpr|RVExpr, loc?: Location): LExpr {
-    return {
-        nodeType: NodeType.RExpr,
-        expr: e,
-        loc: loc || e.loc,
-        type: e.type,
-    };
-}
-
-export function buildBinaryExpr(left: RExpr, op: string, right: RExpr): BinaryExpr {
+export function buildBinaryExpr(left: Expr, op: string, right: Expr): BinaryExpr {
     return {
         nodeType: NodeType.BinaryExpr,
         left: left,

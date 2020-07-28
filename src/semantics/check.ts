@@ -23,10 +23,7 @@ type Type = P.Type;
 type GenericType = P.GenericType;
 type Block = P.Block;
 type Stmt = A.Stmt;
-type LExpr = A.LExpr;
-type RExpr = A.RExpr;
-type LVExpr = A.LVExpr;
-type RVExpr = A.RVExpr;
+type Expr = A.Expr;
 const NodeType = A.NodeType;
 
 function typesMatch(t1: Type, t2: Type) {
@@ -71,8 +68,8 @@ function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
     }
 }
 
-function checkTypes(st: SymbolTable, block: Block, le_or_type: Type|LExpr, re: RExpr, loc: Location) {
-    const ltype = (le_or_type as LExpr).nodeType ? getExprType(st, block, le_or_type as LExpr) : le_or_type as Type;
+function checkTypes(st: SymbolTable, block: Block, le_or_type: Type|Expr, re: Expr, loc: Location) {
+    const ltype = (le_or_type as Expr).nodeType ? getExprType(st, block, le_or_type as Expr) : le_or_type as Type;
     const rtype = getExprType(st, block, re);
 
     if (!typeExists(st, ltype, loc)) Errors.raiseUnknownType(ltype, loc);
@@ -92,18 +89,18 @@ function resolveDereferenceExpr(x: A.DereferenceExpr) {
     return x;
 }
 
-function resolveVar(st: SymbolTable, le: LExpr): P.Variable {
-    switch (le.expr.nodeType) {
+function resolveVar(st: SymbolTable, e: Expr): P.Variable {
+    switch (e.nodeType) {
         case NodeType.IDExpr: {
-            const x = le.expr as A.IDExpr;
+            const x = e as A.IDExpr;
             return getVar(st, x.id, x.loc);
         }
         case NodeType.ArrayExpr: {
-            const x = le.expr as A.ArrayExpr;
+            const x = e as A.ArrayExpr;
             return getVar(st, x.id, x.loc);
         }
         case NodeType.DereferenceExpr: {
-            const x = resolveDereferenceExpr(le.expr as A.DereferenceExpr);
+            const x = resolveDereferenceExpr(e as A.DereferenceExpr);
             const y = x.expr as A.IDExpr;
             return getVar(st, y.id, y.loc);
         }
@@ -117,7 +114,7 @@ function getFunction(st: SymbolTable, id: string, loc: Location) {
     return x;
 }
 
-function _getExprType(st: SymbolTable, block: Block, e: LVExpr|RVExpr, isRight: boolean): Type {
+function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
     let ty;
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
@@ -178,7 +175,7 @@ function _getExprType(st: SymbolTable, block: Block, e: LVExpr|RVExpr, isRight: 
             if (st.varExists(x.id)) {
                 const y = x as A.ArrayExpr;
                 y.nodeType = NodeType.ArrayExpr;
-                ty = _getExprType(st, block, y, isRight);
+                ty = getExprType(st, block, y);
             }
             else {
                 const f = getFunction(st, x.id, x.loc);
@@ -260,7 +257,7 @@ function _getExprType(st: SymbolTable, block: Block, e: LVExpr|RVExpr, isRight: 
         case NodeType.ReferenceExpr: {
             const xx = e as A.ReferenceExpr;
             const t = getExprType(st, block, xx.expr);
-            const y = xx.expr.expr;
+            const y = xx.expr;
             switch (y.nodeType) {
                 case NodeType.IDExpr:
                 case NodeType.ArrayExpr: {
@@ -277,7 +274,7 @@ function _getExprType(st: SymbolTable, block: Block, e: LVExpr|RVExpr, isRight: 
         }
         case NodeType.DereferenceExpr: {
             const x = e as A.DereferenceExpr;
-            const t = _getExprType(st, block, x.expr, isRight) as GenericType;
+            const t = getExprType(st, block, x.expr) as GenericType;
             if (t.typeParameters) {
                 ty = t.typeParameters[0];
             }
@@ -286,37 +283,7 @@ function _getExprType(st: SymbolTable, block: Block, e: LVExpr|RVExpr, isRight: 
             }
             break;
         }
-        case NodeType.LExpr: {
-            const x = e as A.LExpr;
-            return getExprType(st, block, x);
-        }
-        case NodeType.RExpr: {
-            const x = e as A.RExpr;
-            return getExprType(st, block, x);
-        }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
-    }
-    if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
-    if (e.type === KnownTypes.NotInferred) {
-        e.type = ty;
-    }
-    return ty;
-}
-
-function getExprType(st: SymbolTable, block: Block, e: LExpr|RExpr): Type {
-    let ty;
-    switch (e.nodeType) {
-        case NodeType.LExpr: {
-            const x = e as A.LExpr;
-            ty = _getExprType(st, block, x.expr, false);
-            break;
-        }
-        case NodeType.RExpr: {
-            const x = e as A.RExpr;
-            ty = _getExprType(st, block, x.expr, true);
-            break;
-        }
-        default: Errors.raiseDebug(`${NodeType[e.nodeType]} - ${Errors.buildLocation(e.loc)}`);
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
     if (e.type === KnownTypes.NotInferred) {

@@ -125,6 +125,7 @@ function setBlockType(st: SymbolTable, block: A.BlockExpr, expr: Expr) {
 }
 
 function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
+    if (st.as.ret) Errors.raiseUnreachableCode(e.loc);
     let ty;
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
@@ -248,6 +249,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 b = b.parent;
             }
             ty = setBlockType(st, b, x.expr);
+            st.as.ret = x;
             break;
         }
         case NodeType.IfExpr: {

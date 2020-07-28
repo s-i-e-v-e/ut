@@ -11,7 +11,12 @@ import {
 } from "../util/mod.ts";
 import {
     P,
+    A,
 } from "../parser/mod.ts";
+
+interface AnalysisState {
+    ret?: A.ReturnExpr;
+}
 
 interface Namespaces {
     functions: Dictionary<P.FunctionPrototype>;
@@ -24,6 +29,9 @@ type Resolve<T> = (ns: Namespaces, id: string) => T;
 
 export default class SymbolTable {
     private readonly ns: Namespaces;
+    public readonly as: AnalysisState = {
+        ret: undefined,
+    };
 
     private constructor(private readonly parent?: SymbolTable) {
         this.ns = {

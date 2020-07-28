@@ -226,6 +226,10 @@ export default class Errors {
         throw new this.IfExprMustReturn(buildErrorString(`IF/ELSE expression must return a value.`, loc));
     }
 
+    static raiseUnreachableCode(loc: Location) {
+        throw new this.TypeMismatch(buildErrorString(`Unreachable code after return.`, loc));
+    }
+
     static debug() {
         try {
             throw new Error();

@@ -140,7 +140,11 @@ export default class Errors {
         }
     }
 
-
+    static VmError = class extends Errors.UtError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
 
     static raiseInvalidNumber(cs: CharacterStream, loc: Location): never {
         const lexeme = cs.lexeme(loc, cs.loc());
@@ -210,6 +214,10 @@ export default class Errors {
         throw new this.TypeMismatch(buildErrorString(`FOR condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
     }
 
+    static raiseTypeError(msg: string, loc: Location): never {
+        throw new this.TypeMismatch(buildErrorString(msg, loc));
+    }
+
     static raiseUnknownIdentifier(id: string, loc: Location): never {
         throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
     }
@@ -228,6 +236,10 @@ export default class Errors {
 
     static raiseUnreachableCode(loc: Location) {
         throw new this.TypeMismatch(buildErrorString(`Unreachable code after return.`, loc));
+    }
+
+    static raiseVmError(msg: string) {
+        throw new this.VmError(msg);
     }
 
     static debug() {

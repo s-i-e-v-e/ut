@@ -356,7 +356,7 @@ export default class Vm {
                                 console.log(`ptr:${this.registers[0]}`);
                                 break;
                             }
-                            default: Errors.raiseDebug(`Unknown foreign function: ${fn}`);
+                            default: Errors.raiseVmError(`Unknown foreign function: ${fn}`);
                         }
                     }
                     else {

@@ -103,7 +103,7 @@ function resolveVar(st: SymbolTable, e: Expr): P.Variable {
             const y = x.expr as A.IDExpr;
             return getVar(st, y.id, y.loc);
         }
-        default: Errors.raiseDebug();
+        default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
 }
 
@@ -288,7 +288,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                     } as GenericType;
                     break;
                 }
-                default: Errors.raiseDebug("can only acquire reference to lvalues: "+y.nodeType);
+                default: Errors.raiseTypeError(`Can only acquire reference to lvalues.`, e.loc);
             }
             break;
         }
@@ -299,7 +299,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 ty = t.typeParameters[0];
             }
             else {
-                Errors.raiseDebug("cannot dereference: "+t.id);
+                Errors.raiseTypeError(`cannot dereference: ${t.id}`, x.loc);
             }
             break;
         }

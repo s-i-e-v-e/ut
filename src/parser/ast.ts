@@ -13,6 +13,7 @@ export enum NodeType {
     VarAssnStmt,
     ForStmt,
 
+    VoidExpr,
     BlockExpr,
     IDExpr,
     FunctionApplication,
@@ -21,6 +22,7 @@ export enum NodeType {
     BooleanLiteral,
     NumberLiteral,
     ArrayConstructor,
+    LocalReturnExpr,
     ReturnExpr,
     ArrayExpr,
     BinaryExpr,
@@ -71,7 +73,7 @@ export interface IDExpr extends Expr {
 }
 
 export interface BlockExpr extends Expr {
-    level: number;
+    parent?: BlockExpr;
     xs: Stmt[];
 }
 
@@ -129,6 +131,10 @@ export interface ReturnExpr extends Expr {
     expr: Expr;
 }
 
+export interface LocalReturnExpr extends Expr {
+    expr: Expr;
+}
+
 export interface Literal extends Expr {}
 export interface StringLiteral extends Literal {
     value: string,
@@ -165,5 +171,13 @@ export function buildBinaryExpr(left: Expr, op: string, right: Expr): BinaryExpr
         right: right,
         loc: left.loc,
         type: P.KnownTypes.NotInferred,
+    };
+}
+
+export function buildVoidExpr(loc: Location) {
+    return {
+        nodeType: NodeType.VoidExpr,
+        type: P.KnownTypes.Void,
+        loc: loc,
     };
 }

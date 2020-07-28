@@ -113,6 +113,17 @@ function getFunction(st: SymbolTable, id: string, loc: Location) {
     return x;
 }
 
+function setBlockType(st: SymbolTable, block: A.BlockExpr, expr: Expr) {
+    const ty = getExprType(st, block, expr);
+    if (block.type === KnownTypes.NotInferred) {
+        block.type = ty;
+    }
+    else {
+        if (!typesMatch(block.type, ty)) Errors.raiseTypeMismatch(block.type, ty, expr.loc);
+    }
+    return ty;
+}
+
 function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     let ty;
     switch (e.nodeType) {
@@ -225,15 +236,18 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             }
             return x.type;
         }
+        case NodeType.LocalReturnExpr: {
+            const x = e as A.LocalReturnExpr;
+            ty = setBlockType(st, block, x.expr);
+            break;
+        }
         case NodeType.ReturnExpr: {
             const x = e as A.ReturnExpr;
-            ty = getExprType(st, block, x.expr);
-            if (block.type === KnownTypes.NotInferred) {
-                block.type = ty;
+            let b = block;
+            while (b.parent) {
+                b = b.parent;
             }
-            else {
-                if (!typesMatch(block.type, ty)) Errors.raiseTypeMismatch(block.type, ty, x.loc);
-            }
+            ty = setBlockType(st, b, x.expr);
             break;
         }
         case NodeType.IfExpr: {
@@ -252,6 +266,10 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             const x = e as A.CastExpr;
             const t = getExprType(st, block, x.expr);
             ty = x.type;
+            break;
+        }
+        case NodeType.VoidExpr: {
+            ty = e.type;
             break;
         }
         case NodeType.ReferenceExpr: {
@@ -358,13 +376,12 @@ function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
 }
 
 function doFunction(st: SymbolTable, f: P.Function) {
+    if (f.proto.id == "main") f.body.type = KnownTypes.Void;
     st = st.newTable();
     doFunctionPrototype(st, f.proto);
     doBlock(st, f.body);
     f.proto.type = f.body.type;
-    if (f.proto.type === KnownTypes.NotInferred) {
-        f.proto.type = KnownTypes.Void;
-    }
+    if (f.proto.type === KnownTypes.NotInferred) f.proto.type = KnownTypes.Void;
 }
 
 function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {

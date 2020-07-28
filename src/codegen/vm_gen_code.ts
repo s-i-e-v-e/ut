@@ -234,9 +234,15 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockE
             t2.free();
             break;
         }
+        case NodeType.LocalReturnExpr: {
+            const x = e as A.LocalReturnExpr;
+            emitExpr(b, ac, store, block, x.expr);
+            break;
+        }
         case NodeType.ReturnExpr: {
             const x = e as A.ReturnExpr;
             emitExpr(b, ac, store, block, x.expr);
+            b.ret();
             break;
         }
         case NodeType.IfExpr: {
@@ -267,6 +273,9 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockE
             emitExpr(b, ac, store, block, x.expr);
             break;
         }
+        case NodeType.VoidExpr: {
+            break;
+        }
         case NodeType.ReferenceExpr: {
             const x = e as A.ReferenceExpr;
             const old = store.isValue;
@@ -281,7 +290,6 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockE
 
 function emitStmt(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
     Logger.debug("##===========##");
-    Errors.debug();
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;

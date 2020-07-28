@@ -257,9 +257,15 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             const t = getExprType(st, block, x.condition);
             if (t !== KnownTypes.Bool) Errors.raiseIfConditionError(t, x.loc);
 
-            doBlock(st, x.ifBranch);
-            doBlock(st, x.elseBranch);
-            if (!typesMatch(x.ifBranch.type, x.elseBranch.type)) Errors.raiseTypeMismatch(x.ifBranch.type, x.elseBranch.type, x.loc);
+            const st1 = doBlock(st, x.ifBranch);
+            const st2 = doBlock(st, x.elseBranch);
+            if (st1.as.ret || st2.as.ret) {
+                // ignore
+            }
+            else {
+                if (!typesMatch(x.ifBranch.type, x.elseBranch.type)) Errors.raiseTypeMismatch(x.ifBranch.type, x.elseBranch.type, x.loc);
+            }
+
             x.type = x.ifBranch.type === KnownTypes.NotInferred ? KnownTypes.Void: x.ifBranch.type;
             ty = x.type;
             break;
@@ -364,6 +370,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
 function doBlock(st: SymbolTable, block: A.BlockExpr) {
     st = st.newTable();
     block.xs.forEach(y => doStmt(st, block, y));
+    return st;
 }
 
 function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {

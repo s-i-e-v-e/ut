@@ -105,6 +105,10 @@ function write_r(bb: ByteBuffer, rd: string, op: VmOperation) {
     bb.write_u8(a << 4 | 0);
 }
 
+function checkRegister(r: string) {
+    if (registers[r] === undefined) Errors.raiseDebug(`Unknown register: ${r}`);
+}
+
 export class VmCodeBuilder {
     private static readonly SEGMENT_SIZE = Vm.SEGMENT_SIZE;
     private static readonly CS_BASE = 0;
@@ -173,6 +177,8 @@ export class VmCodeBuilder {
     }
 
     mov_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         if (rd === rs) return;
         this.cs.write_u8(VmOperation.MOV_R_R);
         const a = registers[rd];
@@ -182,6 +188,7 @@ export class VmCodeBuilder {
     }
 
     mov_r_i(rd: string, n: number) {
+        checkRegister(rd);
         this.cs.write_u8(VmOperation.MOV_R_I);
         const a = registers[rd];
         this.cs.write_u8(a << 4 | 0);
@@ -190,11 +197,13 @@ export class VmCodeBuilder {
     }
 
     mov_r_str(rd: string, x: string) {
+        checkRegister(rd);
         const [offset, size] = this.putStr(x);
         this.mov_r_i(rd, offset);
     }
 
     mov_m_r(offset: number, rs: string) {
+        checkRegister(rs);
         this.cs.write_u8(VmOperation.MOV_M_R);
         const a = registers[rs];
         this.cs.write_u8(a << 4 | 0);
@@ -203,6 +212,7 @@ export class VmCodeBuilder {
     }
 
     mov_r_m(rd: string, offset: number) {
+        checkRegister(rd);
         this.cs.write_u8(VmOperation.MOV_R_M);
         const a = registers[rd];
         this.cs.write_u8(a << 4 | 0);
@@ -211,6 +221,8 @@ export class VmCodeBuilder {
     }
 
     mov_r_ro(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         this.cs.write_u8(VmOperation.MOV_R_RO);
         const a = registers[rd];
         const b = registers[rs];
@@ -219,6 +231,8 @@ export class VmCodeBuilder {
     }
 
     mov_ro_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         this.cs.write_u8(VmOperation.MOV_RO_R);
         const a = registers[rd];
         const b = registers[rs];
@@ -231,15 +245,17 @@ export class VmCodeBuilder {
         this.cs.write_u64(x);
     }
 
-    push_r(r: string) {
+    push_r(rs: string) {
+        checkRegister(rs);
         this.cs.write_u8(VmOperation.PUSH);
-        const a = registers[r];
+        const a = registers[rs];
         this.cs.write_u8(a << 4 | 0);
     }
 
-    pop_r(r: string) {
+    pop_r(rd: string) {
+        checkRegister(rd);
         this.cs.write_u8(VmOperation.POP);
-        const a = registers[r];
+        const a = registers[rd];
         this.cs.write_u8(a << 4 | 0);
     }
 
@@ -286,106 +302,135 @@ export class VmCodeBuilder {
     }
 
     mul_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         write_r_r(this.cs, rd, rs, VmOperation.MUL_R_R);
         Logger.debug(`MUL ${rd}, ${rs}`);
     }
 
     div_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         write_r_r(this.cs, rd, rs, VmOperation.DIV_R_R);
         Logger.debug(`DIV ${rd}, ${rs}`);
     }
 
     mod_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         write_r_r(this.cs, rd, rs, VmOperation.MOD_R_R);
         Logger.debug(`MOD ${rd}, ${rs}`);
     }
 
     add_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         write_r_r(this.cs, rd, rs, VmOperation.ADD_R_R);
         Logger.debug(`ADD ${rd}, ${rs}`);
     }
 
     sub_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         write_r_r(this.cs, rd, rs, VmOperation.SUB_R_R);
         Logger.debug(`SUB ${rd}, ${rs}`);
     }
 
     mul_r_i(rd: string, n: number) {
+        checkRegister(rd);
         write_r_i(this.cs, rd, n, VmOperation.MUL_R_I);
         Logger.debug(`MUL ${rd}, ${n}`);
     }
 
     div_r_i(rd: string, n: number) {
+        checkRegister(rd);
         write_r_i(this.cs, rd, n, VmOperation.DIV_R_I);
         Logger.debug(`DIV ${rd}, ${n}`);
     }
 
     mod_r_i(rd: string, n: number) {
+        checkRegister(rd);
         write_r_i(this.cs, rd, n, VmOperation.MOD_R_I);
         Logger.debug(`MOD ${rd}, ${n}`);
     }
 
     add_r_i(rd: string, n: number) {
+        checkRegister(rd);
         write_r_i(this.cs, rd, n, VmOperation.ADD_R_I);
         Logger.debug(`ADD ${rd}, ${n}`);
     }
 
     sub_r_i(rd: string, n: number) {
+        checkRegister(rd);
         write_r_i(this.cs, rd, n, VmOperation.SUB_R_I);
         Logger.debug(`SUB ${rd}, ${n}`);
     }
 
     cmp_r_i(rs: string, n: number) {
+        checkRegister(rs);
         write_r_i(this.cs, rs, n, VmOperation.CMP_R_I);
         Logger.debug(`CMP ${rs}, ${n}`);
     }
 
     cmp_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         write_r_r(this.cs, rd, rs, VmOperation.CMP_R_R);
         Logger.debug(`CMP ${rd}, ${rs}`);
     }
 
     and_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         write_r_r(this.cs, rd, rs, VmOperation.AND_R_R);
         Logger.debug(`AND ${rd}, ${rs}`);
     }
 
     or_r_r(rd: string, rs: string) {
+        checkRegister(rd);
+        checkRegister(rs);
         write_r_r(this.cs, rd, rs, VmOperation.OR_R_R);
         Logger.debug(`OR ${rd}, ${rs}`);
     }
 
     not(rd: string) {
+        checkRegister(rd);
         write_r(this.cs, rd, VmOperation.NOT);
         Logger.debug(`NOT ${rd}`);
     }
 
     sete(rd: string) {
+        checkRegister(rd);
         write_r(this.cs, rd, VmOperation.SET_E);
         Logger.debug(`SETE ${rd}`);
     }
 
     setne(rd: string) {
+        checkRegister(rd);
         write_r(this.cs, rd, VmOperation.SET_NE);
         Logger.debug(`SETNE ${rd}`);
     }
 
     setlt(rd: string) {
+        checkRegister(rd);
         write_r(this.cs, rd, VmOperation.SET_LT);
         Logger.debug(`SETLT ${rd}`);
     }
 
     setle(rd: string) {
+        checkRegister(rd);
         write_r(this.cs, rd, VmOperation.SET_LE);
         Logger.debug(`SETLE ${rd}`);
     }
 
     setgt(rd: string) {
+        checkRegister(rd);
         write_r(this.cs, rd, VmOperation.SET_GT);
         Logger.debug(`SETGT ${rd}`);
     }
 
     setge(rd: string) {
+        checkRegister(rd);
         write_r(this.cs, rd, VmOperation.SET_GE);
         Logger.debug(`SETGE ${rd}`);
     }

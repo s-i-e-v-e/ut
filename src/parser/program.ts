@@ -8,7 +8,6 @@
 
 import {
     Location,
-    P,
     A,
 } from "./mod.ts";
 
@@ -24,13 +23,13 @@ export interface Module extends Primitive {
 }
 
 export interface Block extends Primitive {
-    returnType: Type;
+    type: Type;
 }
 
 export interface FunctionPrototype extends Primitive {
     id: string;
     params: Parameter[];
-    returnType: Type;
+    type: Type;
     loc: Location;
 }
 
@@ -93,11 +92,11 @@ function newParameter(id: string, t: Type) {
     };
 }
 
-function newFunction(id: string, xs: Parameter[], returnType: Type) {
+function newFunction(id: string, xs: Parameter[], type: Type) {
     return {
         id: id,
         params: xs,
-        returnType: returnType,
+        type: type,
         loc: SysLoc,
         body: [],
     };

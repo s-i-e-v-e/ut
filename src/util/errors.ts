@@ -17,12 +17,21 @@ const toTypeString = P.toTypeString;
 type Type = P.Type;
 type Variable = P.Variable;
 
-function buildErrorString(msg: string, loc: Location) {
+export function buildLocation(loc: Location) {
     const path = loc.path.replaceAll(/\\/g, "/");
-    return `${msg}\tat file:///${path}:${loc.line}:${loc.character}`;
+    return `at file:///${path}:${loc.line}:${loc.character}`;
+}
+
+function buildErrorString(msg: string, loc: Location) {
+    const x = buildLocation(loc);
+    return `${msg}\t${x}`;
 }
 
 export default class Errors {
+    static buildLocation(loc: Location) {
+        return buildLocation(loc);
+    }
+
     static Debug = class extends Error {
         constructor(msg: string) {
             super(msg);

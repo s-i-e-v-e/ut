@@ -5,210 +5,162 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
 import {
     P,
     A,
 } from "../parser/mod.ts";
 import {
     ByteBuffer,
-    registers,
     VmCodeBuilder
 } from "../vm/mod.ts";
 import {
     Errors,
-    Dictionary,
     Logger,
 } from "../util/mod.ts";
+import {Allocator, Store} from "./Store.ts";
 const NodeType = A.NodeType;
 type Expr = A.Expr;
 type Stmt = A.Stmt;
 
-export class Registers {
-    private static REG_MAX = 15;
-    private readonly idRegisters: Dictionary<string|undefined>;
-    private readonly registerIDs: Dictionary<string|undefined>;
 
-    private constructor() {
-        this.idRegisters = {};
-        this.registerIDs = {};
+function derefer(b: VmCodeBuilder, store: Store, r: Store) {
+    if (store.isWrite) {
+        if (store.isValue) {
+            store.write_deref(b, r);
+        }
+        else {
+            store.write_reg(b, r);
+        }
     }
-
-    useReg(id?: string) {
-        for (const r of Object.keys(registers)) {
-            if (this.registerIDs[r] === undefined) {
-                this.registerIDs[r] = id || "1";
-                if (id) this.idRegisters[id] = r;
-                Logger.debug2(`use-reg: ${r}`);
-                return r;
+    else {
+        if (store.isRHS) {
+            if (store.isValue) {
+                r.write_deref(b, store);
+            }
+            else {
+                r.write_reg(b, store);
             }
         }
-        return Errors.raiseDebug("no free regs");
-    }
-
-    freeReg(r: string) {
-        const id = this.registerIDs[r];
-        this.registerIDs[r] = undefined;
-        if (id) this.idRegisters[id] = undefined;
-        Logger.debug2(`free-reg: ${r}`);
-    }
-
-    getReg(id: string) {
-        if (!this.idRegisters[id]) Errors.raiseDebug(id);
-        return this.idRegisters[id]!;
-    }
-
-    save(b: VmCodeBuilder) {
-        const xs = [];
-        for (const r of Object.keys(registers)) {
-            if (this.registerIDs[r] !== undefined) {
-                b.push_r(r);
-                xs.push(r);
+        else {
+            if (store.isValue) {
+                r.write_reg_to_deref(b, store);
+            }
+            else {
+                r.write_reg(b, store);
             }
         }
-        return xs;
-    }
-
-    restore(b: VmCodeBuilder, xs: string[]) {
-        xs = xs.reverse();
-
-        for (const r of xs) {
-            b.pop_r(r);
-        }
-    }
-
-    static build() {
-        return new Registers();
     }
 }
 
-type SetReg = (rd: string, emitValue: boolean) => undefined;
-
-function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: Expr) {
-    const rd = typeof rd_or_f === "string" ? rd_or_f as string: "";
+function _emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfStmt: boolean) {
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
             const x = e as A.BooleanLiteral;
-            b.mov_r_i(rd, x.value ? 1 : 0);
+            store.write_imm(b,x.value ? 1 : 0);
             break;
         }
         case NodeType.StringLiteral: {
             const x = e as A.StringLiteral;
-            b.mov_r_str(rd, x.value);
+            store.write_str(b, x.value);
             break;
         }
         case NodeType.NumberLiteral: {
             const x = e as A.NumberLiteral;
-            b.mov_r_i(rd, Number(x.value));
-            break;
-        }
-        case NodeType.IDExpr: {
-            const x = e as A.IDExpr;
-
-            if (typeof rd_or_f !== "string") {
-                const f = rd_or_f as SetReg;
-                f(regs.getReg(x.id), false);
-            }
-            else {
-                b.mov_r_r(rd, regs.getReg(x.id));
-            }
+            store.write_imm(b,Number(x.value));
             break;
         }
         case NodeType.BinaryExpr: {
             const x = e as A.BinaryExpr;
 
-            const t1 = regs.useReg();
-            emitExpr(b, regs, t1, x.left);
-            const t2 = regs.useReg();
-            emitExpr(b, regs, t2, x.right);
+            const t1 = ac.tmp();
+            const t2 = ac.tmp();
+            emitExpr(b, ac, t1, x.left, isIfStmt);
+            emitExpr(b, ac, t2, x.right, isIfStmt);
 
             switch (x.op) {
                 case "*": {
-                    b.mul_r_r(t1, t2);
+                    b.mul_r_r(t1.reg, t2.reg);
                     break;
                 }
                 case "/": {
-                    b.div_r_r(t1, t2);
+                    b.div_r_r(t1.reg, t2.reg);
                     break;
                 }
                 case "%": {
-                    b.mod_r_r(t1, t2);
+                    b.mod_r_r(t1.reg, t2.reg);
                     break;
                 }
                 case "+": {
-                    b.add_r_r(t1, t2);
+                    b.add_r_r(t1.reg, t2.reg);
                     break;
                 }
                 case "-": {
-                    b.sub_r_r(t1, t2);
+                    b.sub_r_r(t1.reg, t2.reg);
                     break;
                 }
                 case "==": {
-                    b.cmp_r_r(t1, t2);
-                    b.sete(t1);
+                    b.cmp_r_r(t1.reg, t2.reg);
+                    b.sete(t1.reg);
                     break;
                 }
                 case "!=": {
-                    b.cmp_r_r(t1, t2);
-                    b.setne(t1);
+                    b.cmp_r_r(t1.reg, t2.reg);
+                    b.setne(t1.reg);
                     break;
                 }
                 case "&": {
-                    b.and_r_r(t1, t2);
+                    b.and_r_r(t1.reg, t2.reg);
                     break;
                 }
                 case "|": {
-                    b.or_r_r(t1, t2);
+                    b.or_r_r(t1.reg, t2.reg);
                     break;
                 }
                 case "<": {
-                    b.cmp_r_r(t1, t2);
-                    b.setlt(t1);
+                    b.cmp_r_r(t1.reg, t2.reg);
+                    b.setlt(t1.reg);
                     break;
                 }
                 case ">": {
-                    b.cmp_r_r(t1, t2);
-                    b.setgt(t1);
+                    b.cmp_r_r(t1.reg, t2.reg);
+                    b.setgt(t1.reg);
                     break;
                 }
                 case "<=": {
-                    b.cmp_r_r(t1, t2);
-                    b.setle(t1);
+                    b.cmp_r_r(t1.reg, t2.reg);
+                    b.setle(t1.reg);
                     break;
                 }
                 case ">=": {
-                    b.cmp_r_r(t1, t2);
-                    b.setge(t1);
+                    b.cmp_r_r(t1.reg, t2.reg);
+                    b.setge(t1.reg);
                     break;
                 }
                 default: Errors.raiseDebug(x.op);
             }
-            b.mov_r_r(rd, t1);
-            regs.freeReg(t1);
-            regs.freeReg(t2);
+
+            store.write_reg(b, t1);
+            t1.free();
+            t2.free();
             break;
         }
         case NodeType.FunctionApplication: {
             const x = e as A.FunctionApplication;
 
             // push used regs to stack
-            const saved = regs.save(b);
+            const saved = ac.save(b);
 
             // put args in  r0 ... rN
             for (let i = 0; i < x.args.length; i += 1) {
-                const r = `r${i}`;
-                emitExpr(b, regs, r, x.args[i]);
+                const r = ac.from(`r${i}`);
+                emitExpr(b, ac, r, x.args[i], isIfStmt);
             }
             b.call(x.id);
 
-            const tmp = regs.useReg();
-            b.mov_r_r(tmp, "r0");
-
             // pop used regs from stack
-            regs.restore(b, saved);
+            ac.restore(b, saved);
 
-            b.mov_r_r(rd, tmp);
-            regs.freeReg(tmp);
+            store.write_reg(b, ac.from("r0"));
             break;
         }
         case NodeType.ArrayConstructor: {
@@ -225,69 +177,92 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
             }
             const offset = b.heapStore(bb.asBytes());
 
-            const tmp = regs.useReg();
+            const tmp = ac.tmp();
             let hp = offset + 8 + 8;
             for (let i = 0; i < args.length; i += 1) {
-                emitExpr(b, regs, tmp, args[i]);
-                b.mov_m_r(hp, tmp);
+                emitExpr(b, ac, tmp, args[i], isIfStmt);
+                b.mov_m_r(hp, tmp.reg);
                 hp += 8;
             }
-            regs.freeReg(tmp);
-            b.mov_r_i(rd, offset);
+            tmp.free();
+
+            store.write_imm(b, offset);
+            break;
+        }
+        case NodeType.DereferenceExpr: {
+            const x = e as A.DereferenceExpr;
+
+            const r = ac.tmp();
+            _emitExpr(b, ac, r, x.expr, isIfStmt);
+            derefer(b, store, r);
+            r.free();
+            break;
+        }
+        case NodeType.IDExpr: {
+            const x = e as A.IDExpr;
+            const ids = ac.get(x.id);
+
+            if (store.isWrite) {
+                store.write_reg(b, ids);
+            }
+            else {
+                ids.write_reg(b, store);
+            }
             break;
         }
         case NodeType.ArrayExpr: {
             const x = e as A.ArrayExpr;
 
-            const t0 = regs.useReg();
-            emitExpr(b, regs, t0, x.args[0]);
+            const index = ac.tmp();
+            emitExpr(b, ac, index, x.args[0], isIfStmt);
 
             // get element size offset
-            const t1 = regs.useReg();
-            b.mov_r_r(t1, regs.getReg(x.id));
-            b.add_r_i(t1, 8);
+            const t1 = ac.tmp();
+            t1.write_reg(b, ac.get(x.id));
+            b.add_r_i(t1.reg, 8);
 
-            const t2 = regs.useReg();
-            b.mov_r_ro(t2, t1);
-            b.mul_r_r(t2, t0);
+            const t2 = ac.tmp();
+            b.mov_r_ro(t2.reg, t1.reg);
+            b.mul_r_r(t2.reg, index.reg);
 
-            b.add_r_i(t1, 8);
-            b.add_r_r(t2, t1);
+            b.add_r_i(t2.reg, 8);
+            b.add_r_r(t2.reg, t1.reg);
 
-            //
-            if (x.emitValue) {
-                b.mov_r_ro(rd, t2);
-            }
-            else {
-                b.mov_r_r(rd, t2);
-            }
-            regs.freeReg(t0);
-            regs.freeReg(t1);
-            regs.freeReg(t2);
+            derefer(b, store, t2);
+
+            index.free();
+            t1.free();
+            t2.free();
             break;
         }
         case NodeType.ReturnExpr: {
             const x = e as A.ReturnExpr;
-            emitExpr(b, regs, rd, x.expr);
+            if (isIfStmt) {
+                emitExpr(b, ac, ac.from("r0"), x.expr, isIfStmt);
+                b.ret();
+            }
+            else {
+                emitExpr(b, ac, store, x.expr, isIfStmt);
+            }
             break;
         }
         case NodeType.IfExpr: {
             const x = e as A.IfExpr;
 
-            const t0 = regs.useReg();
-            emitExpr(b, regs, t0, x.condition);
-            b.cmp_r_i(t0, 1);
-            regs.freeReg(t0);
+            const r = ac.tmp();
+            emitExpr(b, ac, r, x.condition, isIfStmt);
+            b.cmp_r_i(r.reg, 1);
+            r.free();
 
             const gotoElse = `else-${b.codeOffset()}`;
             b.jnz(gotoElse);
 
-            x.ifBranch.forEach(x => emitStmt(b, regs, rd, x));
+            x.ifBranch.forEach(x => emitStmt(b, ac, x, isIfStmt));
             const gotoEnd = `end-${b.codeOffset()}`;
             b.jmp(gotoEnd);
 
             const elseOffset = b.codeOffset();
-            x.elseBranch.forEach(x => emitStmt(b, regs, rd, x));
+            x.elseBranch.forEach(x => emitStmt(b, ac, x, isIfStmt));
             const endOffset = b.codeOffset();
 
             b.mapCodeOffset(gotoElse, elseOffset);
@@ -296,149 +271,120 @@ function emitExpr(b: VmCodeBuilder, regs: Registers, rd_or_f: string|SetReg, e: 
         }
         case NodeType.CastExpr: {
             const x = e as A.CastExpr;
-            emitExpr(b, regs, rd, x.expr);
+            emitExpr(b, ac, store, x.expr, isIfStmt);
             break;
         }
         case NodeType.ReferenceExpr: {
             const x = e as A.ReferenceExpr;
-            if ((x.expr as A.RefExpr).emitValue) {
-                const y = x.expr as A.RefExpr;
-                const old = y.emitValue;
-                y.emitValue = false;
-                emitExpr(b, regs, rd, x.expr);
-                y.emitValue = old;
-            }
-            else {
-                emitExpr(b, regs, rd, x.expr);
-            }
+            const old = store.isValue;
+            store.isValue = false;
+            emitExpr(b, ac, store, x.expr, isIfStmt);
+            store.isValue = old;
             break;
         }
-        case NodeType.DereferenceExpr: {
-            const x = e as A.DereferenceExpr;
-
-            const f = (rs: string) => {
-
-                if (typeof rd_or_f !== "string") {
-                    const ff = rd_or_f as SetReg;
-                    const old = x.emitValue;
-                    x.emitValue = true;
-                    ff(rs, x.emitValue);
-                    x.emitValue = old;
-                }
-                else {
-                    if (x.emitValue) {
-                        b.mov_r_ro(rd, rs);
-                    }
-                    else {
-                        b.mov_r_r(rd, rs);
-                    }
-                }
-
-                return undefined;
-            }
-
-            emitExpr(b, regs, f, x.expr);
+        case NodeType.LExpr: {
+            const x = e as A.LExpr;
+            emitExpr(b, ac, store, x, isIfStmt);
             break;
         }
-        default: Errors.raiseDebug(JSON.stringify(e.nodeType));
+        case NodeType.RExpr: {
+            const x = e as A.RExpr;
+            emitExpr(b, ac, store, x, isIfStmt);
+            break;
+        }
+        default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
 }
 
-function emitStmt(b: VmCodeBuilder, regs: Registers, rd: string, s: Stmt) {
-    Logger.debug("===============");
+function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfStmt: boolean) {
+    switch (e.nodeType) {
+        case NodeType.LExpr: {
+            const x = e as A.LExpr;
+            _emitExpr(b, ac, store, x.expr, isIfStmt);
+            break;
+        }
+        case NodeType.RExpr: {
+            const x = e as A.RExpr;
+            _emitExpr(b, ac, store, x.expr, isIfStmt);
+            break;
+        }
+        default: Errors.raiseDebug(NodeType[e.nodeType]);
+    }
+}
+
+function emitStmt(b: VmCodeBuilder, ac: Allocator, s: Stmt, isIfStmt: boolean) {
+    Logger.debug("##===========##");
+    Errors.debug();
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
-            const rd = regs.useReg(x.var.id);
-            emitExpr(b, regs, rd, x.expr);
+            const store = ac.alloc(x.var);
+            emitExpr(b, ac, store, x.expr, isIfStmt);
             break;
         }
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
-
-            const f = (rd: string, emitValue: boolean) => {
-                const rs = regs.useReg();
-                emitExpr(b, regs, rs, x.rhs);
-
-                if (emitValue) {
-                    b.mov_ro_r(rd, rs);
-                }
-                else {
-                    b.mov_r_r(rd, rs);
-                }
-
-                regs.freeReg(rs);
-                return undefined;
-            }
-            emitExpr(b, regs, f, x.lhs);
+            const r = ac.tmp();
+            r.isRHS = true;
+            emitExpr(b, ac, r, x.rhs, isIfStmt);
+            r.isWrite = false;
+            r.isRHS = false;
+            emitExpr(b, ac, r, x.lhs, isIfStmt);
+            r.free();
             break;
         }
-        case NodeType.FunctionApplicationStmt: {
-            const x = s as A.FunctionApplicationStmt;
-            const rd = regs.useReg();
-            emitExpr(b, regs, rd, x.fa);
-            regs.freeReg(rd);
-            break;
-        }
-        case NodeType.ReturnStmt: {
-            const x = s as A.ReturnStmt;
-            emitExpr(b, regs, "r0", x.expr);
-            b.ret();
-            break;
-        }
-        case NodeType.ReturnExpr: {
-            const x = s as A.ReturnExpr;
-            emitExpr(b, regs, rd, x);
-            break;
-        }
-        case NodeType.IfStmt: {
-            const x = s as A.IfStmt;
-            const rd = regs.useReg();
-            emitExpr(b, regs, rd, x.ie);
-            regs.freeReg(rd);
+        case NodeType.ExprStmt: {
+            const x = s as A.ExprStmt;
+            const isIfStmt = x.expr.expr.nodeType === NodeType.IfExpr;
+            const r = ac.from("r0");
+            emitExpr(b, ac, r, x.expr, isIfStmt);
             break;
         }
         case NodeType.ForStmt: {
             const x = s as A.ForStmt;
 
-            emitStmt(b, regs, rd, x.init);
+            if (x.init) emitStmt(b, ac, x.init, isIfStmt);
 
             const startOffset = b.codeOffset();
             const gotoStart = `start-${startOffset}`;
-            const t0 = regs.useReg();
-            emitExpr(b, regs, t0, x.condition);
-            b.cmp_r_i(t0, 1);
-            regs.freeReg(t0);
+            let gotoEnd = ";"
 
-            const gotoEnd = `end-${b.codeOffset()}`;
-            b.jnz(gotoEnd);
-            x.body.forEach(x => emitStmt(b, regs, rd, x));
-            emitStmt(b, regs, rd, x.update);
+            if (x.condition) {
+                const r = ac.tmp();
+                emitExpr(b, ac, r, x.condition, isIfStmt);
+                b.cmp_r_i(r.reg, 1);
+                gotoEnd = `end-${b.codeOffset()}`;
+                b.jnz(gotoEnd);
+                r.free();
+            }
+
+            x.body.forEach(x => emitStmt(b, ac, x, isIfStmt));
+            if (x.update) emitStmt(b, ac, x.update, isIfStmt);
             b.jmp(gotoStart);
             const endOffset = b.codeOffset();
 
             b.mapCodeOffset(gotoStart, startOffset);
-            b.mapCodeOffset(gotoEnd, endOffset);
+            if (gotoEnd) b.mapCodeOffset(gotoEnd, endOffset);
 
             break;
         }
-        default: Errors.raiseDebug(""+s.nodeType);
+        default: Errors.raiseDebug(NodeType[s.nodeType]);
     }
-    Logger.debug("##===========##");
 }
 
 function emitFunction(b: VmCodeBuilder, f: P.Function) {
     b.startFunction(f.proto.id);
-    const regs = Registers.build();
-    f.proto.params.forEach(x => regs.useReg(x.id));
-    f.body.forEach(x => emitStmt(b, regs, "", x));
+    const ac = Allocator.build();
+    const scratch = ac.tmp();
+    if (scratch.reg !== "r0") Errors.raiseDebug();
+    f.proto.params.forEach(x => ac.alloc(x));
+    f.body.forEach(x => emitStmt(b, ac, x, false));
     b.ret();
 }
 
 export default function vm_gen_code(m: P.Module) {
     const b = VmCodeBuilder.build();
 
-    // ivt - first 1024 bytes
     m.foreignFunctions.forEach(x => b.addForeignFunction(x.proto.id));
 
     // first, main

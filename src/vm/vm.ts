@@ -14,13 +14,6 @@ import {
     VmOperation
 } from "./mod.internal.ts";
 
-function read_u64_from_ptr(dv: DataView, p: bigint) {
-    const upper = BigInt(dv.getUint32(Number(p)));
-    const lower = BigInt(dv.getUint32(Number(p + 4n)));
-
-    return (upper * (2n ** 32n)) + lower;
-}
-
 export default class Vm {
     public static readonly SEGMENT_SIZE = 1024*2;
     private ip: bigint;
@@ -52,7 +45,22 @@ export default class Vm {
         return new Vm(imports);
     }
 
+    private check_offset(offset: bigint) {
+        if (offset >= BigInt(this.memory.length)) {
+         Errors.raiseDebug(`offset err: ${offset} > ${this.memory.length}`);
+        }
+    }
+
+    private read_u64_from_ptr(p: bigint) {
+        this.check_offset(p);
+        const upper = BigInt(this.dv.getUint32(Number(p)));
+        const lower = BigInt(this.dv.getUint32(Number(p + 4n)));
+
+        return (upper * (2n ** 32n)) + lower;
+    }
+
     private read_u8() {
+        this.check_offset(this.ip);
         const x = this.dv.getUint8(Number(this.ip));
         this.ip += 1n;
         return x;
@@ -60,10 +68,10 @@ export default class Vm {
 
     private read_u64(offset?: bigint) {
         if (offset) {
-            return read_u64_from_ptr(this.dv, offset);
+            return this.read_u64_from_ptr(offset);
         }
         else {
-            const x = read_u64_from_ptr(this.dv, this.ip);
+            const x = this.read_u64_from_ptr(this.ip);
             this.ip += 8n;
             return x;
         }
@@ -75,7 +83,8 @@ export default class Vm {
         const len = this.read_u64(ip);
         ip += 8n;
         const xs = [];
-        for (let i = 0; i < len; i += 1) {
+        for (let i = 0; i < len; i += 1) {+
+            this.check_offset(ip);
             const x = this.dv.getUint8(Number(ip));
             xs.push(x);
             ip += 1n;
@@ -85,6 +94,7 @@ export default class Vm {
     }
 
     private write_u64(offset: bigint, x: bigint) {
+        this.check_offset(offset);
         this.dv.setBigUint64(Number(offset), BigInt(x));
     }
 
@@ -95,7 +105,7 @@ export default class Vm {
 
     private pop() {
         this.sp += 8n;
-        return read_u64_from_ptr(this.dv, this.sp);
+        return this.read_u64_from_ptr(this.sp);
     }
 
     private init(code: Uint8Array) {

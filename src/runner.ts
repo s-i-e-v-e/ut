@@ -5,10 +5,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import parse from "./parser/parser.ts";
-import {
-    check,
-} from "./semantics/mod.ts";
+import { parse, A } from "./parser/mod.ts";
+import { check } from "./semantics/mod.ts";
 import {
     Logger,
     Errors,
@@ -25,9 +23,10 @@ export default async function run(path: string) {
         check(m);
 
         const vme = vm_gen_code(m);
-        const vm = Vm.build(vme.importsOffset);
         const xs = vme.asBytes();
         //await Deno.writeFile("./dump.bin", xs);
+        Logger.debug("@@--------VM.EXEC--------@@");
+        const vm = Vm.build(vme.importsOffset);
         vm.exec(xs);
     }
     catch (e) {

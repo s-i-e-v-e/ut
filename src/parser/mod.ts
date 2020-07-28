@@ -5,12 +5,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-export * as P from "./program.ts";
-export * as A from "./ast.ts";
+import * as P from "./program.ts";
+import * as A from "./ast.ts";
+import parse from "./parser.ts";
 
-export interface Location {
+interface Location {
     line: number;
     character: number;
     index: number;
     path: string;
 }
+
+export {
+    Location,
+    parse,
+    P,
+    A,
+};

@@ -5,7 +5,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
 import {
     Location,
     P,
@@ -18,12 +17,16 @@ import {
     Errors,
     Logger,
 } from "../util/mod.ts";
+
 const KnownTypes = P.KnownTypes;
 type Type = P.Type;
 type GenericType = P.GenericType;
 type Block = P.Block;
 type Stmt = A.Stmt;
-type Expr = A.Expr;
+type LExpr = A.LExpr;
+type RExpr = A.RExpr;
+type LVExpr = A.LVExpr;
+type RVExpr = A.RVExpr;
 const NodeType = A.NodeType;
 
 function typesMatch(t1: Type, t2: Type) {
@@ -68,9 +71,9 @@ function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
     }
 }
 
-function checkTypes(st: SymbolTable, block: Block, xx: Type|Expr, expr: Expr, loc: Location) {
-    const ltype = (xx as Expr).nodeType ? getExprType(st, block, xx as Expr) : xx as Type;
-    const rtype = getExprType(st, block, expr);
+function checkTypes(st: SymbolTable, block: Block, le_or_type: Type|LExpr, re: RExpr, loc: Location) {
+    const ltype = (le_or_type as LExpr).nodeType ? getExprType(st, block, le_or_type as LExpr) : le_or_type as Type;
+    const rtype = getExprType(st, block, re);
 
     if (!typeExists(st, ltype, loc)) Errors.raiseUnknownType(ltype, loc);
     if (!typesMatch(ltype, rtype)) Errors.raiseTypeMismatch(ltype, rtype, loc);
@@ -82,13 +85,39 @@ function getVar(st: SymbolTable, id: string, loc: Location) {
     return x;
 }
 
+function resolveDereferenceExpr(x: A.DereferenceExpr) {
+    while (x.expr.nodeType === NodeType.DereferenceExpr) {
+        x = x.expr as A.DereferenceExpr;
+    }
+    return x;
+}
+
+function resolveVar(st: SymbolTable, le: LExpr): P.Variable {
+    switch (le.expr.nodeType) {
+        case NodeType.IDExpr: {
+            const x = le.expr as A.IDExpr;
+            return getVar(st, x.id, x.loc);
+        }
+        case NodeType.ArrayExpr: {
+            const x = le.expr as A.ArrayExpr;
+            return getVar(st, x.id, x.loc);
+        }
+        case NodeType.DereferenceExpr: {
+            const x = resolveDereferenceExpr(le.expr as A.DereferenceExpr);
+            const y = x.expr as A.IDExpr;
+            return getVar(st, y.id, y.loc);
+        }
+        default: Errors.raiseDebug();
+    }
+}
+
 function getFunction(st: SymbolTable, id: string, loc: Location) {
     const x = st.getFunction(id);
     if (!x) Errors.raiseUnknownIdentifier(id, loc);
     return x;
 }
 
-function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
+function _getExprType(st: SymbolTable, block: Block, e: LVExpr|RVExpr, isRight: boolean): Type {
     let ty;
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
@@ -149,11 +178,18 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             if (st.varExists(x.id)) {
                 const y = x as A.ArrayExpr;
                 y.nodeType = NodeType.ArrayExpr;
-                y.emitValue = true;
-                ty = getExprType(st, block, e);
+                ty = _getExprType(st, block, y, isRight);
             }
             else {
-                ty = getFunction(st, x.id, x.loc).returnType;
+                const f = getFunction(st, x.id, x.loc);
+                if (x.args.length != f.params.length) Errors.raiseFunctionParameterCountMismatch(x.id, x.loc);
+
+                for (let i = 0; i < x.args.length; i += 1) {
+                    const atype = getExprType(st, block, x.args[i]);
+                    const ptype = f.params[i].type;
+                    if (!typesMatch(atype, ptype)) Errors.raiseTypeMismatch(atype, ptype, x.loc);
+                }
+                ty = f.type;
             }
             break;
         }
@@ -193,11 +229,11 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
         case NodeType.ReturnExpr: {
             const x = e as A.ReturnExpr;
             ty = getExprType(st, block, x.expr);
-            if (block.returnType === KnownTypes.NotInferred) {
-                block.returnType = ty;
+            if (block.type === KnownTypes.NotInferred) {
+                block.type = ty;
             }
             else {
-                if (!typesMatch(block.returnType, ty)) Errors.raiseTypeMismatch(block.returnType, ty, x.loc);
+                if (!typesMatch(block.type, ty)) Errors.raiseTypeMismatch(block.type, ty, x.loc);
             }
             break;
         }
@@ -208,8 +244,8 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
 
             doBody(st, x, x.ifBranch);
             doBody(st, x, x.elseBranch);
-            x.returnType = x.returnType === KnownTypes.NotInferred ? KnownTypes.Void: x.returnType;
-            ty = x.returnType;
+            x.type = x.type === KnownTypes.NotInferred ? KnownTypes.Void: x.type;
+            ty = x.type;
             break;
         }
         case NodeType.CastExpr: {
@@ -219,31 +255,70 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             break;
         }
         case NodeType.ReferenceExpr: {
-            const x = e as A.ReferenceExpr;
-            const t = getExprType(st, block, x.expr);
-            switch (x.expr.nodeType) {
+            const xx = e as A.ReferenceExpr;
+            const t = getExprType(st, block, xx.expr);
+            const y = xx.expr.expr;
+            switch (y.nodeType) {
                 case NodeType.IDExpr:
                 case NodeType.ArrayExpr: {
                     ty = {
                         id: KnownTypes.Pointer.id,
                         typeParameters: [t],
-                        loc: x.loc,
+                        loc: y.loc,
                     } as GenericType;
                     break;
                 }
-                default: Errors.raiseDebug("can only acquire reference to lvalues");
+                default: Errors.raiseDebug("can only acquire reference to lvalues: "+y.nodeType);
             }
             break;
         }
         case NodeType.DereferenceExpr: {
             const x = e as A.DereferenceExpr;
-            const t = getExprType(st, block, x.expr) as GenericType;
-            ty = t.typeParameters ? t.typeParameters[0] : t;
+            const t = _getExprType(st, block, x.expr, isRight) as GenericType;
+            if (t.typeParameters) {
+                ty = t.typeParameters[0];
+            }
+            else {
+                Errors.raiseDebug("cannot dereference: "+t.id);
+            }
             break;
         }
-        default: Errors.raiseDebug(JSON.stringify(e.nodeType));
+        case NodeType.LExpr: {
+            const x = e as A.LExpr;
+            return getExprType(st, block, x);
+        }
+        case NodeType.RExpr: {
+            const x = e as A.RExpr;
+            return getExprType(st, block, x);
+        }
+        default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
+    if (e.type === KnownTypes.NotInferred) {
+        e.type = ty;
+    }
+    return ty;
+}
+
+function getExprType(st: SymbolTable, block: Block, e: LExpr|RExpr): Type {
+    let ty;
+    switch (e.nodeType) {
+        case NodeType.LExpr: {
+            const x = e as A.LExpr;
+            ty = _getExprType(st, block, x.expr, false);
+            break;
+        }
+        case NodeType.RExpr: {
+            const x = e as A.RExpr;
+            ty = _getExprType(st, block, x.expr, true);
+            break;
+        }
+        default: Errors.raiseDebug(`${NodeType[e.nodeType]} - ${Errors.buildLocation(e.loc)}`);
+    }
+    if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
+    if (e.type === KnownTypes.NotInferred) {
+        e.type = ty;
+    }
     return ty;
 }
 
@@ -266,8 +341,7 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
-            const ide = x.lhs.nodeType === NodeType.DereferenceExpr ? (x.lhs as A.DereferenceExpr).expr : x.lhs as A.IDExpr;
-            const v = getVar(st, ide.id, x.loc);
+            const v = resolveVar(st, x.lhs);
 
             // check assignments to immutable vars
             if (!v.isMutable) Errors.raiseImmutableVar(v, x.loc);
@@ -275,47 +349,25 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
             checkTypes(st, block, x.lhs, x.rhs, x.loc);
             break;
         }
-        case NodeType.FunctionApplicationStmt: {
-            const x = s as A.FunctionApplicationStmt;
-            const f = getFunction(st, x.fa.id, x.fa.loc);
-            if (x.fa.args.length != f.params.length) Errors.raiseFunctionParameterCountMismatch(x.fa.id, x.loc);
-
-            for (let i = 0; i < x.fa.args.length; i += 1) {
-                const atype = getExprType(st, block, x.fa.args[i]);
-                const ptype = f.params[i].type;
-                if (!typesMatch(atype, ptype)) Errors.raiseTypeMismatch(atype, ptype, x.loc);
-            }
-            break;
-        }
-        case NodeType.ReturnStmt: {
-            const x = s as A.ReturnStmt;
-            getExprType(st, block, x as A.ReturnExpr);
-            break;
-        }
-        case NodeType.IfStmt: {
-            const x = s as A.IfStmt;
-            getExprType(st, x.ie, x.ie);
-            break;
-        }
-        case NodeType.ReturnExpr: {
-            const x = s as A.ReturnExpr;
-            getExprType(st, block, x);
+        case NodeType.ExprStmt: {
+            const x = s as A.ExprStmt;
+            getExprType(st, block, x.expr);
             break;
         }
         case NodeType.ForStmt: {
             const x = s as A.ForStmt;
             st = st.newTable();
 
-            doStmt(st, block, x.init);
-
-            const t = getExprType(st, block, x.condition);
-            if (t !== KnownTypes.Bool) Errors.raiseForConditionError(t, x.loc);
-
-            doStmt(st, block, x.update);
+            if (x.init) doStmt(st, block, x.init);
+            if (x.condition) {
+                const t = getExprType(st, block, x.condition);
+                if (t !== KnownTypes.Bool) Errors.raiseForConditionError(t, x.loc);
+            }
+            if (x.update) doStmt(st, block, x.update);
             doBody(st, block, x.body);
             break;
         }
-        default: Errors.raiseDebug();
+        default: Errors.raiseDebug(NodeType[s.nodeType]);
     }
 }
 
@@ -325,7 +377,7 @@ function doBody(st: SymbolTable, block: Block, xs: Stmt[]) {
 }
 
 function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {
-    if (!st.typeExists(fp.returnType)) Errors.raiseUnknownType(fp.returnType, fp.loc);
+    if (!st.typeExists(fp.type)) Errors.raiseUnknownType(fp.type, fp.loc);
 }
 
 function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
@@ -336,8 +388,8 @@ function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
 }
 
 function doFunction(st: SymbolTable, f: P.Function) {
-    if (f.proto.id === "main" && f.proto.returnType === KnownTypes.NotInferred) {
-        f.proto.returnType = KnownTypes.Void;
+    if (f.proto.id === "main" && f.proto.type === KnownTypes.NotInferred) {
+        f.proto.type = KnownTypes.Void;
     }
     st = st.newTable();
     doFunctionPrototype(st, f.proto);
@@ -345,8 +397,8 @@ function doFunction(st: SymbolTable, f: P.Function) {
 }
 
 function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
-    if (f.proto.returnType === KnownTypes.NotInferred) {
-        f.proto.returnType = KnownTypes.Void;
+    if (f.proto.type === KnownTypes.NotInferred) {
+        f.proto.type = KnownTypes.Void;
     }
     st = st.newTable();
     doFunctionPrototype(st, f.proto);

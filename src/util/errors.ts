@@ -185,6 +185,10 @@ export default class Errors {
         throw new this.TypeMismatch(buildErrorString(`Math ops only defined on Integer, not ${toTypeString(t)}.`, loc));
     }
 
+    static raiseArrayIndexError(t: Type, loc: Location): never {
+        throw new this.TypeMismatch(buildErrorString(`Array index(es) must be Integer(s), not ${toTypeString(t)}.`, loc));
+    }
+
     static raiseLogicalOperationError(t: Type, loc: Location): never {
         throw new this.TypeMismatch(buildErrorString(`Logic ops only defined on Bool, not ${toTypeString(t)}.`, loc));
     }

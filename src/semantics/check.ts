@@ -160,6 +160,9 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
         case NodeType.ArrayExpr: {
             const x = e as A.ArrayExpr;
             const at = getVar(st, x.id, x.loc).type as GenericType;
+
+            x.args.forEach(a => { if (a.type !== KnownTypes.Integer) Errors.raiseArrayIndexError(a.type, a.loc); });
+
             ty = at.typeParameters[0];
             break;
         }

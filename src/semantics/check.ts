@@ -243,7 +243,8 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
 
             doBlock(st, x.ifBranch);
             doBlock(st, x.elseBranch);
-            x.type = x.type === KnownTypes.NotInferred ? KnownTypes.Void: x.type;
+            if (!typesMatch(x.ifBranch.type, x.elseBranch.type)) Errors.raiseTypeMismatch(x.ifBranch.type, x.elseBranch.type, x.loc);
+            x.type = x.ifBranch.type === KnownTypes.NotInferred ? KnownTypes.Void: x.ifBranch.type;
             ty = x.type;
             break;
         }

@@ -202,7 +202,7 @@ function parseIfExpr(ts: TokenStream, level: number, isStmt: boolean): A.IfExpr 
     const mustReturn = (be: A.BlockExpr, loc: Location) => {
         // last statement must be a return
         const last = be.xs.length ? be.xs[be.xs.length - 1] : undefined;
-        if (last && last.nodeType === NodeType.ExprStmt && (last as A.ExprStmt).nodeType === NodeType.ReturnExpr) {
+        if (last && last.nodeType === NodeType.ExprStmt && (last as A.ExprStmt).expr.nodeType === NodeType.ReturnExpr) {
             // ignore
         }
         else {

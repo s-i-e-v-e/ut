@@ -197,7 +197,10 @@ function _getExprType(st: SymbolTable, block: Block, e: LVExpr|RVExpr, isRight: 
             const x = e as A.ArrayExpr;
             const at = getVar(st, x.id, x.loc).type as GenericType;
 
-            x.args.forEach(a => { if (a.type !== KnownTypes.Integer) Errors.raiseArrayIndexError(a.type, a.loc); });
+            x.args.forEach(a => {
+                const ty = getExprType(st, block, a);
+                if (ty !== KnownTypes.Integer) Errors.raiseArrayIndexError(a.type, a.loc);
+            });
 
             ty = at.typeParameters[0];
             break;
@@ -388,9 +391,6 @@ function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
 }
 
 function doFunction(st: SymbolTable, f: P.Function) {
-    if (f.proto.id === "main" && f.proto.type === KnownTypes.NotInferred) {
-        f.proto.type = KnownTypes.Void;
-    }
     st = st.newTable();
     doFunctionPrototype(st, f.proto);
     f.tag = st;
@@ -439,6 +439,9 @@ export default function check(m: P.Module) {
     for (const x of m.functions) {
         const st = x.tag as SymbolTable;
         doBody(st, x.proto, x.body);
+        if (x.proto.type === KnownTypes.NotInferred) {
+            x.proto.type = KnownTypes.Void;
+        }
     }
 
     // check return types

@@ -21,7 +21,6 @@ import {
 const KnownTypes = P.KnownTypes;
 type Type = P.Type;
 type GenericType = P.GenericType;
-type Block = P.Block;
 type Stmt = A.Stmt;
 type Expr = A.Expr;
 const NodeType = A.NodeType;
@@ -68,7 +67,7 @@ function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
     }
 }
 
-function checkTypes(st: SymbolTable, block: Block, le_or_type: Type|Expr, re: Expr, loc: Location) {
+function checkTypes(st: SymbolTable, block: A.BlockExpr, le_or_type: Type|Expr, re: Expr, loc: Location) {
     const ltype = (le_or_type as Expr).nodeType ? getExprType(st, block, le_or_type as Expr) : le_or_type as Type;
     const rtype = getExprType(st, block, re);
 
@@ -114,7 +113,7 @@ function getFunction(st: SymbolTable, id: string, loc: Location) {
     return x;
 }
 
-function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
+function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     let ty;
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
@@ -242,8 +241,8 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
             const t = getExprType(st, block, x.condition);
             if (t !== KnownTypes.Bool) Errors.raiseIfConditionError(t, x.loc);
 
-            doBody(st, x, x.ifBranch);
-            doBody(st, x, x.elseBranch);
+            doBlock(st, x.ifBranch);
+            doBlock(st, x.elseBranch);
             x.type = x.type === KnownTypes.NotInferred ? KnownTypes.Void: x.type;
             ty = x.type;
             break;
@@ -292,7 +291,7 @@ function getExprType(st: SymbolTable, block: Block, e: Expr): Type {
     return ty;
 }
 
-function doStmt(st: SymbolTable, block: Block, s: Stmt) {
+function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
@@ -334,16 +333,16 @@ function doStmt(st: SymbolTable, block: Block, s: Stmt) {
                 if (t !== KnownTypes.Bool) Errors.raiseForConditionError(t, x.loc);
             }
             if (x.update) doStmt(st, block, x.update);
-            doBody(st, block, x.body);
+            doBlock(st, x.body);
             break;
         }
         default: Errors.raiseDebug(NodeType[s.nodeType]);
     }
 }
 
-function doBody(st: SymbolTable, block: Block, xs: Stmt[]) {
+function doBlock(st: SymbolTable, block: A.BlockExpr) {
     st = st.newTable();
-    xs.forEach(y => doStmt(st, block, y));
+    block.xs.forEach(y => doStmt(st, block, y));
 }
 
 function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {
@@ -360,7 +359,11 @@ function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
 function doFunction(st: SymbolTable, f: P.Function) {
     st = st.newTable();
     doFunctionPrototype(st, f.proto);
-    f.tag = st;
+    doBlock(st, f.body);
+    f.proto.type = f.body.type;
+    if (f.proto.type === KnownTypes.NotInferred) {
+        f.proto.type = KnownTypes.Void;
+    }
 }
 
 function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
@@ -401,14 +404,6 @@ export default function check(m: P.Module) {
     for (const x of m.functions) {
         global.addFunction(x.proto);
         doFunction(global, x);
-    }
-
-    for (const x of m.functions) {
-        const st = x.tag as SymbolTable;
-        doBody(st, x.proto, x.body);
-        if (x.proto.type === KnownTypes.NotInferred) {
-            x.proto.type = KnownTypes.Void;
-        }
     }
 
     // check return types

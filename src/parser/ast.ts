@@ -5,12 +5,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import {A} from "./mod.ts";
+
 export enum NodeType {
     ExprStmt,
     VarInitStmt,
     VarAssnStmt,
     ForStmt,
 
+    BlockExpr,
     IDExpr,
     FunctionApplication,
     IfExpr,
@@ -56,7 +59,7 @@ export interface ForStmt extends Stmt {
     init?: VarInitStmt;
     condition?: Expr;
     update?: VarAssnStmt;
-    body: Stmt[];
+    body: A.BlockExpr;
 }
 
 export interface Expr extends AstNode {
@@ -65,6 +68,11 @@ export interface Expr extends AstNode {
 
 export interface IDExpr extends Expr {
     id: string;
+}
+
+export interface BlockExpr extends Expr {
+    level: number;
+    xs: Stmt[];
 }
 
 export interface ArrayExpr extends Expr {
@@ -113,8 +121,8 @@ export interface ArrayConstructor extends Expr {
 
 export interface IfExpr extends Expr {
     condition: Expr;
-    ifBranch: Stmt[];
-    elseBranch: Stmt[];
+    ifBranch: A.BlockExpr;
+    elseBranch: A.BlockExpr;
 }
 
 export interface ReturnExpr extends Expr {

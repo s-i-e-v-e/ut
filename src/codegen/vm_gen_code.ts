@@ -51,7 +51,7 @@ function derefer(b: VmCodeBuilder, store: Store, r: Store) {
     }
 }
 
-function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfStmt: boolean) {
+function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
             const x = e as A.BooleanLiteral;
@@ -73,8 +73,8 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfSt
 
             const t1 = ac.tmp();
             const t2 = ac.tmp();
-            emitExpr(b, ac, t1, x.left, isIfStmt);
-            emitExpr(b, ac, t2, x.right, isIfStmt);
+            emitExpr(b, ac, t1, block, x.left);
+            emitExpr(b, ac, t2, block, x.right);
 
             switch (x.op) {
                 case "*": {
@@ -152,7 +152,7 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfSt
             // put args in  r0 ... rN
             for (let i = 0; i < x.args.length; i += 1) {
                 const r = ac.from(`r${i}`);
-                emitExpr(b, ac, r, x.args[i], isIfStmt);
+                emitExpr(b, ac, r, block, x.args[i]);
             }
             b.call(x.id);
 
@@ -179,7 +179,7 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfSt
             const tmp = ac.tmp();
             let hp = offset + 8 + 8;
             for (let i = 0; i < args.length; i += 1) {
-                emitExpr(b, ac, tmp, args[i], isIfStmt);
+                emitExpr(b, ac, tmp, block, args[i]);
                 b.mov_m_r(hp, tmp.reg);
                 hp += 8;
             }
@@ -192,7 +192,7 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfSt
             const x = e as A.DereferenceExpr;
 
             const r = ac.tmp();
-            emitExpr(b, ac, r, x.expr, isIfStmt);
+            emitExpr(b, ac, r, block, x.expr);
             derefer(b, store, r);
             r.free();
             break;
@@ -213,7 +213,7 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfSt
             const x = e as A.ArrayExpr;
 
             const index = ac.tmp();
-            emitExpr(b, ac, index, x.args[0], isIfStmt);
+            emitExpr(b, ac, index, block, x.args[0]);
 
             // get element size offset
             const t1 = ac.tmp();
@@ -236,32 +236,27 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfSt
         }
         case NodeType.ReturnExpr: {
             const x = e as A.ReturnExpr;
-            if (isIfStmt) {
-                emitExpr(b, ac, ac.from("r0"), x.expr, isIfStmt);
-                b.ret();
-            }
-            else {
-                emitExpr(b, ac, store, x.expr, isIfStmt);
-            }
+            const y = block.level === 0 ? ac.from("r0"): store;
+            emitExpr(b, ac, y, block, x.expr);
             break;
         }
         case NodeType.IfExpr: {
             const x = e as A.IfExpr;
 
             const r = ac.tmp();
-            emitExpr(b, ac, r, x.condition, isIfStmt);
+            emitExpr(b, ac, r, block, x.condition);
             b.cmp_r_i(r.reg, 1);
             r.free();
 
             const gotoElse = `else-${b.codeOffset()}`;
             b.jnz(gotoElse);
 
-            x.ifBranch.forEach(x => emitStmt(b, ac, x, isIfStmt));
+            emitBlock(b, ac, x.ifBranch);
             const gotoEnd = `end-${b.codeOffset()}`;
             b.jmp(gotoEnd);
 
             const elseOffset = b.codeOffset();
-            x.elseBranch.forEach(x => emitStmt(b, ac, x, isIfStmt));
+            emitBlock(b, ac, x.elseBranch);
             const endOffset = b.codeOffset();
 
             b.mapCodeOffset(gotoElse, elseOffset);
@@ -270,14 +265,14 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfSt
         }
         case NodeType.CastExpr: {
             const x = e as A.CastExpr;
-            emitExpr(b, ac, store, x.expr, isIfStmt);
+            emitExpr(b, ac, store, block, x.expr);
             break;
         }
         case NodeType.ReferenceExpr: {
             const x = e as A.ReferenceExpr;
             const old = store.isValue;
             store.isValue = false;
-            emitExpr(b, ac, store, x.expr, isIfStmt);
+            emitExpr(b, ac, store, block, x.expr);
             store.isValue = old;
             break;
         }
@@ -285,38 +280,37 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, e: Expr, isIfSt
     }
 }
 
-function emitStmt(b: VmCodeBuilder, ac: Allocator, s: Stmt, isIfStmt: boolean) {
+function emitStmt(b: VmCodeBuilder, ac: Allocator, block: A.BlockExpr, s: Stmt) {
     Logger.debug("##===========##");
     Errors.debug();
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
             const store = ac.alloc(x.var);
-            emitExpr(b, ac, store, x.expr, isIfStmt);
+            emitExpr(b, ac, store, block, x.expr);
             break;
         }
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
             const r = ac.tmp();
             r.isRHS = true;
-            emitExpr(b, ac, r, x.rhs, isIfStmt);
+            emitExpr(b, ac, r, block, x.rhs);
             r.isWrite = false;
             r.isRHS = false;
-            emitExpr(b, ac, r, x.lhs, isIfStmt);
+            emitExpr(b, ac, r, block, x.lhs);
             r.free();
             break;
         }
         case NodeType.ExprStmt: {
             const x = s as A.ExprStmt;
-            const isIfStmt = x.expr.nodeType === NodeType.IfExpr;
             const r = ac.from("r0");
-            emitExpr(b, ac, r, x.expr, isIfStmt);
+            emitExpr(b, ac, r, block, x.expr);
             break;
         }
         case NodeType.ForStmt: {
             const x = s as A.ForStmt;
 
-            if (x.init) emitStmt(b, ac, x.init, isIfStmt);
+            if (x.init) emitStmt(b, ac, block, x.init);
 
             const startOffset = b.codeOffset();
             const gotoStart = `start-${startOffset}`;
@@ -324,15 +318,15 @@ function emitStmt(b: VmCodeBuilder, ac: Allocator, s: Stmt, isIfStmt: boolean) {
 
             if (x.condition) {
                 const r = ac.tmp();
-                emitExpr(b, ac, r, x.condition, isIfStmt);
+                emitExpr(b, ac, r, block, x.condition);
                 b.cmp_r_i(r.reg, 1);
                 gotoEnd = `end-${b.codeOffset()}`;
                 b.jnz(gotoEnd);
                 r.free();
             }
 
-            x.body.forEach(x => emitStmt(b, ac, x, isIfStmt));
-            if (x.update) emitStmt(b, ac, x.update, isIfStmt);
+            emitBlock(b, ac, x.body);
+            if (x.update) emitStmt(b, ac, block, x.update);
             b.jmp(gotoStart);
             const endOffset = b.codeOffset();
 
@@ -345,13 +339,17 @@ function emitStmt(b: VmCodeBuilder, ac: Allocator, s: Stmt, isIfStmt: boolean) {
     }
 }
 
+function emitBlock(b: VmCodeBuilder, ac: Allocator, block: A.BlockExpr) {
+    block.xs.forEach(x => emitStmt(b, ac, block, x));
+}
+
 function emitFunction(b: VmCodeBuilder, f: P.Function) {
     b.startFunction(f.proto.id);
     const ac = Allocator.build();
     const scratch = ac.tmp();
     if (scratch.reg !== "r0") Errors.raiseDebug();
     f.proto.params.forEach(x => ac.alloc(x));
-    f.body.forEach(x => emitStmt(b, ac, x, false));
+    emitBlock(b, ac, f.body);
     b.ret();
 }
 

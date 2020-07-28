@@ -11,19 +11,13 @@ import {
     A,
 } from "./mod.ts";
 
-export interface Primitive {
-    tag?: any,
-}
+export interface Primitive {}
 
 export interface Module extends Primitive {
     path: string,
     structs: Struct[],
     foreignFunctions: ForeignFunction[],
     functions: Function[],
-}
-
-export interface Block extends Primitive {
-    type: Type;
 }
 
 export interface FunctionPrototype extends Primitive {
@@ -35,18 +29,18 @@ export interface FunctionPrototype extends Primitive {
 
 export interface Function extends Primitive {
     proto: FunctionPrototype,
-    body: A.Stmt[];
+    body: A.BlockExpr;
     loc: Location;
 }
 
 export interface ForeignFunction extends Primitive {
-    proto: FunctionPrototype,
+    proto: FunctionPrototype;
     loc: Location;
 }
 
 export interface Struct extends Primitive {
-    type: Type;
     members: Variable[];
+    type: Type;
     loc: Location;
 }
 

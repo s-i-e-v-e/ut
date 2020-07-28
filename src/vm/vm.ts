@@ -15,7 +15,7 @@ import {
 } from "./mod.internal.ts";
 
 export default class Vm {
-    public static readonly SEGMENT_SIZE = 1024*2;
+    public static readonly SEGMENT_SIZE = 1024*4;
     private ip: bigint;
     private hp: bigint; // heap pointer
     private sp: bigint; // stack pointer
@@ -47,7 +47,7 @@ export default class Vm {
 
     private check_offset(offset: bigint) {
         if (offset >= BigInt(this.memory.length)) {
-         Errors.raiseDebug(`offset err: ${offset} > ${this.memory.length}`);
+         Errors.raiseDebug(`offset err: ${offset} >= ${this.memory.length}`);
         }
     }
 

@@ -40,6 +40,12 @@ export class ByteBuffer {
         return this._offset;
     }
 
+    private check_offset(offset: bigint|number) {
+        if (offset >= BigInt(this.dv.byteLength)) {
+            Errors.raiseDebug(`offset err: ${offset} >=${this.dv.byteLength}`);
+        }
+    }
+
     write_str(x: string) {
         const xs = this.enc.encode(x);
         this.write_u64(xs.length);
@@ -52,6 +58,7 @@ export class ByteBuffer {
 
     write_u8(x: number) {
         if (x > 255) Errors.raiseDebug();
+        this.check_offset(this._offset);
         this.dv.setUint8(this._offset, x);
         this._offset += 1;
         return 1;
@@ -64,12 +71,14 @@ export class ByteBuffer {
     }
 
     write_u64_at(x: number, offset: number) {
+        this.check_offset(offset);
         this.dv.setBigUint64(offset, BigInt(x));
         return 8;
     }
 
     write(xs: Uint8Array) {
         for (let i = 0; i < xs.length; i += 1) {
+            this.check_offset(this._offset);
             this.dv.setUint8(this._offset, xs[i]);
             this._offset += 1;
         }

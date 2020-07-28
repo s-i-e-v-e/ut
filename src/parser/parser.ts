@@ -265,16 +265,16 @@ function parseReferenceExpr(ts: TokenStream): A.ReferenceExpr {
     ts.nextMustBe("&");
     return {
         nodeType: NodeType.ReferenceExpr,
-        expr: parseLExpr(ts, false),
+        expr: parseLExpr(ts),
         loc: loc,
         type: KnownTypes.NotInferred,
     };
 }
 
-function parseDereferenceExpr(ts: TokenStream, isRight: boolean): A.DereferenceExpr {
+function parseDereferenceExpr(ts: TokenStream): A.DereferenceExpr {
     const loc = ts.loc();
     ts.nextMustBe("*");
-    const e = ts.nextIs("*") ? parseDereferenceExpr(ts, isRight) :  parseIDExpr(ts);
+    const e = ts.nextIs("*") ? parseDereferenceExpr(ts) :  parseIDExpr(ts);
     return {
         nodeType: NodeType.DereferenceExpr,
         expr: e,
@@ -283,15 +283,16 @@ function parseDereferenceExpr(ts: TokenStream, isRight: boolean): A.DereferenceE
     };
 }
 
-function parseLExpr(ts: TokenStream, isRight: boolean): Expr {
+function parseLExpr(ts: TokenStream): Expr {
     let e;
     if (ts.nextIs("*")) {
-        e = parseDereferenceExpr(ts, isRight);
+        e = parseDereferenceExpr(ts);
     }
     else {
         const ide = parseIDExpr(ts);
         if (ts.nextIs("(")) {
             e = parseFunctionApplication(ts, ide);
+            e.nodeType = NodeType.ArrayExpr;
         }
         else {
             e = ide;
@@ -315,7 +316,7 @@ function _parseRExpr(ts: TokenStream, e1?: Expr, op?: string): Expr {
         e = parseReferenceExpr(ts);
     }
     else {
-        e = parseLExpr(ts, true);
+        e = parseLExpr(ts);
     }
 
     if (e1) {
@@ -446,59 +447,68 @@ function parseForStmt(ts: TokenStream): A.ForStmt {
     };
 }
 
+function parseReturnExpr(ts: TokenStream, loc: Location): A.ReturnExpr {
+    return {
+        nodeType: NodeType.ReturnExpr,
+        expr: parseRExpr(ts),
+        type: KnownTypes.NotInferred,
+        loc: loc,
+    };
+}
+
+function parseAssnOrExprStmt(ts: TokenStream) {
+    const loc = ts.loc();
+    if (ts.consumeIfNextIs("return")) {
+        return A.buildExprStmt(parseReturnExpr(ts, loc));
+    }
+    else if (ts.nextIs("if")) {
+        return A.buildExprStmt(parseIfExpr(ts, true));
+    }
+    else if (ts.nextIs("*")) {
+        return parseVarAssignment(ts, parseDereferenceExpr(ts));
+    }
+    else {
+        const ide = parseIDExpr(ts);
+        if (ts.nextIs("(")) {
+            const fa = parseFunctionApplication(ts, ide);
+            if (ts.nextIs(";")) {
+                return A.buildExprStmt(fa);
+            }
+            else {
+                const ae: A.ArrayExpr = {
+                    nodeType: NodeType.ArrayExpr,
+                    id: fa.id,
+                    args: fa.args,
+                    type: KnownTypes.NotInferred,
+                    loc: loc,
+                };
+
+                return parseVarAssignment(ts, ae);
+            }
+        }
+        else {
+            return parseVarAssignment(ts, ide);
+        }
+    }
+}
+
 function parseBody(ts: TokenStream) {
     const xs = new Array<any>();
 
     while (!ts.nextIs("}")) {
-        const loc = ts.loc();
         if (ts.nextIs("let")) {
             xs.push(parseVarInit(ts, false));
         }
         else if (ts.nextIs("var")) {
             xs.push(parseVarInit(ts, true));
         }
-        else if (ts.consumeIfNextIs("return")) {
-            const ret: A.ReturnExpr = {
-                nodeType: NodeType.ReturnExpr,
-                expr: parseRExpr(ts),
-                type: KnownTypes.NotInferred,
-                loc: loc,
-            };
-            xs.push(A.buildExprStmt(ret));
-        }
-        else if (ts.nextIs("if")) {
-            xs.push(A.buildExprStmt(parseIfExpr(ts, true)));
-        }
         else if (ts.nextIs("for")) {
             xs.push(parseForStmt(ts));
         }
-        else if (ts.nextIs("*")) {
-            const e = parseDereferenceExpr(ts, false);
-            xs.push(parseVarAssignment(ts, e));
-        }
         else {
-            const ide = parseIDExpr(ts);
-            if (ts.nextIs("(")) {
-                const fa = parseFunctionApplication(ts, ide);
-                if (ts.nextIs(";")) {
-                    xs.push(A.buildExprStmt(fa));
-                }
-                else {
-                    const ae: A.ArrayExpr = {
-                        nodeType: NodeType.ArrayExpr,
-                        id: fa.id,
-                        args: fa.args,
-                        type: KnownTypes.NotInferred,
-                        loc: loc,
-                    };
-
-                    xs.push(parseVarAssignment(ts, ae));
-                }
-            }
-            else {
-                xs.push(parseVarAssignment(ts, ide));
-            }
+            xs.push(parseAssnOrExprStmt(ts));
         }
+
         ts.nextMustBe(";");
     }
     return xs;

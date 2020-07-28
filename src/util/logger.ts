@@ -11,6 +11,7 @@ export enum LogLevel {
     NONE,
     INFO,
     DEBUG,
+    DEBUG2,
 }
 
 export class Logger {
@@ -31,6 +32,11 @@ export class Logger {
 
     static debug(msg: string) {
         if (this.level < LogLevel.DEBUG) return;
+        console.log(msg);
+    }
+
+    static debug2(msg: string) {
+        if (this.level < LogLevel.DEBUG2) return;
         console.log(msg);
     }
 

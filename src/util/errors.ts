@@ -7,21 +7,31 @@
  */
 import {
     Location,
-    toTypeString,
-    Type,
-    Variable,
+    P,
 } from "../parser/mod.ts";
 import {
     CharacterStream,
     Token,
 } from "../parser/mod.internal.ts";
+const toTypeString = P.toTypeString;
+type Type = P.Type;
+type Variable = P.Variable;
+
+export function buildLocation(loc: Location) {
+    const path = loc.path.replaceAll(/\\/g, "/");
+    return `at file:///${path}:${loc.line}:${loc.character}`;
+}
 
 function buildErrorString(msg: string, loc: Location) {
-    const path = loc.path.replaceAll(/\\/g, "/");
-    return `${msg}\tat file:///${path}:${loc.line}:${loc.character}`;
+    const x = buildLocation(loc);
+    return `${msg}\t${x}`;
 }
 
 export default class Errors {
+    static buildLocation(loc: Location) {
+        return buildLocation(loc);
+    }
+
     static Debug = class extends Error {
         constructor(msg: string) {
             super(msg);
@@ -184,6 +194,10 @@ export default class Errors {
         throw new this.TypeMismatch(buildErrorString(`Math ops only defined on Integer, not ${toTypeString(t)}.`, loc));
     }
 
+    static raiseArrayIndexError(t: Type, loc: Location): never {
+        throw new this.TypeMismatch(buildErrorString(`Array index(es) must be Integer(s), not ${toTypeString(t)}.`, loc));
+    }
+
     static raiseLogicalOperationError(t: Type, loc: Location): never {
         throw new this.TypeMismatch(buildErrorString(`Logic ops only defined on Bool, not ${toTypeString(t)}.`, loc));
     }
@@ -210,5 +224,14 @@ export default class Errors {
 
     static raiseIfExprMustReturn(loc: Location) {
         throw new this.IfExprMustReturn(buildErrorString(`IF/ELSE expression must return a value.`, loc));
+    }
+
+    static debug() {
+        try {
+            throw new Error();
+        }
+        catch (e) {
+            // swallow
+        }
     }
 }

@@ -12,20 +12,9 @@ import {
     lex,
 } from "./mod.internal.ts";
 import {
-    ArrayConstructor,
-    ArrayExpr,
-    BinaryExpr,
-    ForeignFunction,
-    Function,
-    IDExpr,
-    KnownTypes,
     Location,
-    NodeType,
-    Parameter,
-    Stmt,
-    Struct,
-    Type,
-    Expr,
+    P,
+    A,
 } from "./mod.ts";
 import {
     Errors,
@@ -34,11 +23,17 @@ import {
     SourceFile,
 } from "../util/mod.ts";
 
+const NodeType = A.NodeType;
+const KnownTypes = P.KnownTypes;
+type Expr = A.Expr;
+type Stmt = A.Stmt;
+type Type = P.Type;
+
 function parseID(ts: TokenStream) {
     return ts.nextMustBe(TokenType.TK_ID).lexeme;
 }
 
-function parseIDExpr(ts: TokenStream): IDExpr {
+function parseIDExpr(ts: TokenStream): A.IDExpr {
     const loc = ts.loc();
     const id = parseID(ts);
 
@@ -164,18 +159,18 @@ function parseLiteral(ts: TokenStream) {
     }
 }
 
-function parseExprList(ts: TokenStream) {
+function parseExprList(ts: TokenStream, level: number) {
     const xs = new Array<any>();
     while (!ts.nextIs(")")) {
-        xs.push(parseExpr(ts));
+        xs.push(parseRExpr(ts, level));
         if (!ts.consumeIfNextIs(",")) break;
     }
     return xs;
 }
 
-function parseTypeConstructor(ts: TokenStream): ArrayConstructor {
+function parseTypeConstructor(ts: TokenStream, level: number): A.ArrayConstructor {
     const loc = ts.loc();
-    const ty: Type = parseType(ts);
+    const ty = parseType(ts);
     if (ty.id === "Array") {
         // is array constructor
         const t = ts.peek();
@@ -183,14 +178,14 @@ function parseTypeConstructor(ts: TokenStream): ArrayConstructor {
         let sizeExpr = undefined;
         let args = undefined;
         if (ts.consumeIfNextIs("#")) {
-            sizeExpr = parseExpr(ts);
+            sizeExpr = parseRExpr(ts, level);
         }
         else {
-            args = parseExprList(ts);
+            args = parseExprList(ts, level);
             if (!args.length) Errors.raiseArrayInitArgs(t);
         }
         ts.nextMustBe(")");
-        return <ArrayConstructor>{
+        return <A.ArrayConstructor>{
             nodeType: NodeType.ArrayConstructor,
             loc: loc,
             type: ty,
@@ -203,12 +198,12 @@ function parseTypeConstructor(ts: TokenStream): ArrayConstructor {
     }
 }
 
-function parseIfExpr(ts: TokenStream, isStmt: boolean) {
-    const mustReturn = (xs: Stmt[], loc: Location) => {
+function parseIfExpr(ts: TokenStream, level: number, isStmt: boolean): A.IfExpr {
+    const mustReturn = (be: A.BlockExpr, loc: Location) => {
         // last statement must be a return
-        const last = xs.length ? xs[xs.length - 1] : undefined;
-        if (last && last.nodeType === NodeType.ReturnStmt) {
-            last.nodeType = NodeType.ReturnExpr;
+        const last = be.xs.length ? be.xs[be.xs.length - 1] : undefined;
+        if (last && last.nodeType === NodeType.ExprStmt && (last as A.ExprStmt).nodeType === NodeType.ReturnExpr) {
+            // ignore
         }
         else {
             Errors.raiseIfExprMustReturn(loc);
@@ -218,16 +213,16 @@ function parseIfExpr(ts: TokenStream, isStmt: boolean) {
     const loc = ts.loc();
     ts.nextMustBe("if");
     ts.nextMustBe("(");
-    const cond = parseExpr(ts);
+    const cond = parseRExpr(ts, level);
     ts.nextMustBe(")");
     ts.nextMustBe("{");
     const l1 = ts.loc();
-    const ifBranch = parseBody(ts);
+    const ifBranch = parseBlockExpr(ts, level);
     ts.nextMustBe("}");
     ts.nextMustBe("else");
     ts.nextMustBe("{");
     const l2 = ts.loc();
-    const elseBranch = parseBody(ts);
+    const elseBranch = parseBlockExpr(ts, level);
     ts.nextMustBe("}");
 
     if (!isStmt) mustReturn(ifBranch, l1);
@@ -238,68 +233,107 @@ function parseIfExpr(ts: TokenStream, isStmt: boolean) {
         ifBranch: ifBranch,
         elseBranch: elseBranch,
         loc: loc,
-        returnType: KnownTypes.NotInferred,
+        type: KnownTypes.NotInferred,
     };
 }
 
-function parseFunctionApplication(ts: TokenStream, ide: IDExpr) {
+function parseFunctionApplication(ts: TokenStream, level: number, ide: A.IDExpr): A.FunctionApplication {
     ts.nextMustBe("(");
-    const xs = parseExprList(ts);
+    const xs = parseExprList(ts, level);
     ts.nextMustBe(")");
     return {
         nodeType: NodeType.FunctionApplication,
         id: ide.id,
         args: xs,
         loc: ide.loc,
+        type: KnownTypes.NotInferred,
     };
 }
 
-function parseBinaryExpr(ts: TokenStream, precedence: number, e1: IDExpr, op: string): BinaryExpr {
-    return <BinaryExpr>parseExpr(ts, precedence, e1, op);
-}
-
-function buildBinaryExpr(left: any, op: string, right: any) {
+function parseCastExpr(ts: TokenStream, e: Expr): A.CastExpr {
+    ts.nextMustBe("as");
     return {
-        nodeType: NodeType.BinaryExpr,
-        left: left,
-        op: op,
-        right: right,
-        loc: left.loc,
+        nodeType: NodeType.CastExpr,
+        expr: e,
+        loc: e.loc,
+        type: parseType(ts),
     };
 }
 
-function _parseExpr(ts: TokenStream, e1?: Expr, op?: string): any {
+function parseReferenceExpr(ts: TokenStream, level: number): A.ReferenceExpr {
+    const loc = ts.loc();
+    ts.nextMustBe("&");
+    return {
+        nodeType: NodeType.ReferenceExpr,
+        expr: parseLExpr(ts, level),
+        loc: loc,
+        type: KnownTypes.NotInferred,
+    };
+}
+
+function parseDereferenceExpr(ts: TokenStream): A.DereferenceExpr {
+    const loc = ts.loc();
+    ts.nextMustBe("*");
+    const e = ts.nextIs("*") ? parseDereferenceExpr(ts) :  parseIDExpr(ts);
+    return {
+        nodeType: NodeType.DereferenceExpr,
+        expr: e,
+        loc: loc,
+        type: KnownTypes.NotInferred,
+    };
+}
+
+function parseLExpr(ts: TokenStream, level: number): Expr {
     let e;
-    if (ts.nextIsLiteral()) {
-        e = parseLiteral(ts);
-    }
-    else if (ts.nextIsType()) {
-        e = parseTypeConstructor(ts);
-    }
-    else if (ts.nextIs("if")) {
-        e = parseIfExpr(ts, false);
+    if (ts.nextIs("*")) {
+        e = parseDereferenceExpr(ts);
     }
     else {
         const ide = parseIDExpr(ts);
         if (ts.nextIs("(")) {
-            e = parseFunctionApplication(ts, ide);
+            e = parseFunctionApplication(ts, level, ide);
         }
         else {
             e = ide;
         }
     }
+    return e;
+}
+
+function _parseRExpr(ts: TokenStream, level: number, e1?: Expr, op?: string): Expr {
+    let e;
+    if (ts.nextIsLiteral()) {
+        e = parseLiteral(ts);
+    }
+    else if (ts.nextIsType()) {
+        e = parseTypeConstructor(ts, level);
+    }
+    else if (ts.nextIs("if")) {
+        e = parseIfExpr(ts, level, false);
+    }
+    else if (ts.nextIs("&")) {
+        e = parseReferenceExpr(ts, level);
+    }
+    else {
+        e = parseLExpr(ts, level);
+    }
+
     if (e1) {
-        e = buildBinaryExpr(e1, op!, e);
+        e = A.buildBinaryExpr(e1, op!, e);
     }
     else {
         // ignore
     }
+
+    if (ts.nextIs("as")) {
+        e = parseCastExpr(ts, e);
+    }
     return e;
 }
 
-function parseExpr(ts: TokenStream, precedence?: number, e1?: Expr, op?: string): any {
+function parseRExpr(ts: TokenStream, level: number, precedence?: number, e1?: Expr, op?: string): Expr {
     precedence = precedence || 0;
-    const e = e1 && !op ? e1 : _parseExpr(ts, e1, op);
+    const e = e1 && !op ? e1 : _parseRExpr(ts, level, e1, op);
 
     interface Precedence {
         precedence: number;
@@ -343,36 +377,19 @@ function parseExpr(ts: TokenStream, precedence?: number, e1?: Expr, op?: string)
     }
 
     if (precedence <= opx.precedence) {
-        return parseBinaryExpr(ts, opx.precedence, e, opx.op);
+        return parseRExpr(ts, level, opx.precedence, e, opx.op);
     }
     else {
-        return buildBinaryExpr(e, opx.op, parseExpr(ts, precedence));
+        return A.buildBinaryExpr(e, opx.op, parseRExpr(ts, precedence));
     }
 }
 
-function parseVarDef(ts: TokenStream, isMutable: boolean, force: boolean) {
+function parseVarInit(ts: TokenStream, level: number, isMutable: boolean): A.VarInitStmt  {
     const loc = ts.loc();
-    const id = parseID(ts);
-    const type = parseVarType(ts, force);
-    return {
-        id: id,
-        type: type,
-        isMutable: isMutable,
-        loc: loc,
-    }
-}
-
-function parseVarInit(ts: TokenStream, isMutable: boolean) {
-    if (isMutable) {
-        ts.nextMustBe("var");
-    }
-    else {
-        ts.nextMustBe("let");
-    }
-    const loc = ts.loc();
+    ts.nextMustBe(isMutable ? "var" : "let");
     const v = parseVarDef(ts, isMutable, false);
     ts.nextMustBe("=");
-    const expr = parseExpr(ts);
+    const expr = parseRExpr(ts, level);
     return {
         nodeType: NodeType.VarInitStmt,
         var: v,
@@ -381,41 +398,13 @@ function parseVarInit(ts: TokenStream, isMutable: boolean) {
     }
 }
 
-function parseForStmt(ts: TokenStream) {
-    const loc = ts.loc();
-    ts.nextMustBe("for");
-    ts.nextMustBe("(");
-    const init = ts.consumeIfNextIs(";") ? undefined : parseVarInit(ts, true);
-    if (init) ts.nextMustBe(";");
-    const condition = ts.consumeIfNextIs(";") ? undefined : parseExpr(ts);
-    if (condition) ts.nextMustBe(";");
-    const update = ts.nextIs(")") ? undefined : parseVarAssignment(ts, parseIDExpr(ts));
-    ts.nextMustBe(")");
-    ts.nextMustBe("{");
-    const body = parseBody(ts);
-    ts.nextMustBe("}");
-
-    return {
-        nodeType: NodeType.ForStmt,
-        init: init,
-        condition: condition,
-        update: update,
-        body: body,
-        loc: loc,
-    }
-}
-
-function parseVarAssignment(ts: TokenStream, lhs: Expr) {
+function parseVarAssignment(ts: TokenStream, level: number, le: Expr): A.VarAssnStmt {
     if (ts.consumeIfNextIs("=")) {
-        return {
-            nodeType: NodeType.VarAssnStmt,
-            lhs: lhs,
-            rhs: parseExpr(ts),
-            loc: lhs.loc,
-        };
+        return A.buildVarAssnStmt(le, parseRExpr(ts, level));
     }
     else {
-        const e = parseExpr(ts, 0, lhs) as BinaryExpr;
+        const e = parseRExpr(ts, level, 0, le) as A.BinaryExpr;
+        if (!e.op) Errors.raiseDebug();
 
         // rewrite
         switch (e.op) {
@@ -429,72 +418,123 @@ function parseVarAssignment(ts: TokenStream, lhs: Expr) {
             default: Errors.raiseDebug();
         }
 
-        return {
-            nodeType: NodeType.VarAssnStmt,
-            lhs: lhs,
-            rhs: e,
-            loc: lhs.loc,
-        };
+        return A.buildVarAssnStmt(le, e);
     }
 }
 
-function parseBody(ts: TokenStream) {
-    const xs = new Array<any>();
+function parseForStmt(ts: TokenStream, level: number): A.ForStmt {
+    const loc = ts.loc();
+    ts.nextMustBe("for");
+    ts.nextMustBe("(");
+    const init = ts.consumeIfNextIs(";") ? undefined : parseVarInit(ts, level, true);
+    if (init) ts.nextMustBe(";");
+    const condition = ts.consumeIfNextIs(";") ? undefined : parseRExpr(ts, level);
+    if (condition) ts.nextMustBe(";");
+    const update = ts.nextIs(")") ? undefined : parseVarAssignment(ts, level, parseIDExpr(ts));
+    ts.nextMustBe(")");
+    ts.nextMustBe("{");
+    const body = parseBlockExpr(ts, level);
+    ts.nextMustBe("}");
 
-    while (!ts.nextIs("}")) {
-        const loc = ts.loc();
-        if (ts.nextIs("let")) {
-            xs.push(parseVarInit(ts, false));
-        }
-        else if (ts.nextIs("var")) {
-            xs.push(parseVarInit(ts, true));
-        }
-        else if (ts.consumeIfNextIs("return")) {
-            xs.push({
-                nodeType: NodeType.ReturnStmt,
-                expr: parseExpr(ts),
-                loc: loc,
-            });
-        }
-        else if (ts.nextIs("if")) {
-            xs.push({
-                nodeType: NodeType.IfStmt,
-                ie: parseIfExpr(ts, true),
-                loc: loc,
-            });
-        }
-        else if (ts.nextIs("for")) {
-            xs.push(parseForStmt(ts));
-        }
-        else {
-            const ide = parseIDExpr(ts);
-            if (ts.nextIs("(")) {
-                const fa = parseFunctionApplication(ts, ide);
-                if (ts.nextIs(";")) {
-                    xs.push({
-                        nodeType: NodeType.FunctionApplicationStmt,
-                        fa: fa,
-                        loc: ide.loc,
-                    });
-                }
-                else {
-                    const ae = fa as ArrayExpr;
-                    ae.nodeType = NodeType.ArrayExpr;
-                    ae.isLeft = true;
-                    xs.push(parseVarAssignment(ts, ae));
-                }
+    return {
+        nodeType: NodeType.ForStmt,
+        init: init,
+        condition: condition,
+        update: update,
+        body: body,
+        loc: loc,
+    };
+}
+
+function parseReturnExpr(ts: TokenStream, level: number, loc: Location): A.ReturnExpr {
+    return {
+        nodeType: NodeType.ReturnExpr,
+        expr: parseRExpr(ts, level),
+        type: KnownTypes.NotInferred,
+        loc: loc,
+    };
+}
+
+function parseAssnOrExprStmt(ts: TokenStream, level: number) {
+    const loc = ts.loc();
+    if (ts.consumeIfNextIs("return")) {
+        return A.buildExprStmt(parseReturnExpr(ts, level, loc));
+    }
+    else if (ts.nextIs("if")) {
+        return A.buildExprStmt(parseIfExpr(ts, level, true));
+    }
+    else if (ts.nextIs("*")) {
+        return parseVarAssignment(ts, level, parseDereferenceExpr(ts));
+    }
+    else {
+        const ide = parseIDExpr(ts);
+        if (ts.nextIs("(")) {
+            const fa = parseFunctionApplication(ts, level, ide);
+            if (ts.nextIs(";")) {
+                return A.buildExprStmt(fa);
             }
             else {
-                xs.push(parseVarAssignment(ts, ide));
+                const ae: A.ArrayExpr = {
+                    nodeType: NodeType.ArrayExpr,
+                    id: fa.id,
+                    args: fa.args,
+                    type: KnownTypes.NotInferred,
+                    loc: loc,
+                };
+
+                return parseVarAssignment(ts, level, ae);
             }
         }
+        else {
+            return parseVarAssignment(ts, level, ide);
+        }
+    }
+}
+
+function parseBlockExpr(ts: TokenStream, level: number): A.BlockExpr {
+    level += 1;
+    const xs = new Array<any>();
+    const loc = ts.loc();
+
+    while (!ts.nextIs("}")) {
+        if (ts.nextIs("let")) {
+            xs.push(parseVarInit(ts, level, false));
+        }
+        else if (ts.nextIs("var")) {
+            xs.push(parseVarInit(ts, level, true));
+        }
+        else if (ts.nextIs("for")) {
+            xs.push(parseForStmt(ts, level));
+        }
+        else {
+            xs.push(parseAssnOrExprStmt(ts, level));
+        }
+
         ts.nextMustBe(";");
     }
-    return xs;
+    return {
+        nodeType: NodeType.BlockExpr,
+        xs: xs,
+        level: level,
+        type: KnownTypes.NotInferred,
+        loc: loc,
+    };
+}
+
+function parseVarDef(ts: TokenStream, isMutable: boolean, force: boolean): P.Variable {
+    const loc = ts.loc();
+    const id = parseID(ts);
+    const type = parseVarType(ts, force);
+    return {
+        id: id,
+        type: type,
+        isMutable: isMutable,
+        loc: loc,
+    }
 }
 
 function parseVariableList(ts: TokenStream, isMutable: boolean) {
-    const xs = new Array<Parameter>();
+    const xs = new Array<P.Parameter>();
     while (ts.peek().lexeme !== ")") {
         xs.push(parseVarDef(ts, isMutable, true));
         if (ts.peek().lexeme === ")") continue;
@@ -533,21 +573,21 @@ function parseFunctionPrototype(ts: TokenStream) {
     ts.nextMustBe("(");
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");
-    let returnType = parseVarType(ts, false);
+    let type = parseVarType(ts, false);
 
     return {
         id: id,
         params: xs,
-        returnType: returnType,
+        type: type,
         loc: loc,
     };
 }
 
-function parseFunction(ts: TokenStream): Function {
+function parseFunction(ts: TokenStream): P.Function {
     const loc = ts.loc();
     const fp = parseFunctionPrototype(ts);
     ts.nextMustBe("{");
-    const body = parseBody(ts);
+    const body = parseBlockExpr(ts, -1);
     ts.nextMustBe("}");
 
     return {
@@ -557,7 +597,7 @@ function parseFunction(ts: TokenStream): Function {
     };
 }
 
-function parseForeignFunction(ts: TokenStream): ForeignFunction {
+function parseForeignFunction(ts: TokenStream): P.ForeignFunction {
     const loc = ts.loc();
     ts.nextMustBe("foreign");
     const fp = parseFunctionPrototype(ts);
@@ -568,7 +608,7 @@ function parseForeignFunction(ts: TokenStream): ForeignFunction {
     };
 }
 
-function parseStruct(ts: TokenStream): Struct {
+function parseStruct(ts: TokenStream): P.Struct {
     const loc = ts.loc();
     ts.nextMustBe("struct");
     const ty = parseType(ts);
@@ -583,9 +623,9 @@ function parseStruct(ts: TokenStream): Struct {
 }
 
 export function parseModule(ts: TokenStream, path: string) {
-    const xs = new Array<Struct>();
-    const ys = new Array<ForeignFunction>();
-    const zs = new Array<Function>();
+    const xs = new Array<P.Struct>();
+    const ys = new Array<P.ForeignFunction>();
+    const zs = new Array<P.Function>();
     while (!ts.eof()) {
         if (ts.nextIs("struct")) {
             xs.push(parseStruct(ts));

@@ -10,17 +10,14 @@ import {
     Errors,
 } from "../util/mod.ts";
 import {
-    FunctionPrototype,
-    Struct,
-    Type,
-    Variable,
+    P,
 } from "../parser/mod.ts";
 
 interface Namespaces {
-    functions: Dictionary<FunctionPrototype>;
-    structs: Dictionary<Struct>;
-    types: Dictionary<Type>;
-    vars: Dictionary<Variable>;
+    functions: Dictionary<P.FunctionPrototype>;
+    structs: Dictionary<P.Struct>;
+    types: Dictionary<P.Type>;
+    vars: Dictionary<P.Variable>;
 }
 
 type Resolve<T> = (ns: Namespaces, id: string) => T;
@@ -61,7 +58,7 @@ export default class SymbolTable {
         return false;
     }
 
-    typeExists(t: Type) {
+    typeExists(t: P.Type) {
         return this.exists(t.id, (ns, id) => ns.types[id]);
     }
 
@@ -69,19 +66,19 @@ export default class SymbolTable {
         return this.exists(id, (ns, id) => ns.vars[id]);
     }
 
-    addFunction(fp: FunctionPrototype) {
+    addFunction(fp: P.FunctionPrototype) {
         this.add(fp.id, this.ns.functions, fp);
     }
 
-    addStruct(s: Struct) {
+    addStruct(s: P.Struct) {
         this.add(s.type.id, this.ns.structs, s);
     }
 
-    addType(t: Type) {
+    addType(t: P.Type) {
         this.add(t.id, this.ns.types, t);
     }
 
-    addVar(v: Variable) {
+    addVar(v: P.Variable) {
         this.add(v.id, this.ns.vars, v);
     }
 

@@ -412,6 +412,22 @@ function parseVarInit(ts: TokenStream, block: A.BlockExpr, isMutable: boolean): 
     }
 }
 
+function rewriteBinaryExpr(e: A.BinaryExpr) {
+    // rewrite
+    switch (e.op) {
+        case "+=": e.op = "+"; break;
+        case "-=": e.op = "-"; break;
+        case "*=": e.op = "*"; break;
+        case "/=": e.op = "/"; break;
+        case "%=": e.op = "%"; break;
+        case "&=": e.op = "&"; break;
+        case "|=": e.op = "|"; break;
+        default: Errors.raiseDebug();
+    }
+
+    return A.buildVarAssnStmt(e.left, e);
+}
+
 function parseVarAssignment(ts: TokenStream, block: A.BlockExpr, le: Expr): A.VarAssnStmt {
     if (ts.consumeIfNextIs("=")) {
         return A.buildVarAssnStmt(le, parseRExpr(ts, block));
@@ -419,20 +435,8 @@ function parseVarAssignment(ts: TokenStream, block: A.BlockExpr, le: Expr): A.Va
     else {
         const e = parseRExpr(ts, block, 0, le) as A.BinaryExpr;
         if (!e.op) Errors.raiseDebug();
-
-        // rewrite
-        switch (e.op) {
-            case "+=": e.op = "+"; break;
-            case "-=": e.op = "-"; break;
-            case "*=": e.op = "*"; break;
-            case "/=": e.op = "/"; break;
-            case "%=": e.op = "%"; break;
-            case "&=": e.op = "&"; break;
-            case "|=": e.op = "|"; break;
-            default: Errors.raiseDebug();
-        }
-
-        return A.buildVarAssnStmt(le, e);
+        if (le !== e.left) Errors.raiseDebug();
+        return rewriteBinaryExpr(e);
     }
 }
 
@@ -480,7 +484,15 @@ function parseAssnOrExprStmt(ts: TokenStream, block: A.BlockExpr) {
     }
     else {
         const e = parseRExpr(ts, block);
-        if (ts.nextIs(";")) return A.buildExprStmt(e);
+        if (ts.nextIs(";")) {
+            const c = e as A.BinaryExpr;
+            if (c.op) {
+                return rewriteBinaryExpr(c);
+            }
+            else {
+                return A.buildExprStmt(e);
+            }
+        }
 
         if (e.nodeType !== NodeType.IDExpr) Errors.raiseDebug();
         const ide = e as A.IDExpr;

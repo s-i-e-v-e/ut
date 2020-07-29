@@ -79,7 +79,7 @@ export interface BlockExpr extends Expr {
 }
 
 export interface ArrayExpr extends Expr {
-    id: string;
+    expr: IDExpr;
     args: Expr[];
 }
 
@@ -113,7 +113,7 @@ export interface ReferenceExpr extends Expr {
  *
  */
 export interface FunctionApplication extends Expr {
-    id: string;
+    expr: IDExpr;
     mangledName?: string;
     args: Expr[];
 }

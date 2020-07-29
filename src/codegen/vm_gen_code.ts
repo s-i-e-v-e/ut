@@ -220,7 +220,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
 
             // get element size offset
             const t1 = ac.tmp();
-            t1.write_reg(ac.get(x.id));
+            t1.write_reg(ac.get(x.expr.id));
             ac.b.add_r_i(t1.reg, 8);
 
             const t2 = ac.tmp();

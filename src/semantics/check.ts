@@ -104,7 +104,7 @@ function resolveVar(st: SymbolTable, e: Expr): P.Variable {
         }
         case NodeType.ArrayExpr: {
             const x = e as A.ArrayExpr;
-            return getVar(st, x.id, x.loc);
+            return getVar(st, x.expr.id, x.loc);
         }
         case NodeType.DereferenceExpr: {
             const x = resolveDereferenceExpr(e as A.DereferenceExpr);
@@ -203,14 +203,30 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.FunctionApplication: {
             const x = e as A.FunctionApplication;
-            if (st.varExists(x.id)) {
+            if (st.varExists(x.expr.id) && !x.expr.rest) {
                 const y = x as A.ArrayExpr;
                 y.nodeType = NodeType.ArrayExpr;
                 ty = getExprType(st, block, y);
             }
             else {
+                // deconstruct UFCS call
+                if (x.expr.rest) {
+                    const a = {
+                        nodeType: NodeType.IDExpr,
+                        type: KnownTypes.NotInferred,
+                        loc: x.expr.loc,
+                        id: x.expr.id,
+                    };
+                    x.expr.id = x.expr.rest;
+                    x.expr.rest = undefined;
+                    const xs = [];
+                    xs.push(a)
+                    xs.push(...x.args);
+                    x.args = xs;
+                }
+
                 const argTypes = x.args.map(x => getExprType(st, block, x));
-                const f = getFunction(st, argTypes, x.id, x.loc);
+                const f = getFunction(st, argTypes, x.expr.id, x.loc);
                 x.mangledName = f.mangledName;
                 ty = f.type;
             }
@@ -218,7 +234,8 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.ArrayExpr: {
             const x = e as A.ArrayExpr;
-            const at = getVar(st, x.id, x.loc).type as GenericType;
+            const t = getExprType(st, block, x.expr);
+            const at = getVar(st, x.expr.id, x.loc).type as GenericType;
 
             x.args.forEach(a => {
                 const ty = getExprType(st, block, a);

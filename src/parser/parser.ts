@@ -258,7 +258,7 @@ function parseFunctionApplication(ts: TokenStream, block: A.BlockExpr, ide: A.ID
     ts.nextMustBe(")");
     return {
         nodeType: NodeType.FunctionApplication,
-        id: ide.id,
+        expr: ide,
         args: xs,
         loc: ide.loc,
         type: KnownTypes.NotInferred,
@@ -512,7 +512,7 @@ function parseAssnOrExprStmt(ts: TokenStream, block: A.BlockExpr) {
             else {
                 const ae: A.ArrayExpr = {
                     nodeType: NodeType.ArrayExpr,
-                    id: fa.id,
+                    expr: fa.expr,
                     args: fa.args,
                     type: KnownTypes.NotInferred,
                     loc: loc,

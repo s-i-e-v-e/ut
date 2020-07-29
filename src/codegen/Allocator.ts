@@ -114,7 +114,7 @@ export class Allocator {
         path: "<mem>",
     };
 
-    private constructor(public readonly b: VmCodeBuilder, private readonly regs: Dictionary<boolean>, private readonly parent?: Allocator) {
+    private constructor(public readonly b: VmCodeBuilder, private readonly regs: Dictionary<boolean>, public readonly parent?: Allocator) {
         this.map = {};
     }
 

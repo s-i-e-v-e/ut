@@ -302,7 +302,7 @@ function emitStmt(ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
             const r = ac.alloc(x.var);
-            emitExpr(ac, r, block, x.expr);
+            emitExpr(ac.parent!, r, block.parent!, x.expr);
             break;
         }
         case NodeType.VarAssnStmt: {

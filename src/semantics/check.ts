@@ -345,7 +345,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
             const x = s as A.VarInitStmt;
 
             // infer
-            const ty = getExprType(st, block, x.expr);
+            const ty = getExprType(st.parent!, block.parent!, x.expr);
             if (typeNotInferred(x.var.type)) {
                 x.var.type = ty;
             }

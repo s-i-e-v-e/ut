@@ -33,7 +33,7 @@ export default class SymbolTable {
         ret: undefined,
     };
 
-    private constructor(private readonly parent?: SymbolTable) {
+    private constructor(public readonly parent?: SymbolTable) {
         this.ns = {
             functions: {},
             structs: {},

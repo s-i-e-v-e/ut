@@ -14,10 +14,17 @@ import {
 export interface Primitive {}
 
 export interface Module extends Primitive {
+    id: string;
     path: string,
     structs: Struct[],
     foreignFunctions: ForeignFunction[],
     functions: Function[],
+    imports: Import[],
+}
+
+export interface Import extends Primitive {
+    id: string;
+    loc: Location;
 }
 
 export interface FunctionPrototype extends Primitive {

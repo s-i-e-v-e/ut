@@ -154,12 +154,13 @@ function matchFunction(id: string, argTypes: P.Type[], loc: Location, fp: Functi
     }
 
     for (const f of xs) {
-        Errors.debug();
         const map: Dictionary<P.Type> = {};
-        const ys = matchTypes(map, argTypes, f.params.map(x => x.type));
+        const tp: Dictionary<P.Type> = {};
+        f.typeParameters.forEach(x => tp[x.id] = x);
+        const ys = mapTypes(map, argTypes, f.params.map(x => x.type), tp);
         if (ys.length) {
             for (const x of f.typeParameters) {
-                if (!map[x.id]) return undefined;
+                if (!map[x.id]) break;
             }
             const x = P.mangleName(id, ys);
             const y = P.mangleName(id, argTypes);
@@ -169,28 +170,42 @@ function matchFunction(id: string, argTypes: P.Type[], loc: Location, fp: Functi
     return undefined;
 }
 
-function matchTypes(map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[]): P.Type[] {
+function mapTypes(map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[], typeParams: Dictionary<P.Type>): P.Type[] {
+    if (!argTypes) return [];
+    if (!paramTypes) return [];
     const xs = [];
     for (let i = 0; i < argTypes.length; i += 1) {
-        const atype = argTypes[i];
-        const ptype = paramTypes[i];
-        if (!map[ptype.id]) {
-            map[ptype.id] = atype;
-            const gat = atype as P.GenericType;
-            const gpt = ptype as P.GenericType;
-            if (gat.typeParameters || gpt.typeParameters) {
-                const ys = matchTypes(map, gat.typeParameters, gpt.typeParameters);
+        const at = argTypes[i];
+        const pt = paramTypes[i];
+
+        const gat = at as P.GenericType;
+        const gpt = pt as P.GenericType;
+        if (typeParams[pt.id]) {
+            if (!map[pt.id]) {
+                map[pt.id] = at;
+
+                const ys = mapTypes(map, gat.typeParameters, gpt.typeParameters, typeParams);
                 xs.push({
-                    id: atype.id,
+                    id: at.id,
                     typeParameters: ys,
                 } as P.GenericType);
             }
             else {
-                xs.push(atype);
+                if (map[pt.id].id !== at.id) return [];
             }
         }
-        else if (map[ptype.id].id !== atype.id) {
-            return [];
+        else {
+            if (gat.typeParameters || gpt.typeParameters) {
+                const ys = mapTypes(map, gat.typeParameters, gpt.typeParameters, typeParams);
+                xs.push({
+                    id: at.id,
+                    typeParameters: ys,
+                } as P.GenericType);
+            }
+            else {
+                if (!Types.typesMatch(at, pt)) return [];
+            }
+            xs.push(at);
         }
     }
     return xs;

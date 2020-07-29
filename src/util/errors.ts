@@ -242,12 +242,14 @@ export default class Errors {
         throw new this.VmError(msg);
     }
 
-    static debug() {
-        try {
-            throw new Error();
-        }
-        catch (e) {
-            // swallow
+    static debug(cond?: boolean) {
+        if (cond === undefined || cond) {
+            try {
+                throw new Error();
+            }
+            catch (e) {
+                // swallow
+            }
         }
     }
 }

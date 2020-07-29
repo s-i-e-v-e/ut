@@ -666,10 +666,22 @@ function parseStruct(ts: TokenStream): P.Struct {
     }
 }
 
-export function parseModule(ts: TokenStream, path: string) {
+function parseImport(ts: TokenStream): P.Import {
+    const loc = ts.loc();
+    ts.nextMustBe("import");
+    const id = parseMultiIDExpr(ts);
+
+    return {
+        id: id.id + (id.rest ? `.${id.rest}` : ""),
+        loc: loc,
+    }
+}
+
+export function parseModule(id: string, ts: TokenStream, path: string) {
     const xs = new Array<P.Struct>();
     const ys = new Array<P.ForeignFunction>();
     const zs = new Array<P.Function>();
+    const is = new Array<P.Import>();
     while (!ts.eof()) {
         if (ts.nextIs("struct")) {
             xs.push(parseStruct(ts));
@@ -680,22 +692,27 @@ export function parseModule(ts: TokenStream, path: string) {
         else if (ts.nextIs("fn")) {
             zs.push(parseFunction(ts));
         }
+        else if (ts.nextIs("import")) {
+            is.push(parseImport(ts));
+        }
         else {
-            Errors.raiseDebug();
+            Errors.raiseDebug(ts.peek().lexeme);
         }
     }
 
     return {
+        id: id,
         path: path,
         structs: xs,
         foreignFunctions: ys,
         functions: zs,
+        imports: is,
     };
 }
 
-export default function parse(f: SourceFile) {
+export function parse(id: string, f: SourceFile) {
     Logger.info(`Parsing: ${f.path}`);
     const cs = CharacterStream.build(f.contents, f.fsPath);
     const ts = lex(cs);
-    return parseModule(ts, f.path);
+    return parseModule(id, ts, f.path);
 }

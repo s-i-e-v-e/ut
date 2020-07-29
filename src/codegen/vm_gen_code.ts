@@ -371,19 +371,23 @@ function emitFunction(b: VmCodeBuilder, f: P.Function) {
     b.ret();
 }
 
-export default function vm_gen_code(m: P.Module) {
+export default function vm_gen_code(mods: P.Module[]) {
+    const reduce = <A>(ys: A[], xs: A[]) => { ys.push(...xs); return ys;  };
+    const foreignFunctions = mods.map(x => x.foreignFunctions).reduce(reduce);
+    const functions = mods.map(x => x.functions).reduce(reduce);
+
     const b = VmCodeBuilder.build();
 
-    m.foreignFunctions.forEach(x => b.addForeignFunction(x.proto.mangledName));
+    foreignFunctions.forEach(x => b.addForeignFunction(x.proto.mangledName));
 
     // first, main
-    const xs = m.functions.filter(x => x.proto.id === "main");
+    const xs = functions.filter(x => x.proto.id === "main");
     const main = xs.length ? xs[0] : undefined;
     if (!main) Errors.raiseVmError("main() not found");
     emitFunction(b, main!);
 
     // then, rest
-    const ys = m.functions.filter(x => x.proto.id !== "main");
+    const ys = functions.filter(x => x.proto.id !== "main");
     ys.forEach(x => emitFunction(b, x));
 
     return b;

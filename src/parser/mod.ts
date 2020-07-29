@@ -7,7 +7,7 @@
  */
 import * as P from "./program.ts";
 import * as A from "./ast.ts";
-import parse from "./parser.ts";
+import { parseFile } from "./modules.ts";
 
 interface Location {
     line: number;
@@ -18,7 +18,7 @@ interface Location {
 
 export {
     Location,
-    parse,
+    parseFile,
     P,
     A,
 };

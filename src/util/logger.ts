@@ -10,7 +10,8 @@ import { OS } from "./mod.ts";
 export enum LogLevel {
     NONE,
     INFO,
-    DEBUG,
+    DEBUG0,
+    DEBUG1,
     DEBUG2,
 }
 
@@ -31,27 +32,12 @@ export class Logger {
     }
 
     static debug(msg: string) {
-        if (this.level < LogLevel.DEBUG) return;
+        if (this.level < LogLevel.DEBUG1) return;
         console.log(msg);
     }
 
     static debug2(msg: string) {
         if (this.level < LogLevel.DEBUG2) return;
         console.log(msg);
-    }
-
-    static printLevel() {
-        const x = `Will print info: ${!(this.level < LogLevel.INFO)}.`;
-        const y = `Will print debug: ${!(this.level < LogLevel.DEBUG)}.`;
-
-        switch (this.level) {
-            case LogLevel.INFO: console.log(`INFO. ${x} ${y}`); break;
-            case LogLevel.DEBUG: console.log(`DEBUG. ${x} ${y}`); break;
-            case LogLevel.NONE:
-            default: {
-                console.log(`NONE. ${x} ${y}`);
-                break;
-            }
-        }
     }
 }

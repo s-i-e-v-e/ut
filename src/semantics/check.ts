@@ -15,6 +15,7 @@ import {
     Types,
 } from "./mod.internal.ts";
 import {
+    Dictionary,
     Errors,
     Logger,
 } from "../util/mod.ts";
@@ -74,7 +75,7 @@ function resolveVar(st: SymbolTable, e: Expr): P.Variable {
     }
 }
 
-function getFunction(st: SymbolTable, argTypes: Type[], id: string, loc: Location) {
+function getFunction(st: SymbolTable, argTypes: Type[], id: string, loc: Location): P.FunctionPrototype {
     const f = st.getFunction(id, argTypes, loc);
     if (!f) Errors.raiseUnknownIdentifier(id, loc);
     return f;
@@ -394,9 +395,50 @@ function doStruct(st: SymbolTable, s: P.Struct) {
     })
 }
 
-export default function check(m: P.Module) {
+function checkModule(st: SymbolTable, m: P.Module) {
     Logger.info(`Type checking: ${m.path}`);
+    for (const x of m.structs) {
+        st.addStruct(x);
+        doStruct(st, x);
+    }
 
+    for (const x of m.foreignFunctions) {
+        st.addFunction(x.proto);
+        doForeignFunction(st, x);
+    }
+
+    for (const x of m.functions) {
+        st.addFunction(x.proto);
+        doFunction(st, x);
+    }
+
+    // check return types
+    for (const x of m.foreignFunctions) {
+        doFunctionReturnType(st, x.proto);
+    }
+
+    for (const x of m.functions) {
+        doFunctionReturnType(st, x.proto);
+    }
+}
+
+function _check(st: SymbolTable, m: P.Module, map: Dictionary<P.Module>, mods: P.Module[]) {
+    if (map[m.id]) return;
+    map[m.id] = m;
+    st = st.newTable();
+
+    // for each import, perform check
+    const imports = mods.filter(x => m.imports.filter(y => x.id === y.id).length);
+    for (const im of imports) {
+        _check(st, im, map, mods);
+        //if (map[im.id]) continue;
+        //map[im.id] = im;
+        checkModule(st, im);
+    }
+    checkModule(st, m);
+}
+
+export default function check(mods: P.Module[]) {
     const global = SymbolTable.build();
     global.addType(KnownTypes.Integer);
     global.addType(KnownTypes.Uint8);
@@ -406,27 +448,8 @@ export default function check(m: P.Module) {
     global.addType(KnownTypes.Pointer);
     global.addType(KnownTypes.Array);
 
-    for (const x of m.structs) {
-        global.addStruct(x);
-        doStruct(global, x);
-    }
-
-    for (const x of m.foreignFunctions) {
-        global.addFunction(x.proto);
-        doForeignFunction(global, x);
-    }
-
-    for (const x of m.functions) {
-        global.addFunction(x.proto);
-        doFunction(global, x);
-    }
-
-    // check return types
-    for (const x of m.foreignFunctions) {
-        doFunctionReturnType(global, x.proto);
-    }
-
-    for (const x of m.functions) {
-        doFunctionReturnType(global, x.proto);
+    const map: Dictionary<P.Module> = {};
+    for (const m of mods) {
+        _check(global, m, map, mods);
     }
 }

@@ -48,10 +48,14 @@ async function main(args: string[]) {
                 break;
             }
             case "-vv": {
-                cfg.logLevel = LogLevel.DEBUG;
+                cfg.logLevel = LogLevel.DEBUG0;
                 break;
             }
             case "-vvv": {
+                cfg.logLevel = LogLevel.DEBUG1;
+                break;
+            }
+            case "-vvvv": {
                 cfg.logLevel = LogLevel.DEBUG2;
                 break;
             }
@@ -86,7 +90,7 @@ async function main(args: string[]) {
             help();
             break;
         }
-        case "run": await run(cx.args[0]); break;
+        case "run": await run(cx.args[0], cfg.logLevel); break;
         default: Errors.raiseDebug();
     }
 }

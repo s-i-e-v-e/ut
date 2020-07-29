@@ -378,6 +378,10 @@ export default class Vm {
                                 this.mem_free(p0);
                                 break;
                             }
+                            case "sys-size$Array": {
+                                this.registers[0] = this.read_u64(p0);
+                                break;
+                            }
                             default: Errors.raiseVmError(`Unknown foreign function: ${fn}`);
                         }
                     }

@@ -602,6 +602,8 @@ function parseFunctionPrototype(ts: TokenStream) {
     const loc = ts.loc();
     ts.nextMustBe("fn");
     const id = parseIDExpr(ts).id;
+    const typeParameters = ts.consumeIfNextIs("[") ? parseTypeParameters(ts) : [];
+    if (typeParameters.length) ts.nextMustBe("]");
     ts.nextMustBe("(");
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");
@@ -611,6 +613,7 @@ function parseFunctionPrototype(ts: TokenStream) {
         id: id,
         params: xs,
         type: type,
+        typeParameters: typeParameters,
         loc: loc,
         mangledName: P.mangleName(id, xs.map(x => x.type)),
     };

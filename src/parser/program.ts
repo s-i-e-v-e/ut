@@ -24,6 +24,7 @@ export interface FunctionPrototype extends Primitive {
     id: string;
     params: Parameter[];
     type: Type;
+    typeParameters: Type[];
     loc: Location;
     mangledName: string;
 }

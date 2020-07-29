@@ -10,9 +10,13 @@ import {
     Errors,
 } from "../util/mod.ts";
 import {
+    Location,
     P,
     A,
 } from "../parser/mod.ts";
+import {
+    Types,
+} from "./mod.internal.ts";
 
 interface AnalysisState {
     ret?: A.ReturnExpr;
@@ -94,6 +98,10 @@ export default class SymbolTable {
         SymbolTable.add(t.id, this.ns.types, t);
     }
 
+    addTypeParameter(t: P.Type) {
+        SymbolTable.add(t.id, this.ns.types, t);
+    }
+
     addVar(v: P.Variable) {
         SymbolTable.add(v.id, this.ns.vars, v);
     }
@@ -106,9 +114,11 @@ export default class SymbolTable {
         return this.get(id, (ns, id) => ns.vars[id]);
     }
 
-    getFunction(id: string, argTypes: P.Type[]) {
-        const mn = P.mangleName(id, argTypes);
-        return this.get(id, (ns, id) => ns.functions[id] ? ns.functions[id].map[mn] : undefined);
+    getFunction(id: string, argTypes: P.Type[], loc: Location) {
+        return this.get(id, (ns, id) => {
+            if (!ns.functions[id]) return undefined;
+            return matchFunction(id, argTypes, loc, ns.functions[id]);
+        });
     }
 
     getStruct(id: string) {
@@ -122,4 +132,66 @@ export default class SymbolTable {
     static build(parent?: SymbolTable) {
         return new SymbolTable(parent);
     }
+}
+
+//
+function matchFunction(id: string, argTypes: P.Type[], loc: Location, fp: FunctionPrototypes) {
+    // match arity
+    const xs = Object
+        .keys(fp.map)
+        .map(x => fp.map[x])
+        .filter(x => x.params.length === argTypes.length);
+    if (!xs.length) Errors.raiseFunctionParameterCountMismatch(id, loc);
+    if (xs.length == 1 && xs[0].typeParameters.length == 0) {
+        const f = xs[0];
+        // regular function
+        for (let i = 0; i < argTypes.length; i += 1) {
+            const atype = argTypes[i];
+            const ptype = f.params[i].type;
+            Types.typesMustMatch(atype, ptype, loc);
+        }
+        return f;
+    }
+
+    for (const f of xs) {
+        Errors.debug();
+        const map: Dictionary<P.Type> = {};
+        const ys = matchTypes(map, argTypes, f.params.map(x => x.type));
+        if (ys.length) {
+            for (const x of f.typeParameters) {
+                if (!map[x.id]) return undefined;
+            }
+            const x = P.mangleName(id, ys);
+            const y = P.mangleName(id, argTypes);
+            if (x === y) return f;
+        }
+    }
+    return undefined;
+}
+
+function matchTypes(map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[]): P.Type[] {
+    const xs = [];
+    for (let i = 0; i < argTypes.length; i += 1) {
+        const atype = argTypes[i];
+        const ptype = paramTypes[i];
+        if (!map[ptype.id]) {
+            map[ptype.id] = atype;
+            const gat = atype as P.GenericType;
+            const gpt = ptype as P.GenericType;
+            if (gat.typeParameters || gpt.typeParameters) {
+                const ys = matchTypes(map, gat.typeParameters, gpt.typeParameters);
+                xs.push({
+                    id: atype.id,
+                    typeParameters: ys,
+                } as P.GenericType);
+            }
+            else {
+                xs.push(atype);
+            }
+        }
+        else if (map[ptype.id].id !== atype.id) {
+            return [];
+        }
+    }
+    return xs;
 }

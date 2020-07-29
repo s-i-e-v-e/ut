@@ -31,6 +31,7 @@ export class Registers {
                 this.registerIDs[r] = id || "1";
                 if (id) this.idRegisters[id] = r;
                 Logger.debug2(`use-reg: ${r}`);
+                Logger.debug2(`${this.registerIDs[r]} <-> ${r}`);
                 return r;
             }
         }

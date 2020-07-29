@@ -111,6 +111,12 @@ function resolveVar(st: SymbolTable, e: Expr): P.Variable {
             const y = x.expr as A.IDExpr;
             return getVar(st, y.id, y.loc);
         }
+        case NodeType.CastExpr: {
+            const x = e as A.CastExpr;
+            const y = x.expr as A.IDExpr;
+            if (y.nodeType !== NodeType.IDExpr) Errors.raiseDebug();
+            return getVar(st, y.id, x.loc);
+        }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
 }

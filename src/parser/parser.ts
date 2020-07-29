@@ -487,6 +487,9 @@ function parseAssnOrExprStmt(ts: TokenStream, block: A.BlockExpr) {
     else if (ts.nextIs("*")) {
         return parseVarAssignment(ts, block, parseDereferenceExpr(ts));
     }
+    else if (ts.nextIs("{")) {
+        return A.buildExprStmt(parseBlockExpr(ts, block));
+    }
     else {
         const e = parseRExpr(ts, block);
         if (ts.nextIs(";")) {

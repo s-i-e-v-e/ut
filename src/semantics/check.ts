@@ -321,6 +321,15 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             }
             break;
         }
+        case NodeType.BlockExpr: {
+            const x = e as A.BlockExpr;
+            doBlock(st, x);
+            if (!x.xs.length) Errors.raiseDebug();
+            const y = x.xs[x.xs.length -1] as A.ExprStmt;
+            if (y.nodeType !== NodeType.ExprStmt) Errors.raiseDebug();
+            ty = y.expr.type;
+            break;
+        }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);

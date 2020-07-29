@@ -6,7 +6,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import vm_gen_code from "./vm_gen_code.ts";
+import {
+    Store,
+    Allocator,
+} from "./Allocator.ts";
 
 export {
-    vm_gen_code
+    vm_gen_code,
+    Store,
+    Allocator,
 };

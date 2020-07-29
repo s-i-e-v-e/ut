@@ -20,7 +20,7 @@ const Lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", 
 const Upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 const Digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const Whitespace = [" ", "\t", "\n"];
-const UniSym = ["(", ")", "{", "}", "[", "]", ":", ";", ",", "=", "#", "+", "-", "*", "/", "%", "<", ">", "!", "&", "|"];
+const UniSym = ["(", ")", "{", "}", "[", "]", ":", ";", ",", "=", "#", "+", "-", "*", "/", "%", "<", ">", "!", "&", "|", "."];
 type ReadToken = (cs: CharacterStream) => Token;
 
 function toMap(xs: string[]) {
@@ -221,7 +221,31 @@ export default function lex(cs: CharacterStream) {
         const f = LexerDispatch[c];
         if (f) {
             const tk = f(cs);
-            xs.push(tk);
+            if (tk.type === TokenType.TK_ID) {
+                const p = xs.pop();
+                const pp = xs.pop();
+                if (p && pp && p.lexeme === "." && pp.type === TokenType.TK_ID) {
+                    pp.type = TokenType.TK_MULTI_ID;
+                    pp.xs = new Array<string>();
+                    pp.xs.push(tk.lexeme);
+                    xs.push(pp);
+                }
+                else if (p && pp && p.lexeme === "." && pp.type === TokenType.TK_MULTI_ID) {
+                    pp.xs!.push(tk.lexeme);
+                    xs.push(pp);
+                }
+                else if (p && pp) {
+                    xs.push(pp);
+                    xs.push(p);
+                    xs.push(tk);
+                }
+                else {
+                    xs.push(tk);
+                }
+            }
+            else {
+                xs.push(tk);
+            }
         }
         else {
             Errors.raiseDebug(`<${c}>`);

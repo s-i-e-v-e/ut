@@ -70,6 +70,7 @@ export interface Expr extends AstNode {
 
 export interface IDExpr extends Expr {
     id: string;
+    rest?: string;
 }
 
 export interface BlockExpr extends Expr {

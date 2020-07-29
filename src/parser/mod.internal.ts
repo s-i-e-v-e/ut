@@ -15,6 +15,7 @@ export enum TokenType {
     TK_WHITESPACE = 128,
     TK_COMMENT,
     TK_ID,
+    TK_MULTI_ID,
     TK_TYPE,
     TK_STRING_LITERAL,
     TK_BOOLEAN_LITERAL,
@@ -29,6 +30,7 @@ export interface Token {
     type: TokenType,
     loc: Location,
     lexeme: string,
+    xs?: string[],
 }
 
 export {

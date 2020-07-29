@@ -28,13 +28,9 @@ const KnownTypes = P.KnownTypes;
 type Expr = A.Expr;
 type Type = P.Type;
 
-function parseID(ts: TokenStream) {
-    return ts.nextMustBe(TokenType.TK_ID).lexeme;
-}
-
 function parseIDExpr(ts: TokenStream): A.IDExpr {
     const loc = ts.loc();
-    const id = parseID(ts);
+    const id = ts.nextMustBe(TokenType.TK_ID).lexeme;
 
     return {
         nodeType: NodeType.IDExpr,
@@ -42,6 +38,20 @@ function parseIDExpr(ts: TokenStream): A.IDExpr {
         loc: loc,
         type: KnownTypes.NotInferred,
     }
+}
+
+function parseMultiIDExpr(ts: TokenStream): A.IDExpr {
+    if (ts.nextIsID()) return parseIDExpr(ts);
+    const loc = ts.loc();
+    const t = ts.nextMustBe(TokenType.TK_MULTI_ID);
+
+    return {
+        nodeType: NodeType.IDExpr,
+        id: t.lexeme,
+        rest: t.xs!.join("."),
+        loc: loc,
+        type: KnownTypes.NotInferred,
+    };
 }
 
 function parseTypeParameters(ts: TokenStream) {
@@ -278,7 +288,7 @@ function parseReferenceExpr(ts: TokenStream, block: A.BlockExpr): A.ReferenceExp
 function parseDereferenceExpr(ts: TokenStream): A.DereferenceExpr {
     const loc = ts.loc();
     ts.nextMustBe("*");
-    const e = ts.nextIs("*") ? parseDereferenceExpr(ts) :  parseIDExpr(ts);
+    const e = ts.nextIs("*") ? parseDereferenceExpr(ts) :  parseMultiIDExpr(ts);
     return {
         nodeType: NodeType.DereferenceExpr,
         expr: e,
@@ -293,7 +303,7 @@ function parseLExpr(ts: TokenStream, block: A.BlockExpr): Expr {
         e = parseDereferenceExpr(ts);
     }
     else {
-        const ide = parseIDExpr(ts);
+        const ide = parseMultiIDExpr(ts);
         if (ts.nextIs("(")) {
             e = parseFunctionApplication(ts, block, ide);
         }
@@ -434,7 +444,7 @@ function parseForStmt(ts: TokenStream, block: A.BlockExpr): A.ForStmt {
     if (init) ts.nextMustBe(";");
     const condition = ts.consumeIfNextIs(";") ? undefined : parseRExpr(ts, block);
     if (condition) ts.nextMustBe(";");
-    const update = ts.nextIs(")") ? undefined : parseVarAssignment(ts, block, parseIDExpr(ts));
+    const update = ts.nextIs(")") ? undefined : parseVarAssignment(ts, block, parseMultiIDExpr(ts));
     ts.nextMustBe(")");
     const body = parseBlockExpr(ts, block);
 
@@ -525,7 +535,7 @@ function parseBlockExpr(ts: TokenStream, block?: A.BlockExpr): A.BlockExpr {
 
 function parseVarDef(ts: TokenStream, isMutable: boolean, force: boolean): P.Variable {
     const loc = ts.loc();
-    const id = parseID(ts);
+    const id = parseIDExpr(ts).id;
     const type = parseVarType(ts, force);
     return {
         id: id,
@@ -571,7 +581,7 @@ function parseVarType(ts: TokenStream, force: boolean) {
 function parseFunctionPrototype(ts: TokenStream) {
     const loc = ts.loc();
     ts.nextMustBe("fn");
-    const id = parseID(ts);
+    const id = parseIDExpr(ts).id;
     ts.nextMustBe("(");
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");

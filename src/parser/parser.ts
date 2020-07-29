@@ -209,6 +209,11 @@ function parseIfExpr(ts: TokenStream, block: A.BlockExpr, isStmt: boolean): A.If
                 loc: es.loc,
             } as A.LocalReturnExpr;
             es.expr = e;
+            if (e.expr.nodeType == NodeType.IfExpr) {
+                const x = e.expr as A.IfExpr;
+                mustReturn(x.ifBranch);
+                mustReturn(x.elseBranch);
+            }
         }
         else {
             Errors.raiseIfExprMustReturn(be.loc);

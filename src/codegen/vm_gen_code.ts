@@ -149,9 +149,9 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockE
             // push used regs to stack
             const saved = ac.save(b);
 
-            // put args in  r0 ... rN
+            // put args in  r1 ... rN
             for (let i = 0; i < x.args.length; i += 1) {
-                const r = ac.from(`r${i}`);
+                const r = ac.from(`r${i+1}`);
                 emitExpr(b, ac, r, block, x.args[i]);
             }
             b.call(x.id);

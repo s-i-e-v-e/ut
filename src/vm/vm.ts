@@ -334,26 +334,27 @@ export default class Vm {
                     Logger.debug(`CALL ${offset}`);
                     if (offset >= this.imports) {
                         const fn = this.read_str(offset);
+                        const p0 = this.registers[1];
                         switch (fn) {
                             case "sys-exit": {
-                                Deno.exit(Number(this.registers[0]));
+                                Deno.exit(Number(p0));
                                 break;
                             }
                             case "sys-println": {
-                                const str = this.read_str(this.registers[0]);
+                                const str = this.read_str(p0);
                                 console.log(str);
                                 break;
                             }
                             case "sys-u64-println": {
-                                console.log(`${this.registers[0]}`);
+                                console.log(`${p0}`);
                                 break;
                             }
                             case "sys-bool-println": {
-                                console.log(`${this.registers[0] === 1n}`);
+                                console.log(`${p0 === 1n}`);
                                 break;
                             }
                             case "sys-ptr-println": {
-                                console.log(`ptr:${this.registers[0]}`);
+                                console.log(`ptr:${p0}`);
                                 break;
                             }
                             default: Errors.raiseVmError(`Unknown foreign function: ${fn}`);

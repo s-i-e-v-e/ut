@@ -15,7 +15,7 @@ import {
 } from "./mod.internal.ts";
 
 export default class Vm {
-    public static readonly SEGMENT_SIZE = 1024*4;
+    public static readonly SEGMENT_SIZE = 1024*8;
     private ip: bigint;
     private hp: bigint; // heap pointer
     private sp: bigint; // stack pointer

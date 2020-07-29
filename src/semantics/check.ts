@@ -176,7 +176,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                     break;
                 }
                 default: {
-                    Errors.raiseDebug();
+                    Errors.raiseDebug(x.op);
                 }
             }
             break;

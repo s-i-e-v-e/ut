@@ -132,6 +132,7 @@ export class VmCodeBuilder {
     private readonly labels: Dictionary<number>;
     private readonly reloc: Array<Reloc>;
     public readonly importsOffset: bigint;
+    private readonly internedStrings: Dictionary<number>;
 
     private constructor() {
         this.importsOffset = BigInt(VmCodeBuilder.IMPORTS_BASE);
@@ -141,6 +142,7 @@ export class VmCodeBuilder {
         this.imports = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.labels = {};
         this.reloc = [];
+        this.internedStrings = {};
     }
 
     static build() {
@@ -175,8 +177,12 @@ export class VmCodeBuilder {
     }
 
     private putStr(x: string) {
-        const offs = this.rds.offset();
-        return [VmCodeBuilder.RDS_BASE + offs, this.rds.write_str(x)];
+        if (!this.internedStrings[x]) {
+            const offs = this.rds.offset();
+            this.rds.write_str(x);
+            this.internedStrings[x] = VmCodeBuilder.RDS_BASE + offs;
+        }
+        return this.internedStrings[x];
     }
 
     heapStore(xs: Uint8Array) {
@@ -207,7 +213,7 @@ export class VmCodeBuilder {
 
     mov_r_str(rd: string, x: string) {
         checkRegister(rd);
-        const [offset, size] = this.putStr(x);
+        const offset = this.putStr(x);
         this.mov_r_i(rd, offset);
     }
 

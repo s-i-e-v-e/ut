@@ -64,13 +64,13 @@ export class ByteBuffer {
         return 1;
     }
 
-    write_u64(x: number) {
+    write_u64(x: bigint|number) {
         const n = this.write_u64_at(x, this._offset);
         this._offset += 8;
         return n;
     }
 
-    write_u64_at(x: number, offset: number) {
+    write_u64_at(x: bigint|number, offset: number) {
         this.check_offset(offset);
         this.dv.setBigUint64(offset, BigInt(x));
         return 8;
@@ -202,7 +202,7 @@ export class VmCodeBuilder {
         Logger.debug(`MOV ${rd}, ${rs}`);
     }
 
-    mov_r_i(rd: string, n: number) {
+    mov_r_i(rd: string, n: bigint) {
         checkRegister(rd);
         this.cs.write_u8(VmOperation.MOV_R_I);
         const a = registers[rd];
@@ -214,7 +214,7 @@ export class VmCodeBuilder {
     mov_r_str(rd: string, x: string) {
         checkRegister(rd);
         const offset = this.putStr(x);
-        this.mov_r_i(rd, offset);
+        this.mov_r_i(rd, BigInt(offset));
     }
 
     mov_m_r(offset: number, rs: string) {

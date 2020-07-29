@@ -55,7 +55,7 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockE
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
             const x = e as A.BooleanLiteral;
-            store.write_imm(b,x.value ? 1 : 0);
+            store.write_imm(b,x.value ? 1n : 0n);
             break;
         }
         case NodeType.StringLiteral: {
@@ -65,7 +65,7 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockE
         }
         case NodeType.NumberLiteral: {
             const x = e as A.NumberLiteral;
-            store.write_imm(b,Number(x.value));
+            store.write_imm(b, x.value);
             break;
         }
         case NodeType.BinaryExpr: {
@@ -185,7 +185,7 @@ function emitExpr(b: VmCodeBuilder, ac: Allocator, store: Store, block: A.BlockE
             }
             tmp.free();
 
-            store.write_imm(b, offset);
+            store.write_imm(b, BigInt(offset));
             break;
         }
         case NodeType.DereferenceExpr: {

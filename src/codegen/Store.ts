@@ -24,7 +24,7 @@ export abstract class Store {
     public isRHS = false;
     protected constructor(public readonly v: P.Variable) {}
 
-    abstract write_imm(b: VmCodeBuilder, n: number): void;
+    abstract write_imm(b: VmCodeBuilder, n: bigint): void;
     abstract write_str(b: VmCodeBuilder, s: string): void;
     abstract write_reg(b: VmCodeBuilder, rm: Store): void;
     abstract write_deref(b: VmCodeBuilder, rm: Store): void;
@@ -41,7 +41,7 @@ class Register extends Store {
         super(v);
     }
 
-    write_imm(b: VmCodeBuilder, n: number) {
+    write_imm(b: VmCodeBuilder, n: bigint) {
         b.mov_r_i(this.reg, n);
     }
 
@@ -74,7 +74,7 @@ class Memory extends Store {
         super(v);
     }
 
-    write_imm(b: VmCodeBuilder, n: number) {
+    write_imm(b: VmCodeBuilder, n: bigint) {
         Errors.raiseDebug();
     }
 

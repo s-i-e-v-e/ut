@@ -126,6 +126,7 @@ const NumGrid: Dictionary<number> = {
 }
 
 function parseNumber(n: string, radix: number, loc: Location) {
+    n = n.replace(/_/g, "");
     n = radix === 10 ? n : n.substring(2);
     const isKilo = n.endsWith("K");
     n = isKilo ? n.substring(0, n.length - 1) : n;

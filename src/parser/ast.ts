@@ -144,7 +144,7 @@ export interface BooleanLiteral extends Literal {
     value: boolean,
 }
 export interface NumberLiteral extends Literal {
-    value: BigInt,
+    value: bigint,
 }
 
 export function buildExprStmt(re: Expr, loc?: Location): ExprStmt {

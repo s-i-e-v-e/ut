@@ -121,10 +121,16 @@ function resolveVar(st: SymbolTable, e: Expr): P.Variable {
     }
 }
 
-function getFunction(st: SymbolTable, id: string, loc: Location) {
-    const x = st.getFunction(id);
-    if (!x) Errors.raiseUnknownIdentifier(id, loc);
-    return x;
+function getFunction(st: SymbolTable, argTypes: Type[], id: string, loc: Location) {
+    const f = st.getFunction(id, argTypes);
+    if (!f) Errors.raiseUnknownIdentifier(id, loc);
+    if (argTypes.length != f.params.length) Errors.raiseFunctionParameterCountMismatch(id, loc);
+    for (let i = 0; i < argTypes.length; i += 1) {
+        const atype = argTypes[i];
+        const ptype = f.params[i].type;
+        typesMustMatch(atype, ptype, loc);
+    }
+    return f;
 }
 
 function setBlockType(st: SymbolTable, block: A.BlockExpr, expr: Expr) {
@@ -203,14 +209,9 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 ty = getExprType(st, block, y);
             }
             else {
-                const f = getFunction(st, x.id, x.loc);
-                if (x.args.length != f.params.length) Errors.raiseFunctionParameterCountMismatch(x.id, x.loc);
-
-                for (let i = 0; i < x.args.length; i += 1) {
-                    const atype = getExprType(st, block, x.args[i]);
-                    const ptype = f.params[i].type;
-                    typesMustMatch(atype, ptype, x.loc);
-                }
+                const argTypes = x.args.map(x => getExprType(st, block, x));
+                const f = getFunction(st, argTypes, x.id, x.loc);
+                x.mangledName = f.mangledName;
                 ty = f.type;
             }
             break;
@@ -345,7 +346,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
             const x = s as A.VarInitStmt;
 
             // infer
-            const ty = getExprType(st.parent!, block.parent!, x.expr);
+            const ty = getExprType(st, block, x.expr);
             if (typeNotInferred(x.var.type)) {
                 x.var.type = ty;
             }

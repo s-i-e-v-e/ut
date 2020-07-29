@@ -114,6 +114,7 @@ export interface ReferenceExpr extends Expr {
  */
 export interface FunctionApplication extends Expr {
     id: string;
+    mangledName?: string;
     args: Expr[];
 }
 

@@ -157,7 +157,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
                 const r = ac.from(`r${i+1}`);
                 emitExpr(ac, r, block, x.args[i]);
             }
-            ac.b.call(x.id);
+            ac.b.call(x.mangledName!);
 
             // pop used regs from stack
             ac.restore(saved);
@@ -301,8 +301,11 @@ function emitStmt(ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
+            const tmp = ac.tmp();
+            emitExpr(ac, tmp, block, x.expr);
             const r = ac.alloc(x.var);
-            emitExpr(ac.parent!, r, block.parent!, x.expr);
+            r.write_reg(tmp);
+            tmp.free();
             break;
         }
         case NodeType.VarAssnStmt: {
@@ -359,7 +362,7 @@ function emitBlock(ac: Allocator, store: Store, block: A.BlockExpr) {
 }
 
 function emitFunction(b: VmCodeBuilder, f: P.Function) {
-    b.startFunction(f.proto.id);
+    b.startFunction(f.proto.mangledName);
     const ac = Allocator.build(b);
     const scratch = ac.tmp();
     if (scratch.reg !== "r0") Errors.raiseDebug();
@@ -371,7 +374,7 @@ function emitFunction(b: VmCodeBuilder, f: P.Function) {
 export default function vm_gen_code(m: P.Module) {
     const b = VmCodeBuilder.build();
 
-    m.foreignFunctions.forEach(x => b.addForeignFunction(x.proto.id));
+    m.foreignFunctions.forEach(x => b.addForeignFunction(x.proto.mangledName));
 
     // first, main
     const xs = m.functions.filter(x => x.proto.id === "main");

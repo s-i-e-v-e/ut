@@ -25,6 +25,7 @@ export interface FunctionPrototype extends Primitive {
     params: Parameter[];
     type: Type;
     loc: Location;
+    mangledName: string;
 }
 
 export interface Function extends Primitive {
@@ -119,4 +120,25 @@ export function toTypeString(t: Type, xs?: Array<string>) {
         xs.push("]");
     }
     return xs.join("");
+}
+
+function mangleTypes(xs: Type[]): string {
+    const ys = [];
+    for (const x of xs) {
+        const y = x as GenericType;
+        if (y.typeParameters) {
+            ys.push(mangleTypes(y.typeParameters));
+        }
+        else {
+            ys.push(`$${x.id}`);
+        }
+    }
+    return ys.join("");
+}
+
+export function mangleName(id: string, xs: Type[]) {
+    const ys = [];
+    ys.push(id);
+    ys.push(mangleTypes(xs));
+    return ys.join("");
 }

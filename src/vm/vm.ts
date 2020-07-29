@@ -37,7 +37,7 @@ export default class Vm {
         this.dv = new DataView(this.memory.buffer);
         this.dec = new TextDecoder();
         this.ip = 0n;
-        this.hp = BigInt(Vm.SEGMENT_SIZE*3);
+        this.hp = BigInt(Vm.SEGMENT_SIZE*4);
         this.sp = BigInt(this.memory.length - 8);
     }
 
@@ -349,32 +349,32 @@ export default class Vm {
                         const fn = this.read_str(offset);
                         const p0 = this.registers[1];
                         switch (fn) {
-                            case "sys-exit": {
+                            case "sys-exit$Integer": {
                                 Deno.exit(Number(p0));
                                 break;
                             }
-                            case "sys-println": {
+                            case "sys-println$String": {
                                 const str = this.read_str(p0);
                                 console.log(str);
                                 break;
                             }
-                            case "sys-u64-println": {
+                            case "sys-println$Integer": {
                                 console.log(`${p0}`);
                                 break;
                             }
-                            case "sys-bool-println": {
+                            case "sys-println$Bool": {
                                 console.log(`${p0 === 1n}`);
                                 break;
                             }
-                            case "sys-ptr-println": {
+                            case "sys-println$Pointer": {
                                 console.log(`ptr:${p0}`);
                                 break;
                             }
-                            case "sys-new": {
+                            case "sys-new$Integer": {
                                 this.registers[0] = this.mem_alloc(p0);
                                 break;
                             }
-                            case "sys-free": {
+                            case "sys-free$Integer": {
                                 this.mem_free(p0);
                                 break;
                             }

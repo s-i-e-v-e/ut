@@ -18,8 +18,12 @@ interface AnalysisState {
     ret?: A.ReturnExpr;
 }
 
+interface FunctionPrototypes {
+    map: Dictionary<P.FunctionPrototype>;
+}
+
 interface Namespaces {
-    functions: Dictionary<P.FunctionPrototype>;
+    functions: Dictionary<FunctionPrototypes>;
     structs: Dictionary<P.Struct>;
     types: Dictionary<P.Type>;
     vars: Dictionary<P.Variable>;
@@ -42,7 +46,7 @@ export default class SymbolTable {
         };
     }
 
-    private add<T>(name: string, ns: Dictionary<T>, x: T) {
+    private static add<T>(name: string, ns: Dictionary<T>, x: T) {
         if (ns[name]) Errors.raiseDebug(name);
         ns[name] = x;
     }
@@ -75,19 +79,23 @@ export default class SymbolTable {
     }
 
     addFunction(fp: P.FunctionPrototype) {
-        this.add(fp.id, this.ns.functions, fp);
+        const exists = this.ns.functions[fp.id] !== undefined;
+        const m = this.ns.functions[fp.id] || { map: {} };
+        if (m.map[fp.mangledName]) Errors.raiseDebug();
+        m.map[fp.mangledName] = fp;
+        if (!exists) SymbolTable.add(fp.id, this.ns.functions, m);
     }
 
     addStruct(s: P.Struct) {
-        this.add(s.type.id, this.ns.structs, s);
+        SymbolTable.add(s.type.id, this.ns.structs, s);
     }
 
     addType(t: P.Type) {
-        this.add(t.id, this.ns.types, t);
+        SymbolTable.add(t.id, this.ns.types, t);
     }
 
     addVar(v: P.Variable) {
-        this.add(v.id, this.ns.vars, v);
+        SymbolTable.add(v.id, this.ns.vars, v);
     }
 
     getType(id: string) {
@@ -98,8 +106,9 @@ export default class SymbolTable {
         return this.get(id, (ns, id) => ns.vars[id]);
     }
 
-    getFunction(id: string) {
-        return this.get(id, (ns, id) => ns.functions[id]);
+    getFunction(id: string, argTypes: P.Type[]) {
+        const mn = P.mangleName(id, argTypes);
+        return this.get(id, (ns, id) => ns.functions[id] ? ns.functions[id].map[mn] : undefined);
     }
 
     getStruct(id: string) {

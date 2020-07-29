@@ -612,6 +612,7 @@ function parseFunctionPrototype(ts: TokenStream) {
         params: xs,
         type: type,
         loc: loc,
+        mangledName: P.mangleName(id, xs.map(x => x.type)),
     };
 }
 

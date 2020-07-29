@@ -414,6 +414,8 @@ function parseVarInit(ts: TokenStream, block: A.BlockExpr, isMutable: boolean): 
 
 function rewriteBinaryExpr(e: A.BinaryExpr) {
     // rewrite
+    let le = e.left;
+    let re = undefined;
     switch (e.op) {
         case "+=": e.op = "+"; break;
         case "-=": e.op = "-"; break;
@@ -422,10 +424,12 @@ function rewriteBinaryExpr(e: A.BinaryExpr) {
         case "%=": e.op = "%"; break;
         case "&=": e.op = "&"; break;
         case "|=": e.op = "|"; break;
-        default: Errors.raiseDebug();
+        case "=": re = e.right; break;
+        default: Errors.raiseDebug(e.op+":"+e.loc.line);
     }
+    re = re === undefined ? e : re;
 
-    return A.buildVarAssnStmt(e.left, e);
+    return A.buildVarAssnStmt(le, re);
 }
 
 function parseVarAssignment(ts: TokenStream, block: A.BlockExpr, le: Expr): A.VarAssnStmt {

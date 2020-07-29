@@ -63,7 +63,7 @@ export interface Variable extends Primitive {
 
 export type Parameter = Variable;
 
-const SysLoc = {
+export const SysLoc = {
     index: 0,
     line: 1,
     character: 1,
@@ -102,6 +102,7 @@ export const KnownTypes = {
     Bool: newType("Bool"),
     String: newType("String"),
     Integer: newType("Integer"),
+    Uint8: newType("Uint8"),
     Pointer: newType("Pointer"),
     Array: newType("Array"),
 };

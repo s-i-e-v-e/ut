@@ -365,12 +365,14 @@ export default function vm_gen_code(m: P.Module) {
     m.foreignFunctions.forEach(x => b.addForeignFunction(x.proto.id));
 
     // first, main
-    const main = m.functions.filter(x => x.proto.id === "main")[0];
-    emitFunction(b, main);
+    const xs = m.functions.filter(x => x.proto.id === "main");
+    const main = xs.length ? xs[0] : undefined;
+    if (!main) Errors.raiseVmError("main() not found");
+    emitFunction(b, main!);
 
     // then, rest
-    const xs = m.functions.filter(x => x.proto.id !== "main");
-    xs.forEach(x => emitFunction(b, x));
+    const ys = m.functions.filter(x => x.proto.id !== "main");
+    ys.forEach(x => emitFunction(b, x));
 
     return b;
 }

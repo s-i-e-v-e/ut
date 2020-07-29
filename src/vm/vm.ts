@@ -51,6 +51,19 @@ export default class Vm {
         }
     }
 
+    private mem_alloc(size: bigint) {
+        if (!size) Errors.raiseDebug();
+        const offset = this.hp;
+        this.check_offset(offset);
+        this.check_offset(offset + size - 1n);
+        this.hp += size;
+        return offset;
+    }
+
+    private mem_free(p: bigint) {
+
+    }
+
     private read_u64_from_ptr(p: bigint) {
         this.check_offset(p);
         const upper = BigInt(this.dv.getUint32(Number(p)));
@@ -355,6 +368,14 @@ export default class Vm {
                             }
                             case "sys-ptr-println": {
                                 console.log(`ptr:${p0}`);
+                                break;
+                            }
+                            case "sys-new": {
+                                this.registers[0] = this.mem_alloc(p0);
+                                break;
+                            }
+                            case "sys-free": {
+                                this.mem_free(p0);
                                 break;
                             }
                             default: Errors.raiseVmError(`Unknown foreign function: ${fn}`);

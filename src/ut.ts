@@ -51,6 +51,10 @@ async function main(args: string[]) {
                 cfg.logLevel = LogLevel.DEBUG;
                 break;
             }
+            case "-vvv": {
+                cfg.logLevel = LogLevel.DEBUG2;
+                break;
+            }
             case "help": {
                 cx = {
                     id: cmd,

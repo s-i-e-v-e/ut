@@ -8,6 +8,7 @@
 import {
     Location,
     P,
+    A,
 } from "../parser/mod.ts";
 import {
     CharacterStream,
@@ -16,6 +17,8 @@ import {
 const toTypeString = P.toTypeString;
 type Type = P.Type;
 type Variable = P.Variable;
+type NodeType = A.NodeType;
+const NodeTypeEnum = A.NodeType;
 
 export function buildLocation(loc: Location) {
     const path = loc.path.replaceAll(/\\/g, "/");
@@ -170,8 +173,13 @@ export default class Errors {
         throw new this.EOF("EOF");
     }
 
-    static raiseDebug(msg?: string): never {
-        throw new this.Debug(msg || "DebugError");
+    static raiseParserError(exp: string, n: A.AstNode): never {
+        throw new this.ParserError(buildErrorString(`Expected ${exp}. Found: \`${NodeTypeEnum[n.nodeType]}\``, n.loc));
+    }
+
+    static raiseDebug(msgOrNode?: string|NodeType): never {
+        const s = msgOrNode ? (typeof msgOrNode === "string" ? msgOrNode as string : NodeTypeEnum[msgOrNode as NodeType]) : "DebugError";
+        throw new this.Debug(s);
     }
 
     static raiseExpectedButFound(exp: string, t: Token): never {

@@ -288,7 +288,7 @@ function parseGroupExpr(ts: TokenStream, block: A.BlockExpr): A.GroupExpr {
 }
 
 const OperatorPrecedence: Dictionary<number> = {
-    "as": 110,
+    ":": 110,
     "*": 100,
     "/": 100,
     "%": 100,
@@ -325,7 +325,7 @@ function parseExpr(ts: TokenStream, block: A.BlockExpr, le?: Expr, rbp?: number)
         if (lbp !== undefined) {
             ts.next();
             switch (op) {
-                case "as": return parseCastExpr(ts, le);
+                case ":": return parseCastExpr(ts, le);
                 case "*":
                 case "/":
                 case "%":
@@ -415,7 +415,7 @@ function rewriteBinaryExprIntoAssignment(e: A.BinaryExpr) {
         case "&=": e.op = "&"; break;
         case "|=": e.op = "|"; break;
         case "=": re = e.right; break;
-        default: Errors.raiseDebug(e.op+":"+e.loc.line);
+        default: Errors.raiseDebug(e.nodeType);
     }
     re = re === undefined ? e : re;
 
@@ -428,7 +428,7 @@ function parseVarAssignment(ts: TokenStream, block: A.BlockExpr, le: Expr): A.Va
     }
     else {
         const e = parseExpr(ts, block, le) as A.BinaryExpr;
-        if (!e.op) Errors.raiseDebug();
+        if (!e.op) Errors.raiseParserError("assignment stmt", e);
         if (le !== e.left) Errors.raiseDebug();
         return rewriteBinaryExprIntoAssignment(e);
     }

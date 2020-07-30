@@ -19,7 +19,7 @@ import {
 } from "./mod.internal.ts";
 
 interface AnalysisState {
-    ret?: A.ReturnExpr;
+    ret?: A.ReturnStmt;
 }
 
 interface FunctionPrototypes {

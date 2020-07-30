@@ -220,16 +220,6 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             ty = setBlockType(st, block, x.expr);
             break;
         }
-        case NodeType.ReturnExpr: {
-            const x = e as A.ReturnExpr;
-            let b = block;
-            while (b.parent) {
-                b = b.parent;
-            }
-            ty = setBlockType(st, b, x.expr);
-            st.as.ret = x;
-            break;
-        }
         case NodeType.IfExpr: {
             const x = e as A.IfExpr;
             const t = getExprType(st, block, x.condition);
@@ -332,6 +322,17 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
             if (!v.isMutable) Errors.raiseImmutableVar(v, x.loc);
 
             checkTypes(st, block, x.lhs, x.rhs, x.loc);
+            break;
+        }
+        case NodeType.ReturnStmt: {
+            const x = s as A.ReturnStmt;
+            let b = block;
+            while (b.parent) {
+                b = b.parent;
+            }
+            getExprType(st, b, x.expr);
+            setBlockType(st, b, x.expr);
+            st.as.ret = x;
             break;
         }
         case NodeType.ExprStmt: {

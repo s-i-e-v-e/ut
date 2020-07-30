@@ -23,12 +23,13 @@ export enum NodeType {
     NumberLiteral,
     ArrayConstructor,
     LocalReturnExpr,
-    ReturnExpr,
+    ReturnStmt,
     ArrayExpr,
     BinaryExpr,
     ReferenceExpr,
     DereferenceExpr,
     CastExpr,
+    GroupExpr,
 }
 
 import {
@@ -55,6 +56,10 @@ export interface VarInitStmt extends Stmt {
 export interface VarAssnStmt extends Stmt {
     lhs: Expr;
     rhs: Expr;
+}
+
+export interface ReturnStmt extends Stmt {
+    expr: Expr;
 }
 
 export interface ForStmt extends Stmt {
@@ -85,6 +90,10 @@ export interface ArrayExpr extends Expr {
 
 export interface DereferenceExpr extends Expr {
     expr: IDExpr|DereferenceExpr;
+}
+
+export interface GroupExpr extends Expr {
+    expr: Expr;
 }
 
 export interface BinaryExpr extends Expr {
@@ -127,10 +136,6 @@ export interface IfExpr extends Expr {
     condition: Expr;
     ifBranch: A.BlockExpr;
     elseBranch: A.BlockExpr;
-}
-
-export interface ReturnExpr extends Expr {
-    expr: Expr;
 }
 
 export interface LocalReturnExpr extends Expr {

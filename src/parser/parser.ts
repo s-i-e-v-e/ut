@@ -298,10 +298,26 @@ function parseDereferenceExpr(ts: TokenStream): A.DereferenceExpr {
     };
 }
 
+function parseGroupExpr(ts: TokenStream, block: A.BlockExpr): A.GroupExpr {
+    const loc = ts.loc();
+    ts.nextMustBe("(");
+    const e = parseLExpr(ts, block);
+    ts.nextMustBe(")");
+    return {
+        nodeType: NodeType.GroupExpr,
+        expr: e,
+        loc: loc,
+        type: KnownTypes.NotInferred,
+    };
+}
+
 function parseLExpr(ts: TokenStream, block: A.BlockExpr): Expr {
     let e;
     if (ts.nextIs("*")) {
         e = parseDereferenceExpr(ts);
+    }
+    else if (ts.nextIs("(")) {
+        e = parseGroupExpr(ts, block);
     }
     else {
         const ide = parseMultiIDExpr(ts);
@@ -467,11 +483,10 @@ function parseForStmt(ts: TokenStream, block: A.BlockExpr): A.ForStmt {
     };
 }
 
-function parseReturnExpr(ts: TokenStream, block: A.BlockExpr, loc: Location): A.ReturnExpr {
+function parseReturnStmt(ts: TokenStream, block: A.BlockExpr, loc: Location): A.ReturnStmt {
     return {
-        nodeType: NodeType.ReturnExpr,
+        nodeType: NodeType.ReturnStmt,
         expr: ts.nextIs(";") ? A.buildVoidExpr(loc) : parseRExpr(ts, block),
-        type: KnownTypes.NotInferred,
         loc: loc,
     };
 }
@@ -479,7 +494,7 @@ function parseReturnExpr(ts: TokenStream, block: A.BlockExpr, loc: Location): A.
 function parseAssnOrExprStmt(ts: TokenStream, block: A.BlockExpr) {
     const loc = ts.loc();
     if (ts.consumeIfNextIs("return")) {
-        return A.buildExprStmt(parseReturnExpr(ts, block, loc));
+        return parseReturnStmt(ts, block, loc);
     }
     else if (ts.nextIs("if")) {
         return A.buildExprStmt(parseIfExpr(ts, block, true));

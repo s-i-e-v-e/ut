@@ -242,12 +242,6 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             emitExpr(ac, store, block, x.expr);
             break;
         }
-        case NodeType.ReturnExpr: {
-            const x = e as A.ReturnExpr;
-            emitExpr(ac, store, block, x.expr);
-            ac.b.ret();
-            break;
-        }
         case NodeType.IfExpr: {
             const x = e as A.IfExpr;
 
@@ -317,6 +311,12 @@ function emitStmt(ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
             r.isRHS = false;
             emitExpr(ac, r, block, x.lhs);
             r.free();
+            break;
+        }
+        case NodeType.ReturnStmt: {
+            const x = s as A.ReturnStmt;
+            emitExpr(ac, store, block, x.expr);
+            ac.b.ret();
             break;
         }
         case NodeType.ExprStmt: {

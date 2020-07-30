@@ -10,6 +10,7 @@ import {
     TokenType,
     TokenStream,
     lex,
+    NativeModule,
 } from "./mod.internal.ts";
 import {
     Location,
@@ -25,6 +26,7 @@ import {
 
 const NodeType = A.NodeType;
 const KnownTypes = P.KnownTypes;
+const NativeTypes = P.NativeTypes;
 type Expr = A.Expr;
 type Type = P.Type;
 
@@ -38,6 +40,12 @@ function parseIDExpr(ts: TokenStream): A.IDExpr {
         loc: loc,
         type: KnownTypes.NotInferred,
     }
+}
+
+function parseType(ts: TokenStream) {
+    const loc = ts.loc();
+    const id = ts.nextMustBe(TokenType.TK_TYPE).lexeme;
+    return P.newType(id, loc);
 }
 
 function parseMultiIDExpr(ts: TokenStream): A.IDExpr {
@@ -57,23 +65,29 @@ function parseMultiIDExpr(ts: TokenStream): A.IDExpr {
 function parseTypeParameters(ts: TokenStream) {
     const xs = new Array<Type>();
     while (!ts.nextIs("]")) {
-        xs.push(parseType(ts));
+        xs.push(parseTypeAnnotation(ts));
         if (!ts.consumeIfNextIs(",")) break;
     }
     return xs;
 }
 
-function parseType(ts: TokenStream) {
+function parseTypeAnnotation(ts: TokenStream): P.Type {
     const idx = ts.getIndex();
     const loc = ts.loc();
-    if (ts.consumeIfNextIs("[")) {
+
+    const getGenericType = (id: string): P.GenericType|undefined => {
+        if (!ts.consumeIfNextIs("[")) return undefined;
         const x = {
-            id: "Array",
+            id: id,
             typeParameters: parseTypeParameters(ts),
             loc: loc,
         };
         ts.nextMustBe("]");
+        return x;
+    };
 
+    const x = getGenericType("Array");
+    if (x) {
         const tx = ts.getAsToken(idx, ts.getIndex());
         if (x.typeParameters.length != 1) {
             Errors.raiseArrayType(tx);
@@ -81,22 +95,13 @@ function parseType(ts: TokenStream) {
         return x;
     }
     else {
-        const id = ts.nextMustBe(TokenType.TK_TYPE).lexeme;
-        if (ts.consumeIfNextIs("[")) {
-            const x = {
-                id: id,
-                typeParameters: parseTypeParameters(ts),
-                loc: loc,
-            };
-            ts.nextMustBe("]");
-            return x;
-        }
-        else {
-            return {
-                id: id,
-                loc: loc,
-            };
-        }
+        const t = ts.peek();
+        const isType = t.loc.path === NativeModule &&  ["int", "uint", "float"].filter(x => x === t.lexeme).length;
+        const id = isType ? ts.next().lexeme : ts.nextMustBe(TokenType.TK_TYPE).lexeme;
+        return getGenericType(id) || {
+            id: id,
+            loc: loc,
+        };
     }
 }
 
@@ -178,9 +183,9 @@ function parseExprList(ts: TokenStream, block: A.BlockExpr) {
     return xs;
 }
 
-function parseTypeConstructor(ts: TokenStream, block: A.BlockExpr): A.ArrayConstructor {
+function parseTypeInstantiation(ts: TokenStream, block: A.BlockExpr): A.ArrayConstructor {
     const loc = ts.loc();
-    const ty = parseType(ts);
+    const ty = parseTypeAnnotation(ts);
     if (ty.id === "Array") {
         // is array constructor
         const t = ts.peek();
@@ -247,7 +252,7 @@ function parseCastExpr(ts: TokenStream, e: Expr): A.CastExpr {
         nodeType: NodeType.CastExpr,
         expr: e,
         loc: e.loc,
-        type: parseType(ts),
+        type: parseTypeAnnotation(ts),
     };
 }
 
@@ -370,7 +375,7 @@ function parseExpr(ts: TokenStream, block: A.BlockExpr, le?: Expr, rbp?: number)
                     return parseLiteral(ts);
                 }
                 else if (ts.nextIsType()) {
-                    return parseTypeConstructor(ts, block);
+                    return parseTypeInstantiation(ts, block);
                 }
                 else {
                     const ide = parseMultiIDExpr(ts);
@@ -391,7 +396,7 @@ function parseExpr(ts: TokenStream, block: A.BlockExpr, le?: Expr, rbp?: number)
 function parseVarInit(ts: TokenStream, block: A.BlockExpr, isMutable: boolean): A.VarInitStmt  {
     const loc = ts.loc();
     ts.nextMustBe(isMutable ? "var" : "let");
-    const v = parseVarDef(ts, isMutable, false);
+    const v = parseVarDef(ts, isMutable, false, false);
     ts.nextMustBe("=");
     const expr = parseExpr(ts, block);
     return {
@@ -521,7 +526,6 @@ function parseBlockExpr(ts: TokenStream, block?: A.BlockExpr): A.BlockExpr {
             xs.push(parseForStmt(ts, block));
         }
         else {
-            Errors.debug();
             xs.push(parseAssnOrExprStmt(ts, block));
         }
 
@@ -531,22 +535,26 @@ function parseBlockExpr(ts: TokenStream, block?: A.BlockExpr): A.BlockExpr {
     return block;
 }
 
-function parseVarDef(ts: TokenStream, isMutable: boolean, force: boolean): P.Variable {
+function parseVarDef(ts: TokenStream, isMutable: boolean, isPrivate: boolean, force: boolean): P.Variable {
     const loc = ts.loc();
     const id = parseIDExpr(ts).id;
     const type = parseVarType(ts, force);
-    return {
-        id: id,
-        type: type,
-        isMutable: isMutable,
-        loc: loc,
-    }
+    const isVararg = ts.consumeIfNextIs("*") !== undefined;
+    return P.buildVar(
+        id,
+        type,
+        isMutable,
+        isVararg,
+        isPrivate,
+        loc,
+    );
 }
 
-function parseVariableList(ts: TokenStream, isMutable: boolean) {
+function parseVariableList(ts: TokenStream, isMutable: boolean, canBePrivate: boolean) {
     const xs = new Array<P.Parameter>();
     while (ts.peek().lexeme !== ")") {
-        xs.push(parseVarDef(ts, isMutable, true));
+        const isPrivate = canBePrivate && ts.consumeIfNextIs("#") !== undefined;
+        xs.push(parseVarDef(ts, isMutable, isPrivate, true));
         if (ts.peek().lexeme === ")") continue;
         ts.nextMustBe(",");
     }
@@ -554,21 +562,21 @@ function parseVariableList(ts: TokenStream, isMutable: boolean) {
 }
 
 function parseParameterList(ts: TokenStream) {
-    return parseVariableList(ts, false);
+    return parseVariableList(ts, false, false);
 }
 
 function parseStructMemberList(ts: TokenStream) {
-    return parseVariableList(ts, false);
+    return parseVariableList(ts, false, true);
 }
 
 function parseVarType(ts: TokenStream, force: boolean) {
     if (force) {
         ts.nextMustBe(":");
-        return parseType(ts);
+        return parseTypeAnnotation(ts);
     }
     else {
         if (ts.consumeIfNextIs(":")) {
-            return parseType(ts);
+            return parseTypeAnnotation(ts);
         }
         else {
             return KnownTypes.NotInferred;
@@ -633,12 +641,16 @@ function parseForeignFunction(ts: TokenStream): P.ForeignFunction {
 function parseStruct(ts: TokenStream): P.Struct {
     const loc = ts.loc();
     ts.nextMustBe("struct");
-    const ty = parseType(ts);
+    let ty = parseTypeAnnotation(ts) as P.GenericType;
     ts.nextMustBe("(");
     const members = parseStructMemberList(ts);
     ts.nextMustBe(")");
     return {
-        type: ty,
+        type: {
+            id: ty.id,
+            loc: ty.loc,
+        },
+        typeParameters: ty.typeParameters || [],
         members: members,
         loc: loc,
     }
@@ -655,11 +667,55 @@ function parseImport(ts: TokenStream): P.Import {
     }
 }
 
+function parseLiteralExprList(ts: TokenStream, block: A.BlockExpr) {
+    const xs = new Array<any>();
+    while (!ts.nextIs(")")) {
+        if (!ts.nextIsLiteral()) Errors.raiseExpectedButFound("Literal", ts.peek());
+        xs.push(parseExpr(ts, block));
+        if (!ts.consumeIfNextIs(",")) break;
+    }
+    ts.nextMustBe(")");
+    return xs;
+}
+
+function parseTypeDeclaration(ts: TokenStream, type: Type, cons: Type) {
+    const loc = ts.loc();
+    const block = buildBlockExpr(loc);
+    const xs = parseLiteralExprList(ts, block);
+    return {
+        loc: loc,
+        type: type,
+        cons: cons,
+        params: xs,
+    } as P.TypeDeclaration;
+}
+
+function parseTypeDefinition(ts: TokenStream): P.TypeDefinition {
+    const loc = ts.loc();
+    ts.nextMustBe("type");
+    const ltype = parseType(ts);
+    ts.nextMustBe("=");
+    const rtype = parseType(ts);
+    if (ts.consumeIfNextIs("(")) {
+        // is type constructor
+        return parseTypeDeclaration(ts, ltype, rtype);
+    }
+    else {
+        // is type alias
+        return {
+            loc: loc,
+            type: ltype,
+            alias: rtype,
+        } as P.TypeAlias;
+    }
+}
+
 export function parseModule(id: string, ts: TokenStream, path: string) {
     const xs = new Array<P.Struct>();
     const ys = new Array<P.ForeignFunction>();
     const zs = new Array<P.Function>();
     const is = new Array<P.Import>();
+    const types = new Array<P.TypeDefinition>();
     while (!ts.eof()) {
         if (ts.nextIs("struct")) {
             xs.push(parseStruct(ts));
@@ -673,6 +729,9 @@ export function parseModule(id: string, ts: TokenStream, path: string) {
         else if (ts.nextIs("import")) {
             is.push(parseImport(ts));
         }
+        else if (ts.nextIs("type")) {
+            types.push(parseTypeDefinition(ts));
+        }
         else {
             Errors.raiseDebug(ts.peek().lexeme);
         }
@@ -681,6 +740,7 @@ export function parseModule(id: string, ts: TokenStream, path: string) {
     return {
         id: id,
         path: path,
+        types: types,
         structs: xs,
         foreignFunctions: ys,
         functions: zs,
@@ -694,3 +754,44 @@ export function parse(id: string, f: SourceFile) {
     const ts = lex(cs);
     return parseModule(id, ts, f.path);
 }
+
+export function parseNative() {
+    const cs = CharacterStream.build(native, NativeModule);
+    const ts = lex(cs);
+    return parseModule(NativeModule, ts, NativeModule);
+}
+
+const native =
+`
+struct UnsignedInt(#bits: Word)
+struct SignedInt(#bits: Word)
+struct Float(#bits: Word, #exp-bits: Word)
+struct Array[A](#a: A*)
+
+type Integer = Word
+type Bool = UnsignedInt(8)
+type Bits8 = UnsignedInt(8)
+type Uint8 = UnsignedInt(8)
+type Int8 = SignedInt(8)
+type Bits16 = UnsignedInt(16)
+type Uint16 = UnsignedInt(16)
+type Int16 = SignedInt(16)
+type Bits32 = UnsignedInt(32)
+type Uint32 = UnsignedInt(32)
+type Int32 = SignedInt(32)
+type Bits64 = UnsignedInt(64)
+type Uint64 = UnsignedInt(64)
+type Int64 = SignedInt(64)
+type Bits128 = UnsignedInt(128)
+type Uint128 = UnsignedInt(128)
+type Int128 = SignedInt(128)
+type Float8 = Float(8, 2)
+type Float16 = Float(16, 5)
+type Float32 = Float(32, 8)
+type Float64 = Float(64, 11)
+type Float80 = Float(80, 15)
+type Float128 = Float(128, 15)
+type Pointer = Uint64
+type String = Pointer
+type Void = Pointer
+`;

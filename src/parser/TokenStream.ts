@@ -9,11 +9,19 @@ import {
     Token,
     TokenType,
 } from "./mod.internal.ts";
+import {
+    P,
+} from "./mod.ts";
 import { Errors } from "../util/mod.ts";
 
 export default class TokenStream {
     private index: number;
     public readonly length: number;
+    private readonly EOF: Token = {
+        loc: P.SysLoc,
+        type: TokenType.TK_INTERNAL,
+        lexeme: "",
+    };
 
     constructor(private readonly xs: Array<Token>) {
         this.index = 0;
@@ -48,7 +56,7 @@ export default class TokenStream {
     }
 
     peek(n?: number) {
-        return this.xs[n ? this.index + n : this.index];
+        return this.eof() ? this.EOF : this.xs[n ? this.index + n : this.index];
     }
 
     next() {

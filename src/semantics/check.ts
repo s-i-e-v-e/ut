@@ -19,8 +19,10 @@ import {
     Errors,
     Logger,
 } from "../util/mod.ts";
+import {NativeModule} from "../parser/mod.internal.ts";
 
 const KnownTypes = P.KnownTypes;
+const NativeTypes = P.NativeTypes;
 type Type = P.Type;
 type GenericType = P.GenericType;
 type Stmt = A.Stmt;
@@ -54,7 +56,7 @@ function checkTypes(st: SymbolTable, block: A.BlockExpr, le_or_type: Type|Expr, 
     const rtype = getExprType(st, block, re);
 
     if (!Types.typeExists(st, ltype, loc)) Errors.raiseUnknownType(ltype, loc);
-    Types.typesMustMatch(ltype, rtype, loc);
+    Types.typesMustMatch(st, ltype, rtype, loc);
 }
 
 function getVar(st: SymbolTable, id: string, loc: Location) {
@@ -107,7 +109,7 @@ function setBlockType(st: SymbolTable, block: A.BlockExpr, expr: Expr) {
         block.type = ty;
     }
     else {
-        Types.typesMustMatch(block.type, ty, expr.loc);
+        Types.typesMustMatch(st, block.type, ty, expr.loc);
     }
     return ty;
 }
@@ -132,7 +134,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
 
             const ta = getExprType(st, block, x.left);
             const tb = getExprType(st, block, x.right);
-            Types.typesMustMatch(ta, tb, x.loc);
+            Types.typesMustMatch(st, ta, tb, x.loc);
 
             switch (x.op) {
                 case "%":
@@ -140,7 +142,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 case "/":
                 case "+":
                 case "-": {
-                    if (!Types.typesMatch(ta, KnownTypes.Integer)) Errors.raiseMathTypeError(ta, x.loc);
+                    if (!Types.typesMatch(st, ta, KnownTypes.Integer)) Errors.raiseMathTypeError(ta, x.loc);
                     ty = ta;
                     break;
                 }
@@ -148,7 +150,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 case "<":
                 case ">=":
                 case "<=": {
-                    if (!Types.typesMatch(ta, KnownTypes.Integer)) Errors.raiseMathTypeError(ta, x.loc);
+                    if (!Types.typesMatch(st, ta, KnownTypes.Integer)) Errors.raiseMathTypeError(ta, x.loc);
                     ty = KnownTypes.Bool;
                     break;
                 }
@@ -159,7 +161,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 }
                 case "|":
                 case "&": {
-                    if (!Types.typesMatch(ta, KnownTypes.Bool)) Errors.raiseLogicalOperationError(ta, x.loc);
+                    if (!Types.typesMatch(st, ta, KnownTypes.Bool)) Errors.raiseLogicalOperationError(ta, x.loc);
                     ty = ta;
                     break;
                 }
@@ -207,7 +209,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
 
             x.args.forEach(a => {
                 const ty = getExprType(st, block, a);
-                if (!Types.typesMatch(ty, KnownTypes.Integer)) Errors.raiseArrayIndexError(a.type, a.loc);
+                if (!Types.typesMatch(st, ty, KnownTypes.Integer)) Errors.raiseArrayIndexError(a.type, a.loc);
             });
 
             ty = at.typeParameters[0];
@@ -219,7 +221,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 // check arg types
                 // get type of first arg
                 const et = getExprType(st, block, x.args[0]) as GenericType;
-                x.args.forEach(y => Types.typesMustMatch(et, y.type, y.loc))
+                x.args.forEach(y => Types.typesMustMatch(st, et, y.type, y.loc))
 
                 // can infer type from constructor args
                 const ty = x.type as GenericType;
@@ -227,7 +229,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                     ty.typeParameters = [et];
                 }
                 else {
-                    Types.typesMustMatch(ty.typeParameters[0], et, x.loc);
+                    Types.typesMustMatch(st, ty.typeParameters[0], et, x.loc);
                 }
             }
             else {
@@ -254,7 +256,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 // ignore
             }
             else {
-                Types.typesMustMatch(x.ifBranch.type, x.elseBranch.type, x.loc);
+                Types.typesMustMatch(st, x.ifBranch.type, x.elseBranch.type, x.loc);
             }
 
             x.type = Types.typeNotInferred(x.ifBranch.type) ? KnownTypes.Void: x.ifBranch.type;
@@ -425,17 +427,77 @@ function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
 }
 
 function doStruct(st: SymbolTable, s: P.Struct) {
+    st.addStruct(s);
+    s.typeParameters.forEach(x => st.addTypeParameter(x));
     s.members.forEach(x => {
         if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
     })
 }
 
+function doTypeDeclaration(st: SymbolTable, t: P.TypeDeclaration) {
+    // get struct
+    const s = st.getStruct(t.cons.id);
+    if (!s) Errors.raiseUnknownType(t.cons, t.loc);
+    const ty = st.getType(t.type.id);
+    if (!ty) Errors.raiseDebug();
+
+    switch (s.type.id) {
+        case NativeTypes.SignedInt.id: {
+            const bits = t.params[0] as A.NumberLiteral;
+            ty.native = P.nativeInt(bits.value);
+            break;
+        }
+        case NativeTypes.UnsignedInt.id: {
+            const bits = t.params[0] as A.NumberLiteral;
+            ty.native = P.nativeUint(bits.value);
+            break;
+        }
+        case NativeTypes.Float.id: {
+            const bits = t.params[0] as A.NumberLiteral;
+            const exponent = t.params[0] as A.NumberLiteral;
+            ty.native = P.nativeFloat(bits.value, exponent.value);
+            break;
+        }
+        default: {
+            Errors.raiseDebug(s.type.id);
+        }
+    }
+
+    if (s.members.length != t.params.length) Errors.raiseDebug();
+
+    for (let i = 0; i < s.members.length; i += 1) {
+        const a = s.members[i];
+        const b = t.params[i];
+        Types.typesMustMatch(st, a.type, b.type, b.loc);
+    }
+}
+
+function doTypeDefinition(st: SymbolTable, t: P.TypeDefinition) {
+    if ((t as P.TypeAlias).alias) {+
+        st.addTypeDefinition(t);
+        const x = t as P.TypeAlias;
+        if (!st.typeExists(x.alias)) Errors.raiseUnknownType(x.alias, x.loc);
+    }
+    else if ((t as P.TypeDeclaration).cons) {
+        st.addTypeDefinition(t);
+        const x = t as P.TypeDeclaration;
+        if (!st.typeExists(x.cons)) Errors.raiseUnknownType(x.cons, x.loc);
+        doTypeDeclaration(st, x);
+    }
+    else {
+        Errors.raiseDebug();
+    }
+}
+
 function checkModule(st: SymbolTable, m: P.Module) {
     Logger.info(`Type checking: ${m.path}`);
-    for (const x of m.structs) {
-        st.addStruct(x);
-        doStruct(st, x);
-    }
+    // first add all types
+    m.types.forEach(x => st.addType(x.type));
+    m.structs.forEach(x => st.addType(x.type));
+
+    // then the rest
+    m.structs.forEach(x => doStruct(st, x));
+    m.types.forEach(x => doTypeDefinition(st, x));
 
     for (const x of m.foreignFunctions) {
         st.addFunction(x.proto);
@@ -460,8 +522,7 @@ function checkModule(st: SymbolTable, m: P.Module) {
 function _check(st: SymbolTable, m: P.Module, map: Dictionary<P.Module>, mods: P.Module[]) {
     if (map[m.id]) return;
     map[m.id] = m;
-    st = st.newTable();
-
+    st = m.id === NativeModule ? st : st.newTable();
     // for each import, perform check
     const imports = mods.filter(x => m.imports.filter(y => x.id === y.id).length);
     for (const im of imports) {
@@ -473,18 +534,24 @@ function _check(st: SymbolTable, m: P.Module, map: Dictionary<P.Module>, mods: P
     checkModule(st, m);
 }
 
+function collectAllTypes(st: SymbolTable) {
+    const xs = [];
+    xs.push(...st.getTypes());
+    st.children.forEach(x => xs.push(...collectAllTypes(x)));
+    return xs;
+}
+
 export default function check(mods: P.Module[]) {
     const global = SymbolTable.build();
-    global.addType(KnownTypes.Integer);
-    global.addType(KnownTypes.Uint8);
-    global.addType(KnownTypes.Bool);
-    global.addType(KnownTypes.String);
-    global.addType(KnownTypes.Void);
-    global.addType(KnownTypes.Pointer);
-    global.addType(KnownTypes.Array);
+
+    global.addType(NativeTypes.Word);
 
     const map: Dictionary<P.Module> = {};
     for (const m of mods) {
         _check(global, m, map, mods);
     }
+
+    const types: Dictionary<P.Type> = {};
+    collectAllTypes(global).forEach(x => types[x.id] = x);
+    return types;
 }

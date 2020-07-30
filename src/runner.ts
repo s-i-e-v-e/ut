@@ -17,9 +17,8 @@ import { vm_gen_code } from "./codegen/mod.ts";
 import { Vm } from "./vm/mod.ts";
 
 function process(mods: P.Module[], dump: boolean) {
-    check(mods);
-
-    const vme = vm_gen_code(mods);
+    const types = check(mods);
+    const vme = vm_gen_code(types, mods);
     const xs = vme.asBytes();
     if (dump) OS.writeBinaryFile("./dump.bin", xs);
     Logger.debug("@@--------VM.EXEC--------@@");

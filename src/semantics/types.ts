@@ -14,41 +14,40 @@ import {SymbolTable} from "./mod.internal.ts";
 
 const KnownTypes = P.KnownTypes;
 type Type = P.Type;
+type Variable = P.Variable;
 type GenericType = P.GenericType;
 
 export function typeNotInferred(t: Type) {
     return t === KnownTypes.NotInferred;
 }
 
-export function typesMatch(t1: Type, t2: Type) {
+export function typesMatch(st: SymbolTable, xt1: Type, xt2: Type): boolean {
+    const t1 = st.getAlias(xt1.id) || st.getType(xt1.id);
+    const t2 = st.getAlias(xt2.id) || st.getType(xt2.id);
     const g1 = t1 as GenericType;
     const g2 = t2 as GenericType;
+    if (!t1) Errors.raiseDebug();
+    if (!t2) Errors.raiseDebug();
 
-    let a = g1.id === g2.id;
-    if (g1.typeParameters) {
-        if (g2.typeParameters) {
-            if (g1.typeParameters.length !== g2.typeParameters.length) return false;
-            for (let i = 0; i < g1.typeParameters.length; i += 1) {
-                a = a && typesMatch(g1.typeParameters[i], g2.typeParameters[i]);
-            }
-            return a;
+    let a = g1.id === g2.id || (g1.native && g2.native && g1.native.id === g2.native.id) === true;
+    if (!a) return a;
+    if (g1.typeParameters && g2.typeParameters) {
+        if (g1.typeParameters.length !== g2.typeParameters.length) return false;
+        for (let i = 0; i < g1.typeParameters.length; i += 1) {
+            a = a && typesMatch(st, g1.typeParameters[i], g2.typeParameters[i]);
         }
-        else {
-            return false;
-        }
+        return a;
+    }
+    else if (!g1.typeParameters && !g2.typeParameters) {
+        return a;
     }
     else {
-        if (g2.typeParameters) {
-            return false;
-        }
-        else {
-            return a;
-        }
+        return false;
     }
 }
 
-export function typesMustMatch(t1: Type, t2: Type, loc: Location) {
-    if (!typesMatch(t1, t2)) Errors.raiseTypeMismatch(t1, t2, loc);
+export function typesMustMatch(st: SymbolTable, t1: Type, t2: Type, loc: Location) {
+    if (!typesMatch(st, t1, t2)) Errors.raiseTypeMismatch(t1, t2, loc);
 }
 
 export function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
@@ -64,4 +63,11 @@ export function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
     else {
         return true;
     }
+}
+
+export function rewrite(tv: Type|Variable) {
+    const t = (tv as Variable).type || (tv as Type);
+    t.loc = P.SysLoc;
+    const gt = t as GenericType;
+    if (gt.typeParameters) gt.typeParameters.forEach(x => rewrite(x));
 }

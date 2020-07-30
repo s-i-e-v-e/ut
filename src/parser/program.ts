@@ -16,6 +16,7 @@ export interface Primitive {}
 export interface Module extends Primitive {
     id: string;
     path: string,
+    types: TypeDefinition[],
     structs: Struct[],
     foreignFunctions: ForeignFunction[],
     functions: Function[],
@@ -50,23 +51,58 @@ export interface ForeignFunction extends Primitive {
 export interface Struct extends Primitive {
     members: Variable[];
     type: Type;
+    typeParameters: Type[];
     loc: Location;
+}
+
+export interface NativeType extends Primitive {
+    loc: Location;
+    id: string;
+    bits: number;
+}
+
+export interface NativeIntType extends NativeType {}
+
+export interface NativeUintType extends NativeType {}
+
+export interface NativeFloatType extends NativeType {
+    exponent: number;
+}
+
+export interface NativeArrayType extends NativeType {
+    bits: number;
 }
 
 export interface Type extends Primitive {
-    id: string;
     loc: Location;
+    id: string;
+    native?: NativeType;
 }
 
 export interface GenericType extends Type {
-    id: string;
     typeParameters: Type[];
+}
+
+export interface TypeDefinition extends Primitive {
+    loc: Location;
+    type: Type;
+}
+
+export interface TypeAlias extends TypeDefinition {
+    alias: Type;
+}
+
+export interface TypeDeclaration extends TypeDefinition {
+    cons: Type;
+    params: A.Literal[];
 }
 
 export interface Variable extends Primitive {
     id: string;
     type: Type;
     isMutable: boolean;
+    isPrivate: boolean;
+    isVararg: boolean;
     loc: Location;
 }
 
@@ -79,10 +115,43 @@ export const SysLoc = {
     path: "<system>",
 };
 
-function newType(id: string) {
+export function nativeInt(bits: bigint, id?: string): NativeIntType {
+    return {
+        loc: SysLoc,
+        id: id || NativeTypes.SignedInt.id,
+        bits: Number(bits),
+    };
+}
+
+export function nativeUint(bits: bigint): NativeUintType {
+    return {
+        loc: SysLoc,
+        id: NativeTypes.UnsignedInt.id,
+        bits: Number(bits),
+    };
+}
+
+export function nativeFloat(bits: bigint, exponent: bigint): NativeFloatType {
+    return {
+        loc: SysLoc,
+        id: NativeTypes.Float.id,
+        bits: Number(bits),
+        exponent: Number(bits),
+    };
+}
+
+export function newNativeType(id: string, native: NativeType, loc?: Location): Type {
     return {
         id: id,
-        loc: SysLoc,
+        loc: loc || SysLoc,
+        native: native,
+    };
+}
+
+export function newType(id: string, loc?: Location): Type {
+    return {
+        id: id,
+        loc: loc || SysLoc,
     };
 }
 
@@ -105,15 +174,22 @@ function newFunction(id: string, xs: Parameter[], type: Type) {
     };
 }
 
+export const NativeTypes = {
+    Word: newNativeType("Word", nativeInt(64n, "uint")),
+    SignedInt: newNativeType("SignedInt", nativeInt(64n, "int")),
+    UnsignedInt: newNativeType("UnsignedInt", nativeInt(64n, "uint")),
+    Float: newType("Float"),
+    Array: newType("Array"),
+};
+
 export const KnownTypes = {
     NotInferred: newType("NotInferred"),
     Void: newType("Void"),
     Bool: newType("Bool"),
     String: newType("String"),
-    Integer: newType("Integer"),
     Uint8: newType("Uint8"),
     Pointer: newType("Pointer"),
-    Array: newType("Array"),
+    Integer: newType("Integer"),
 };
 
 export function toTypeString(t: Type, xs?: Array<string>) {
@@ -149,4 +225,15 @@ export function mangleName(id: string, xs: Type[]) {
     ys.push(id);
     ys.push(mangleTypes(xs));
     return ys.join("");
+}
+
+export function buildVar(id: string, type: Type, isMutable: boolean, isVararg: boolean, isPrivate: boolean, loc?: Location) {
+    return {
+        id: id,
+        type: type,
+        isMutable: isMutable,
+        isPrivate: isPrivate,
+        isVararg: isVararg,
+        loc: loc || SysLoc,
+    };
 }

@@ -7,7 +7,7 @@
  */
 import {Dictionary} from "../util/mod.ts";
 import {P} from "./mod.ts";
-import {parse} from "./mod.internal.ts";
+import {NativeModule, parse, parseNative} from "./mod.internal.ts";
 import {Errors, Logger, OS} from "../util/mod.ts";
 
 async function parseModule(modules: Dictionary<P.Module>, id: string, base: string, path: string) {
@@ -39,16 +39,19 @@ function getFileName(path: string) {
 }
 
 async function parseFile(path: string) {
+    const modules: Dictionary<P.Module> = {};
+    const nm = parseNative();
+
     path = path.replaceAll(/\\/g, "/");
     const id = getFileName(path);
-    const modules: Dictionary<P.Module> = {};
     const base = path.substring(0, path.indexOf("/")+1);
     await parseModule(modules, id, base, path);
 
-    const xs = Object.keys(modules).map(x => modules[x]);
     const mods = [];
-    mods.push(...xs.filter(x => x.id === id));
-    mods.push(...xs.filter(x => x.id !== id));
+    mods.push(nm);
+    mods.push(modules[id]);
+
+    mods.push(...Object.keys(modules).map(x => modules[x]).filter(x => x.id !== id));
     return mods;
 }
 

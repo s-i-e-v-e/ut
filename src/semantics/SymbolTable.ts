@@ -27,9 +27,10 @@ interface FunctionPrototypes {
 }
 
 interface Namespaces {
-    functions: Dictionary<FunctionPrototypes>;
-    structs: Dictionary<P.Struct>;
     types: Dictionary<P.Type>;
+    typeDefinitions: Dictionary<P.TypeDefinition>;
+    structs: Dictionary<P.Struct>;
+    functions: Dictionary<FunctionPrototypes>;
     vars: Dictionary<P.Variable>;
 }
 
@@ -37,17 +38,20 @@ type Resolve<T> = (ns: Namespaces, id: string) => T;
 
 export default class SymbolTable {
     private readonly ns: Namespaces;
+    public readonly children: SymbolTable[];
     public readonly as: AnalysisState = {
         ret: undefined,
     };
 
     private constructor(public readonly parent?: SymbolTable) {
         this.ns = {
-            functions: {},
-            structs: {},
             types: {},
+            typeDefinitions: {},
+            structs: {},
+            functions: {},
             vars: {},
         };
+        this.children = [];
     }
 
     private static add<T>(name: string, ns: Dictionary<T>, x: T) {
@@ -85,29 +89,51 @@ export default class SymbolTable {
     addFunction(fp: P.FunctionPrototype) {
         const exists = this.ns.functions[fp.id] !== undefined;
         const m = this.ns.functions[fp.id] || { map: {} };
-        if (m.map[fp.mangledName]) Errors.raiseDebug();
+        if (m.map[fp.mangledName]) Errors.raiseDebug(fp.mangledName);
         m.map[fp.mangledName] = fp;
+        Types.rewrite(fp.type);
+        fp.typeParameters.forEach(x => Types.rewrite(x));
+        fp.params.forEach(x => Types.rewrite(x));
         if (!exists) SymbolTable.add(fp.id, this.ns.functions, m);
     }
 
     addStruct(s: P.Struct) {
+        Types.rewrite(s.type);
+        s.members.forEach(x => Types.rewrite(x));
         SymbolTable.add(s.type.id, this.ns.structs, s);
     }
 
+    addTypeDefinition(t: P.TypeDefinition) {
+        SymbolTable.add(t.type.id, this.ns.typeDefinitions, t);
+    }
+
     addType(t: P.Type) {
+        Types.rewrite(t);
         SymbolTable.add(t.id, this.ns.types, t);
     }
 
     addTypeParameter(t: P.Type) {
+        Types.rewrite(t);
         SymbolTable.add(t.id, this.ns.types, t);
     }
 
     addVar(v: P.Variable) {
+        Types.rewrite(v);
         SymbolTable.add(v.id, this.ns.vars, v);
+    }
+
+    getTypes() {
+        return Object.keys(this.ns.types).map(k => this.ns.types[k]);
     }
 
     getType(id: string) {
         return this.get(id, (ns, id) => ns.types[id]);
+    }
+
+    getAlias(id: string) {
+        const x = this.get(id, (ns, id) => ns.typeDefinitions[id]);
+        if (x && (x as P.TypeAlias).alias) return (x as P.TypeAlias).alias;
+        return undefined;
     }
 
     getVar(id: string) {
@@ -117,7 +143,7 @@ export default class SymbolTable {
     getFunction(id: string, argTypes: P.Type[], loc: Location) {
         return this.get(id, (ns, id) => {
             if (!ns.functions[id]) return undefined;
-            return matchFunction(id, argTypes, loc, ns.functions[id]);
+            return matchFunction(this, id, argTypes, loc, ns.functions[id]);
         });
     }
 
@@ -126,7 +152,9 @@ export default class SymbolTable {
     }
 
     newTable() {
-        return SymbolTable.build(this);
+        const x = SymbolTable.build(this);
+        this.children.push(x);
+        return x;
     }
 
     static build(parent?: SymbolTable) {
@@ -135,7 +163,7 @@ export default class SymbolTable {
 }
 
 //
-function matchFunction(id: string, argTypes: P.Type[], loc: Location, fp: FunctionPrototypes) {
+function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Location, fp: FunctionPrototypes) {
     // match arity
     const xs = Object
         .keys(fp.map)
@@ -148,7 +176,7 @@ function matchFunction(id: string, argTypes: P.Type[], loc: Location, fp: Functi
         for (let i = 0; i < argTypes.length; i += 1) {
             const atype = argTypes[i];
             const ptype = f.params[i].type;
-            Types.typesMustMatch(atype, ptype, loc);
+            Types.typesMustMatch(st, atype, ptype, loc);
         }
         return f;
     }
@@ -157,7 +185,7 @@ function matchFunction(id: string, argTypes: P.Type[], loc: Location, fp: Functi
         const map: Dictionary<P.Type> = {};
         const tp: Dictionary<P.Type> = {};
         f.typeParameters.forEach(x => tp[x.id] = x);
-        const ys = mapTypes(map, argTypes, f.params.map(x => x.type), tp);
+        const ys = mapTypes(st, map, argTypes, f.params.map(x => x.type), tp);
         if (ys.length) {
             for (const x of f.typeParameters) {
                 if (!map[x.id]) break;
@@ -170,7 +198,7 @@ function matchFunction(id: string, argTypes: P.Type[], loc: Location, fp: Functi
     return undefined;
 }
 
-function mapTypes(map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[], typeParams: Dictionary<P.Type>): P.Type[] {
+function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[], typeParams: Dictionary<P.Type>): P.Type[] {
     if (!argTypes) return [];
     if (!paramTypes) return [];
     const xs = [];
@@ -184,7 +212,7 @@ function mapTypes(map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Typ
             if (!map[pt.id]) {
                 map[pt.id] = at;
 
-                const ys = mapTypes(map, gat.typeParameters, gpt.typeParameters, typeParams);
+                const ys = mapTypes(st, map, gat.typeParameters, gpt.typeParameters, typeParams);
                 xs.push({
                     id: at.id,
                     typeParameters: ys,
@@ -196,14 +224,14 @@ function mapTypes(map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Typ
         }
         else {
             if (gat.typeParameters || gpt.typeParameters) {
-                const ys = mapTypes(map, gat.typeParameters, gpt.typeParameters, typeParams);
+                const ys = mapTypes(st, map, gat.typeParameters, gpt.typeParameters, typeParams);
                 xs.push({
                     id: at.id,
                     typeParameters: ys,
                 } as P.GenericType);
             }
             else {
-                if (!Types.typesMatch(at, pt)) return [];
+                if (!Types.typesMatch(st, at, pt)) return [];
             }
             xs.push(at);
         }

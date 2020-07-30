@@ -16,6 +16,7 @@ import {
 } from "../util/mod.ts";
 import {registers} from "../vm/mod.ts";
 const KnownTypes = P.KnownTypes;
+const NativeTypes = P.NativeTypes;
 
 type Free = (id: string) => void;
 
@@ -107,14 +108,8 @@ class Memory extends Store {
 export class Allocator {
     private readonly map: Dictionary<Store>;
     private static index = 0;
-    private static readonly loc = {
-        line: 1,
-        character: 1,
-        index: 1,
-        path: "<mem>",
-    };
 
-    private constructor(public readonly b: VmCodeBuilder, private readonly regs: Dictionary<boolean>, public readonly parent?: Allocator) {
+    private constructor(public readonly b: VmCodeBuilder, private readonly types: Dictionary<P.Type>, private readonly regs: Dictionary<boolean>, public readonly parent?: Allocator) {
         this.map = {};
     }
 
@@ -157,10 +152,10 @@ export class Allocator {
     alloc(v: P.Variable) {
         let x: Register;
         switch (v.type.id) {
-            case KnownTypes.Array.id:
+            case NativeTypes.Array.id:
+            case KnownTypes.Integer.id:
             case KnownTypes.String.id:
             case KnownTypes.Bool.id:
-            case KnownTypes.Integer.id:
             case KnownTypes.Pointer.id: {
                 const self = this;
                 x = new Register(this.b, v, this.use(), (reg: string) => self.free(reg));
@@ -183,33 +178,42 @@ export class Allocator {
     }
 
     tmp() {
-        const v = {
-            id: `t${Allocator.index}`,
-            isMutable: true,
-            loc: Allocator.loc,
-            type: KnownTypes.NotInferred,
-        }
+        const v = P.buildVar(
+            `t${Allocator.index}`,
+            KnownTypes.NotInferred,
+            true,
+            false,
+            false,
+        );
         Allocator.index += 1;
         const self = this;
         return new Register(this.b, v, this.use(), (reg: string) => self.free(reg));
     }
 
     from(reg: string) {
-        const v = {
-            id: reg,
-            isMutable: true,
-            loc: Allocator.loc,
-            type: KnownTypes.NotInferred,
-        }
+        const v = P.buildVar(
+            reg,
+            KnownTypes.NotInferred,
+            true,
+            false,
+            false,
+        );
         return new Register(this.b, v, reg, (reg: string) => {});
     }
 
     newAllocator() {
-        return Allocator.build(this.b, this.regs, this);
+        return Allocator.build(this.b, this.types, this.regs, this);
     }
 
-    static build(b: VmCodeBuilder, regs?: Dictionary<boolean>, parent?: Allocator) {
+    debug(t: P.Type) {
+        const ty = this.types[t.id];
+        if (ty.native && (ty.native as P.NativeType).bits) {
+            Logger.debug(`type: ${ty.id}, native: ${ty.native.id}, bits: ${(ty.native as P.NativeType).bits}`);
+        }
+    }
+
+    static build(b: VmCodeBuilder, types: Dictionary<P.Type>, regs?: Dictionary<boolean>, parent?: Allocator) {
         regs = regs || {};
-        return new Allocator(b, regs, parent);
+        return new Allocator(b, types, regs, parent);
     }
 }

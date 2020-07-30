@@ -14,6 +14,7 @@ import {
     VmCodeBuilder
 } from "../vm/mod.ts";
 import {
+    Dictionary,
     Errors,
     Logger,
 } from "../util/mod.ts";
@@ -171,6 +172,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             const args = x.args!;
             const n = args.length;
             const step = 8;
+
             const bb = ByteBuffer.build(8 + 8 + (step * 8));
             bb.write_u64(n);
             bb.write_u64(step);
@@ -366,9 +368,9 @@ function emitBlock(ac: Allocator, store: Store, block: A.BlockExpr) {
     block.xs.forEach(x => emitStmt(ac, store, block, x));
 }
 
-function emitFunction(b: VmCodeBuilder, f: P.Function) {
+function emitFunction(b: VmCodeBuilder, types: Dictionary<P.Type>, f: P.Function) {
     b.startFunction(f.proto.mangledName);
-    const ac = Allocator.build(b);
+    const ac = Allocator.build(b, types);
     const scratch = ac.tmp();
     if (scratch.reg !== "r0") Errors.raiseDebug();
     f.proto.params.forEach(x => ac.alloc(x));
@@ -376,7 +378,7 @@ function emitFunction(b: VmCodeBuilder, f: P.Function) {
     b.ret();
 }
 
-export default function vm_gen_code(mods: P.Module[]) {
+export default function vm_gen_code(types: Dictionary<P.Type>, mods: P.Module[]) {
     const reduce = <A>(ys: A[], xs: A[]) => { ys.push(...xs); return ys;  };
     const foreignFunctions = mods.map(x => x.foreignFunctions).reduce(reduce);
     const functions = mods.map(x => x.functions).reduce(reduce);
@@ -389,11 +391,11 @@ export default function vm_gen_code(mods: P.Module[]) {
     const xs = functions.filter(x => x.proto.id === "main");
     const main = xs.length ? xs[0] : undefined;
     if (!main) Errors.raiseVmError("main() not found");
-    emitFunction(b, main!);
+    emitFunction(b, types, main!);
 
     // then, rest
     const ys = functions.filter(x => x.proto.id !== "main");
-    ys.forEach(x => emitFunction(b, x));
+    ys.forEach(x => emitFunction(b, types, x));
 
     return b;
 }

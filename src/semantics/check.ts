@@ -187,7 +187,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
 
             x.args.forEach(a => {
                 const ty = getExprType(st, block, a);
-                if (ty !== KnownTypes.Integer) Errors.raiseArrayIndexError(a.type, a.loc);
+                if (!Types.typesMatch(ty, KnownTypes.Integer)) Errors.raiseArrayIndexError(a.type, a.loc);
             });
 
             ty = at.typeParameters[0];
@@ -324,6 +324,8 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         }
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
+            // infer
+            getExprType(st, block, x.lhs);
             const v = resolveVar(st, x.lhs);
 
             // check assignments to immutable vars

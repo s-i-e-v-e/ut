@@ -136,6 +136,7 @@ export interface IfExpr extends Expr {
     condition: Expr;
     ifBranch: A.BlockExpr;
     elseBranch: A.BlockExpr;
+    isStmt: boolean;
 }
 
 export interface LocalReturnExpr extends Expr {

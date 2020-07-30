@@ -11,22 +11,21 @@ import {
 } from "https://deno.land/std/testing/asserts.ts";
 import {
     CharacterStream,
-    TokenType,
     lex,
     parseModule,
 } from "../parser/mod.internal.ts";
 import { Errors } from "../util/mod.ts";
-import {BinaryExpr, NodeType, NumberLiteral, ReturnStmt} from "../parser/mod.ts";
+import {A} from "../parser/mod.ts";
 
 function parse(x: string) {
     const s = `fn main(){ return ${x}; }\n`;
     const cs = CharacterStream.build(s, "<mem>");
     const ts = lex(cs);
-    return (parseModule(ts, "<mem>").functions[0].body[0] as ReturnStmt).expr;
+    return (parseModule("<id>",ts, "<mem>").functions[0].body.xs[0] as A.ReturnStmt).expr;
 }
 
 function parseBinary(x: string) {
-    const e = parse(x) as BinaryExpr;
+    const e = parse(x) as A.BinaryExpr;
 
     const lhs = re(e.left);
     const rhs = re(e.right);
@@ -39,13 +38,13 @@ function parseBinary(x: string) {
 
 function re(e: any): string {
     switch (e.nodeType) {
-        case NodeType.BooleanLiteral:
-        case NodeType.NumberLiteral: {
-            const x = e as NumberLiteral;
+        case A.NodeType.BooleanLiteral:
+        case A.NodeType.NumberLiteral: {
+            const x = e as A.NumberLiteral;
             return `${x.value}`;
         }
-        case NodeType.BinaryExpr: {
-            const x = e as BinaryExpr;
+        case A.NodeType.BinaryExpr: {
+            const x = e as A.BinaryExpr;
             const ll = re(x.left);
             const rr = re(x.right);
             return `${ll}${x.op}${rr}`;
@@ -105,7 +104,7 @@ Deno.test("BinaryExpr: 1 == 1 & true", () => {
 Deno.test("BinaryExpr: 1 == 1 & 3 != 4 | false", () => {
     const e = parseBinary("1 == 1 & 3 != 4 | false");
 
-    assertEquals(e.lhs, "1==1");
-    assertEquals(e.rhs, "3!=4|false");
-    assertEquals(e.op, "&");
+    assertEquals(e.lhs, "1==1&3!=4");
+    assertEquals(e.rhs, "false");
+    assertEquals(e.op, "|");
 });

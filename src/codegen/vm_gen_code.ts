@@ -286,6 +286,11 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             emitBlock(ac, store, x);
             break;
         }
+        case NodeType.GroupExpr: {
+            const x = e as A.GroupExpr;
+            emitExpr(ac, store, block, x.expr);
+            break;
+        }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
 }

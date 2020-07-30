@@ -27,7 +27,27 @@ type Stmt = A.Stmt;
 type Expr = A.Expr;
 const NodeType = A.NodeType;
 
-
+function ifMustReturn(be: A.BlockExpr) {
+    // last statement must be a return
+    const last = be.xs.length ? be.xs[be.xs.length - 1] : undefined;
+    if (last && last.nodeType === NodeType.ExprStmt) {
+        const es = (last as A.ExprStmt);
+        const e = {
+            nodeType: NodeType.LocalReturnExpr,
+            expr: es.expr,
+            loc: es.loc,
+        } as A.LocalReturnExpr;
+        es.expr = e;
+        if (e.expr.nodeType == NodeType.IfExpr) {
+            const x = e.expr as A.IfExpr;
+            ifMustReturn(x.ifBranch);
+            ifMustReturn(x.elseBranch);
+        }
+    }
+    else {
+        Errors.raiseIfExprMustReturn(be.loc);
+    }
+}
 
 function checkTypes(st: SymbolTable, block: A.BlockExpr, le_or_type: Type|Expr, re: Expr, loc: Location) {
     const ltype = (le_or_type as Expr).nodeType ? getExprType(st, block, le_or_type as Expr) : le_or_type as Type;
@@ -222,6 +242,9 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.IfExpr: {
             const x = e as A.IfExpr;
+            if (!x.isStmt) ifMustReturn(x.ifBranch);
+            if (!x.isStmt) ifMustReturn(x.elseBranch);
+
             const t = getExprType(st, block, x.condition);
             if (t !== KnownTypes.Bool) Errors.raiseIfConditionError(t, x.loc);
 
@@ -286,6 +309,11 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             ty = y.expr.type;
             break;
         }
+        case NodeType.GroupExpr: {
+            const x = e as A.GroupExpr;
+            ty = getExprType(st, block, x.expr);
+            break;
+        }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
@@ -337,6 +365,10 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         }
         case NodeType.ExprStmt: {
             const x = s as A.ExprStmt;
+            if (x.expr.nodeType === NodeType.IfExpr) {
+                const y = x.expr as A.IfExpr;
+                y.isStmt = true;
+            }
             getExprType(st, block, x.expr);
             break;
         }

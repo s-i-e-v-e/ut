@@ -77,6 +77,7 @@ export interface Type extends Primitive {
     loc: Location;
     id: string;
     native?: NativeType;
+    ntype?: Type;
 }
 
 export interface GenericType extends Type {
@@ -124,18 +125,18 @@ export function nativeInt(bits: bigint, id?: string): NativeIntType {
     };
 }
 
-export function nativeUint(bits: bigint): NativeUintType {
+export function nativeUint(bits: bigint, id?: string): NativeUintType {
     return {
         loc: NativeLoc,
-        id: NativeTypes.UnsignedInt.id,
+        id: id || NativeTypes.UnsignedInt.id,
         bits: Number(bits),
     };
 }
 
-export function nativeFloat(bits: bigint, exponent: bigint): NativeFloatType {
+export function nativeFloat(bits: bigint, exponent: bigint, id?: string): NativeFloatType {
     return {
         loc: NativeLoc,
-        id: NativeTypes.Float.id,
+        id: id || NativeTypes.Float.id,
         bits: Number(bits),
         exponent: Number(bits),
     };
@@ -178,9 +179,9 @@ function newFunction(id: string, xs: Parameter[], type: Type) {
 export const NativeTypes = {
     Word: newNativeType("Word", nativeInt(64n, "uint")),
     SignedInt: newNativeType("SignedInt", nativeInt(64n, "int")),
-    UnsignedInt: newNativeType("UnsignedInt", nativeInt(64n, "uint")),
-    Float: newType("Float"),
-    Array: newType("Array"),
+    UnsignedInt: newNativeType("UnsignedInt", nativeUint(64n, "uint")),
+    Float: newNativeType("Float", nativeFloat(80n, 15n, "float")),
+    Array: newNativeType("Array", nativeUint(64n, "uint")),
 };
 
 export const KnownTypes = {

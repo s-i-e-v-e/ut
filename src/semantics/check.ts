@@ -321,7 +321,19 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     if (Types.typeNotInferred(e.type)) {
         e.type = st.getType(ty.id)!;
     }
+    updateType(st, e.type);
     return ty;
+}
+
+function updateType(st: SymbolTable, t: P.Type) {
+    const x = st.getType(t.id);
+    if (x && x.native) {
+        t.ntype = x.native;
+        //console.log(`type: ${t.id}, native: ${JSON.stringify(t.ntype)}`);
+    }
+    else {
+        //console.log(`[undef] type: ${t.id}, native: ${JSON.stringify(t.ntype)}`);
+    }
 }
 
 function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
@@ -334,7 +346,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
             if (Types.typeNotInferred(x.var.type)) {
                 x.var.type = ty;
             }
-
+            updateType(st, x.var.type);
             // check
             if (!st.typeExists(x.var.type)) Errors.raiseUnknownType(x.var.type, x.var.loc);
             st.addVar(x.var);

@@ -21,6 +21,7 @@ import {
     Logger,
     Dictionary,
     SourceFile,
+    clone,
 } from "../util/mod.ts";
 
 const NodeType = A.NodeType;
@@ -76,11 +77,9 @@ function parseTypeAnnotation(ts: TokenStream): P.Type {
 
     const getGenericType = (id: string): P.GenericType|undefined => {
         if (!ts.consumeIfNextIs("[")) return undefined;
-        const x = {
-            id: id,
-            typeParameters: parseTypeParameters(ts),
-            loc: loc,
-        };
+        const x = clone(P.NativeTypes.Array) as P.GenericType;
+        x.id = id;
+        x.typeParameters = parseTypeParameters(ts);
         ts.nextMustBe("]");
         return x;
     };
@@ -790,7 +789,7 @@ type Float32 = Float(32, 8)
 type Float64 = Float(64, 11)
 type Float80 = Float(80, 15)
 type Float128 = Float(128, 15)
-type Pointer = Uint64
+type Pointer = UnsignedInt(64)
 type String = Pointer
-type Void = Pointer
+type Void = UnsignedInt(64)
 `;

@@ -108,16 +108,17 @@ export interface Variable extends Primitive {
 
 export type Parameter = Variable;
 
-export const SysLoc = {
+export const NativeModule = "<native>";
+export const NativeLoc = {
     index: 0,
     line: 1,
     character: 1,
-    path: "<system>",
+    path: NativeModule,
 };
 
 export function nativeInt(bits: bigint, id?: string): NativeIntType {
     return {
-        loc: SysLoc,
+        loc: NativeLoc,
         id: id || NativeTypes.SignedInt.id,
         bits: Number(bits),
     };
@@ -125,7 +126,7 @@ export function nativeInt(bits: bigint, id?: string): NativeIntType {
 
 export function nativeUint(bits: bigint): NativeUintType {
     return {
-        loc: SysLoc,
+        loc: NativeLoc,
         id: NativeTypes.UnsignedInt.id,
         bits: Number(bits),
     };
@@ -133,7 +134,7 @@ export function nativeUint(bits: bigint): NativeUintType {
 
 export function nativeFloat(bits: bigint, exponent: bigint): NativeFloatType {
     return {
-        loc: SysLoc,
+        loc: NativeLoc,
         id: NativeTypes.Float.id,
         bits: Number(bits),
         exponent: Number(bits),
@@ -143,7 +144,7 @@ export function nativeFloat(bits: bigint, exponent: bigint): NativeFloatType {
 export function newNativeType(id: string, native: NativeType, loc?: Location): Type {
     return {
         id: id,
-        loc: loc || SysLoc,
+        loc: loc || NativeLoc,
         native: native,
     };
 }
@@ -151,7 +152,7 @@ export function newNativeType(id: string, native: NativeType, loc?: Location): T
 export function newType(id: string, loc?: Location): Type {
     return {
         id: id,
-        loc: loc || SysLoc,
+        loc: loc || NativeLoc,
     };
 }
 
@@ -160,7 +161,7 @@ function newParameter(id: string, t: Type) {
         id: id,
         isMutable: false,
         type: t,
-        loc: SysLoc,
+        loc: NativeLoc,
     };
 }
 
@@ -169,7 +170,7 @@ function newFunction(id: string, xs: Parameter[], type: Type) {
         id: id,
         params: xs,
         type: type,
-        loc: SysLoc,
+        loc: NativeLoc,
         body: [],
     };
 }
@@ -234,6 +235,6 @@ export function buildVar(id: string, type: Type, isMutable: boolean, isVararg: b
         isMutable: isMutable,
         isPrivate: isPrivate,
         isVararg: isVararg,
-        loc: loc || SysLoc,
+        loc: loc || NativeLoc,
     };
 }

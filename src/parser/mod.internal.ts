@@ -33,8 +33,6 @@ export interface Token {
     xs?: string[],
 }
 
-export const NativeModule = "<native>";
-
 export {
     CharacterStream,
     TokenStream,

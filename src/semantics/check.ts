@@ -19,7 +19,6 @@ import {
     Errors,
     Logger,
 } from "../util/mod.ts";
-import {NativeModule} from "../parser/mod.internal.ts";
 
 const KnownTypes = P.KnownTypes;
 const NativeTypes = P.NativeTypes;
@@ -283,7 +282,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                     ty = {
                         id: KnownTypes.Pointer.id,
                         typeParameters: [t],
-                        loc: P.SysLoc,
+                        loc: P.NativeLoc,
                     } as GenericType;
                     break;
                 }
@@ -320,7 +319,6 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
     if (Types.typeNotInferred(e.type)) {
-        //e.type = ty;
         e.type = st.getType(ty.id)!;
     }
     return ty;
@@ -522,7 +520,7 @@ function checkModule(st: SymbolTable, m: P.Module) {
 function _check(st: SymbolTable, m: P.Module, map: Dictionary<P.Module>, mods: P.Module[]) {
     if (map[m.id]) return;
     map[m.id] = m;
-    st = m.id === NativeModule ? st : st.newTable();
+    st = m.id === P.NativeModule ? st : st.newTable();
     // for each import, perform check
     const imports = mods.filter(x => m.imports.filter(y => x.id === y.id).length);
     for (const im of imports) {

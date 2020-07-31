@@ -67,7 +67,7 @@ export function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
 
 export function rewrite(tv: Type|Variable) {
     const t = (tv as Variable).type || (tv as Type);
-    t.loc = P.SysLoc;
+    t.loc = P.NativeLoc;
     const gt = t as GenericType;
     if (gt.typeParameters) gt.typeParameters.forEach(x => rewrite(x));
 }

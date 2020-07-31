@@ -7,7 +7,7 @@
  */
 import {Dictionary} from "../util/mod.ts";
 import {P} from "./mod.ts";
-import {NativeModule, parse, parseNative} from "./mod.internal.ts";
+import {parse, parseNative} from "./mod.internal.ts";
 import {Errors, Logger, OS} from "../util/mod.ts";
 
 async function parseModule(modules: Dictionary<P.Module>, id: string, base: string, path: string) {

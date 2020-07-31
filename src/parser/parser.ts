@@ -10,7 +10,6 @@ import {
     TokenType,
     TokenStream,
     lex,
-    NativeModule,
 } from "./mod.internal.ts";
 import {
     Location,
@@ -96,7 +95,7 @@ function parseTypeAnnotation(ts: TokenStream): P.Type {
     }
     else {
         const t = ts.peek();
-        const isType = t.loc.path === NativeModule &&  ["int", "uint", "float"].filter(x => x === t.lexeme).length;
+        const isType = t.loc.path === P.NativeModule &&  ["int", "uint", "float"].filter(x => x === t.lexeme).length;
         const id = isType ? ts.next().lexeme : ts.nextMustBe(TokenType.TK_TYPE).lexeme;
         return getGenericType(id) || {
             id: id,
@@ -756,9 +755,9 @@ export function parse(id: string, f: SourceFile) {
 }
 
 export function parseNative() {
-    const cs = CharacterStream.build(native, NativeModule);
+    const cs = CharacterStream.build(native, P.NativeModule);
     const ts = lex(cs);
-    return parseModule(NativeModule, ts, NativeModule);
+    return parseModule(P.NativeModule, ts, P.NativeModule);
 }
 
 const native =

@@ -421,20 +421,20 @@ function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
 }
 
 function doFunction(st: SymbolTable, f: P.Function) {
-    if (f.proto.id == "main") f.body.type = KnownTypes.Void;
+    if (f.id == "main") f.body.type = KnownTypes.Void;
     st = st.newTable();
-    doFunctionPrototype(st, f.proto);
+    doFunctionPrototype(st, f);
     doBlock(st, f.body);
-    f.proto.type = f.body.type;
-    if (Types.typeNotInferred(f.proto.type)) f.proto.type = KnownTypes.Void;
+    f.type = f.body.type;
+    if (Types.typeNotInferred(f.type)) f.type = KnownTypes.Void;
 }
 
 function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
-    if (Types.typeNotInferred(f.proto.type)) {
-        f.proto.type = KnownTypes.Void;
+    if (Types.typeNotInferred(f.type)) {
+        f.type = KnownTypes.Void;
     }
     st = st.newTable();
-    doFunctionPrototype(st, f.proto);
+    doFunctionPrototype(st, f);
 }
 
 function doStruct(st: SymbolTable, s: P.Struct) {
@@ -510,22 +510,22 @@ function checkModule(st: SymbolTable, m: P.Module) {
     m.types.forEach(x => doTypeDefinition(st, x));
 
     for (const x of m.foreignFunctions) {
-        st.addFunction(x.proto);
+        st.addFunction(x);
         doForeignFunction(st, x);
     }
 
     for (const x of m.functions) {
-        st.addFunction(x.proto);
+        st.addFunction(x);
         doFunction(st, x);
     }
 
     // check return types
     for (const x of m.foreignFunctions) {
-        doFunctionReturnType(st, x.proto);
+        doFunctionReturnType(st, x);
     }
 
     for (const x of m.functions) {
-        doFunctionReturnType(st, x.proto);
+        doFunctionReturnType(st, x);
     }
 }
 

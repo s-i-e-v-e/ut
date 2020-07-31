@@ -190,6 +190,10 @@ export default class Errors {
         throw new this.ArrayType(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
     }
 
+    static raiseGenericTypeError(t: Token): never {
+        throw new this.TypeMismatch(buildErrorString(`Generic Type must have at least one type parameter: \`${t.lexeme}\``, t.loc));
+    }
+
     static raiseArrayInitArgs(t: Token) {
         throw new this.ArrayInit(buildErrorString(`Array initialization failure: argument list is empty`, t.loc));
     }

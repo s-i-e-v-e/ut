@@ -370,11 +370,11 @@ function emitBlock(ac: Allocator, store: Store, block: A.BlockExpr) {
 }
 
 function emitFunction(b: VmCodeBuilder, types: Dictionary<P.Type>, f: P.Function) {
-    b.startFunction(f.proto.mangledName);
+    b.startFunction(f.mangledName);
     const ac = Allocator.build(b, types);
     const scratch = ac.tmp();
     if (scratch.reg !== "r0") Errors.raiseDebug();
-    f.proto.params.forEach(x => ac.alloc(x));
+    f.params.forEach(x => ac.alloc(x));
     emitBlock(ac, scratch, f.body);
     b.ret();
 }
@@ -386,16 +386,16 @@ export default function vm_gen_code(types: Dictionary<P.Type>, mods: P.Module[])
 
     const b = VmCodeBuilder.build();
 
-    foreignFunctions.forEach(x => b.addForeignFunction(x.proto.mangledName));
+    foreignFunctions.forEach(x => b.addForeignFunction(x.mangledName));
 
     // first, main
-    const xs = functions.filter(x => x.proto.id === "main");
+    const xs = functions.filter(x => x.id === "main");
     const main = xs.length ? xs[0] : undefined;
     if (!main) Errors.raiseVmError("main() not found");
     emitFunction(b, types, main!);
 
     // then, rest
-    const ys = functions.filter(x => x.proto.id !== "main");
+    const ys = functions.filter(x => x.id !== "main");
     ys.forEach(x => emitFunction(b, types, x));
 
     return b;

@@ -615,25 +615,15 @@ export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr
 
 function parseFunction(ts: TokenStream): P.Function {
     const loc = ts.loc();
-    const fp = parseFunctionPrototype(ts);
-    const body = parseBlockExpr(ts);
-
-    return {
-        proto: fp,
-        body: body,
-        loc: loc,
-    };
+    const f = parseFunctionPrototype(ts) as P.Function;
+    f.body = parseBlockExpr(ts);
+    return f;
 }
 
 function parseForeignFunction(ts: TokenStream): P.ForeignFunction {
     const loc = ts.loc();
     ts.nextMustBe("foreign");
-    const fp = parseFunctionPrototype(ts);
-
-    return {
-        proto: fp,
-        loc: loc,
-    };
+    return parseFunctionPrototype(ts);
 }
 
 function parseStruct(ts: TokenStream): P.Struct {
@@ -709,6 +699,7 @@ function parseTypeDefinition(ts: TokenStream): P.TypeDefinition {
 }
 
 export function parseModule(id: string, ts: TokenStream, path: string) {
+    const loc = ts.loc();
     const xs = new Array<P.Struct>();
     const ys = new Array<P.ForeignFunction>();
     const zs = new Array<P.Function>();
@@ -736,6 +727,7 @@ export function parseModule(id: string, ts: TokenStream, path: string) {
     }
 
     return {
+        loc: loc,
         id: id,
         path: path,
         types: types,

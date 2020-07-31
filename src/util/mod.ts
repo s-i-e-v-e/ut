@@ -13,7 +13,8 @@ import Errors from "./errors.ts";
 import OS from "./os.ts";
 
 export interface Dictionary<T> {
-    [index: string]: T
+    [index: string]: T;
+    [index: number]: T;
 }
 
 export interface SourceFile {

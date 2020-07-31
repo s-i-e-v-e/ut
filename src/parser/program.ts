@@ -11,7 +11,9 @@ import {
     A,
 } from "./mod.ts";
 
-export interface Primitive {}
+export interface Primitive {
+    loc: Location;
+}
 
 export interface Module extends Primitive {
     id: string;
@@ -25,7 +27,6 @@ export interface Module extends Primitive {
 
 export interface Import extends Primitive {
     id: string;
-    loc: Location;
 }
 
 export interface FunctionPrototype extends Primitive {
@@ -33,30 +34,22 @@ export interface FunctionPrototype extends Primitive {
     params: Parameter[];
     type: Type;
     typeParameters: Type[];
-    loc: Location;
     mangledName: string;
 }
 
-export interface Function extends Primitive {
-    proto: FunctionPrototype,
+export interface Function extends FunctionPrototype {
     body: A.BlockExpr;
-    loc: Location;
 }
 
-export interface ForeignFunction extends Primitive {
-    proto: FunctionPrototype;
-    loc: Location;
-}
+export interface ForeignFunction extends FunctionPrototype {}
 
 export interface Struct extends Primitive {
     members: Variable[];
     type: Type;
     typeParameters: Type[];
-    loc: Location;
 }
 
 export interface NativeType extends Primitive {
-    loc: Location;
     id: string;
     bits: number;
 }
@@ -74,7 +67,6 @@ export interface NativeArrayType extends NativeType {
 }
 
 export interface Type extends Primitive {
-    loc: Location;
     id: string;
     native?: NativeType;
     ntype?: Type;
@@ -85,7 +77,6 @@ export interface GenericType extends Type {
 }
 
 export interface TypeDefinition extends Primitive {
-    loc: Location;
     type: Type;
 }
 
@@ -104,7 +95,6 @@ export interface Variable extends Primitive {
     isMutable: boolean;
     isPrivate: boolean;
     isVararg: boolean;
-    loc: Location;
 }
 
 export type Parameter = Variable;

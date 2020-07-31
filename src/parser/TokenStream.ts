@@ -18,7 +18,7 @@ export default class TokenStream {
     private index: number;
     public readonly length: number;
     private readonly EOF: Token = {
-        loc: P.NativeLoc,
+        loc: P.UnknownLoc,
         type: TokenType.TK_INTERNAL,
         lexeme: "",
     };

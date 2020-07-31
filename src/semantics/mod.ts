@@ -6,4 +6,5 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import check from "./check.ts";
-export { check };
+import rewrite from "./rewrite.ts";
+export { check, rewrite };

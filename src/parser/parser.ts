@@ -26,7 +26,6 @@ import {
 
 const NodeType = A.NodeType;
 const KnownTypes = P.KnownTypes;
-const NativeTypes = P.NativeTypes;
 type Expr = A.Expr;
 type Type = P.Type;
 
@@ -75,9 +74,9 @@ function parseTypeAnnotation(ts: TokenStream): P.Type {
     const idx = ts.getIndex();
     const loc = ts.loc();
 
-    const getGenericType = (id: string): P.GenericType|undefined => {
+    const getGenericType = (id: string): P.Type|undefined => {
         if (!ts.consumeIfNextIs("[")) return undefined;
-        const x = clone(P.NativeTypes.Array) as P.GenericType;
+        const x = clone(P.NativeTypes.Base.Array);
         x.id = id;
         x.typeParameters = parseTypeParameters(ts);
         ts.nextMustBe("]");
@@ -99,6 +98,7 @@ function parseTypeAnnotation(ts: TokenStream): P.Type {
         return getGenericType(id) || {
             id: id,
             loc: loc,
+            typeParameters: [],
         };
     }
 }
@@ -143,7 +143,7 @@ function parseNumber(n: string, radix: number, loc: Location) {
     return {
         nodeType: NodeType.NumberLiteral,
         value: sum,
-        type: KnownTypes.Integer,
+        type: KnownTypes.Int64,
         loc: loc,
     };
 }
@@ -614,14 +614,12 @@ export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr
 }
 
 function parseFunction(ts: TokenStream): P.Function {
-    const loc = ts.loc();
     const f = parseFunctionPrototype(ts) as P.Function;
     f.body = parseBlockExpr(ts);
     return f;
 }
 
 function parseForeignFunction(ts: TokenStream): P.ForeignFunction {
-    const loc = ts.loc();
     ts.nextMustBe("foreign");
     return parseFunctionPrototype(ts);
 }
@@ -629,7 +627,7 @@ function parseForeignFunction(ts: TokenStream): P.ForeignFunction {
 function parseStruct(ts: TokenStream): P.Struct {
     const loc = ts.loc();
     ts.nextMustBe("struct");
-    let ty = parseTypeAnnotation(ts) as P.GenericType;
+    let ty = parseTypeAnnotation(ts);
     ts.nextMustBe("(");
     const members = parseStructMemberList(ts);
     ts.nextMustBe(")");
@@ -637,6 +635,7 @@ function parseStruct(ts: TokenStream): P.Struct {
         type: {
             id: ty.id,
             loc: ty.loc,
+            typeParameters: [],
         },
         typeParameters: ty.typeParameters || [],
         members: members,
@@ -745,42 +744,54 @@ export function parse(id: string, f: SourceFile) {
     return parseModule(id, ts, f.path);
 }
 
-export function parseNative() {
-    const cs = CharacterStream.build(native, P.NativeModule);
+function _parseNative(x: string, n: number) {
+    const name = `${P.NativeModule}.${n}`;
+    const cs = CharacterStream.build(x, name);
     const ts = lex(cs);
-    return parseModule(P.NativeModule, ts, P.NativeModule);
+    return parseModule(name, ts, name);
 }
 
-const native =
-`
-struct UnsignedInt(#bits: Word)
+export function parseNative() {
+    return [Native0, Native1].map((x, i) => _parseNative(x, i));
+}
+
+const Native0 =
+`struct UnsignedInt(#bits: Word)
 struct SignedInt(#bits: Word)
 struct Float(#bits: Word, #exp-bits: Word)
-struct Array[A](#a: A*)
+struct Array[A](#a: A*)`;
 
-type Integer = Word
+const Native1 =
+`type Int64 = SignedInt(64) // Needs to be defined first as number literals are Int64
+
 type Bool = UnsignedInt(8)
+
 type Bits8 = UnsignedInt(8)
 type Uint8 = UnsignedInt(8)
 type Int8 = SignedInt(8)
+
 type Bits16 = UnsignedInt(16)
 type Uint16 = UnsignedInt(16)
 type Int16 = SignedInt(16)
+
 type Bits32 = UnsignedInt(32)
 type Uint32 = UnsignedInt(32)
 type Int32 = SignedInt(32)
+
 type Bits64 = UnsignedInt(64)
 type Uint64 = UnsignedInt(64)
-type Int64 = SignedInt(64)
+
 type Bits128 = UnsignedInt(128)
 type Uint128 = UnsignedInt(128)
 type Int128 = SignedInt(128)
+
 type Float8 = Float(8, 2)
 type Float16 = Float(16, 5)
 type Float32 = Float(32, 8)
 type Float64 = Float(64, 11)
 type Float80 = Float(80, 15)
 type Float128 = Float(128, 15)
+
 type Pointer = UnsignedInt(64)
 type String = Pointer
 type Void = UnsignedInt(64)

@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { parseFile, P } from "./parser/mod.ts";
-import { check } from "./semantics/mod.ts";
+import { check, rewrite } from "./semantics/mod.ts";
 import {
     Logger,
     Errors,
@@ -17,7 +17,8 @@ import { vm_gen_code } from "./codegen/mod.ts";
 import { Vm } from "./vm/mod.ts";
 
 function process(mods: P.Module[], dump: boolean) {
-    const types = check(mods);
+    const global = check(mods);
+    const types = rewrite(global, mods);
     const vme = vm_gen_code(types, mods);
     const xs = vme.asBytes();
     if (dump) OS.writeBinaryFile("./dump.bin", xs);

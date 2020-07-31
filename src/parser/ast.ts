@@ -62,7 +62,7 @@ export interface ReturnStmt extends Stmt {
     expr: Expr;
 }
 
-export interface ForStmt extends Stmt {
+export interface ForStmt extends Stmt, P.Tag {
     init?: VarInitStmt;
     condition?: Expr;
     update?: VarAssnStmt;
@@ -78,7 +78,7 @@ export interface IDExpr extends Expr {
     rest?: string;
 }
 
-export interface BlockExpr extends Expr {
+export interface BlockExpr extends Expr, P.Tag {
     parent?: BlockExpr;
     xs: Stmt[];
 }
@@ -143,16 +143,13 @@ export interface LocalReturnExpr extends Expr {
     expr: Expr;
 }
 
-export interface Literal extends Expr {}
-export interface StringLiteral extends Literal {
-    value: string,
+export interface Literal<T> extends Expr {
+    value: T;
 }
-export interface BooleanLiteral extends Literal {
-    value: boolean,
-}
-export interface NumberLiteral extends Literal {
-    value: bigint,
-}
+
+export interface StringLiteral extends Literal<string> {}
+export interface BooleanLiteral extends Literal<boolean> {}
+export interface NumberLiteral extends Literal<bigint> {}
 
 export function buildExprStmt(re: Expr, loc?: Location): ExprStmt {
     return {

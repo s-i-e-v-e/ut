@@ -43,7 +43,7 @@ export default class SymbolTable {
         ret: undefined,
     };
 
-    private constructor(public readonly parent?: SymbolTable) {
+    private constructor(public readonly name: string, public readonly parent?: SymbolTable) {
         this.ns = {
             types: {},
             typeDefinitions: {},
@@ -91,15 +91,10 @@ export default class SymbolTable {
         const m = this.ns.functions[fp.id] || { map: {} };
         if (m.map[fp.mangledName]) Errors.raiseDebug(fp.mangledName);
         m.map[fp.mangledName] = fp;
-        Types.rewrite(fp.type);
-        fp.typeParameters.forEach(x => Types.rewrite(x));
-        fp.params.forEach(x => Types.rewrite(x));
         if (!exists) SymbolTable.add(fp.id, this.ns.functions, m);
     }
 
     addStruct(s: P.Struct) {
-        Types.rewrite(s.type);
-        s.members.forEach(x => Types.rewrite(x));
         SymbolTable.add(s.type.id, this.ns.structs, s);
     }
 
@@ -108,17 +103,14 @@ export default class SymbolTable {
     }
 
     addType(t: P.Type) {
-        Types.rewrite(t);
         SymbolTable.add(t.id, this.ns.types, t);
     }
 
     addTypeParameter(t: P.Type) {
-        Types.rewrite(t);
         SymbolTable.add(t.id, this.ns.types, t);
     }
 
     addVar(v: P.Variable) {
-        Types.rewrite(v);
         SymbolTable.add(v.id, this.ns.vars, v);
     }
 
@@ -139,23 +131,28 @@ export default class SymbolTable {
     }
 
     getType(id: string): P.Type|undefined {
-        /*
-        const x = this.getAlias(id);
-        if (x === undefined) return this.get(id, (ns, id) => ns.types[id]);
-        const y = this.getType(x.id);
-        console.log(`alias: ${x.id}, native: ${x.native ? x.native.id : x.native} | alias.type: ${y ? y.id : y} | alias.type.native: ${y && y.native ? y.native.id : (y ? y.native : y)}`);
-        return x.native ? x : y;// y && y.native ? y : x;
-        */
         return this.getAlias(id) || this.get(id, (ns, id) => ns.types[id]);
     }
 
     private getAlias(id: string): P.Type|undefined {
-        const x = this.get(id, (ns, id) => ns.typeDefinitions[id]);
-        if (x && (x as P.TypeAlias).alias) {
-            const y = (x as P.TypeAlias).alias;
-            return this.getAlias(y.id) || y;
+        const x = this.get(id, (ns, id) => ns.typeDefinitions[id]) as P.TypeAlias;
+        const y = this.get(id, (ns, id) => ns.typeDefinitions[id]) as P.TypeDeclaration;
+        if (x && x.alias) {
+            return this.getType(x.alias.id) || x.alias;
         }
-        return undefined;
+        else if (y && y.cons) {
+            const a = y.cons;
+            const id = `${a.id}^${y.params.map(x => x.value).join("|")}`;
+            return {
+                loc: a.loc,
+                id: id,
+                native: undefined,
+                typeParameters: a.typeParameters,
+            };
+        }
+        else {
+            return undefined;
+        }
     }
 
     getVar(id: string) {
@@ -173,14 +170,15 @@ export default class SymbolTable {
         return this.get(id, (ns, id) => ns.structs[id]);
     }
 
-    newTable() {
-        const x = SymbolTable.build(this);
+    newTable(name: string, tag?: P.Tag) {
+        const x = SymbolTable.build(name, this);
         this.children.push(x);
+        if (tag) tag.tag = x;
         return x;
     }
 
-    static build(parent?: SymbolTable) {
-        return new SymbolTable(parent);
+    static build(name: string, parent?: SymbolTable) {
+        return new SymbolTable(name, parent);
     }
 }
 
@@ -203,6 +201,7 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
         return f;
     }
 
+    const x = P.mangleName(id, argTypes);
     for (const f of xs) {
         const map: Dictionary<P.Type> = {};
         const tp: Dictionary<P.Type> = {};
@@ -212,8 +211,7 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
             for (const x of f.typeParameters) {
                 if (!map[x.id]) break;
             }
-            const x = P.mangleName(id, ys);
-            const y = P.mangleName(id, argTypes);
+            const y = P.mangleName(id, ys);
             if (x === y) return f;
         }
     }
@@ -221,41 +219,41 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
 }
 
 function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[], typeParams: Dictionary<P.Type>): P.Type[] {
-    if (!argTypes) return [];
-    if (!paramTypes) return [];
+    if (!argTypes.length) return [];
+    if (!paramTypes.length) return [];
     const xs = [];
     for (let i = 0; i < argTypes.length; i += 1) {
         const at = argTypes[i];
         const pt = paramTypes[i];
 
-        const gat = at as P.GenericType;
-        const gpt = pt as P.GenericType;
         if (typeParams[pt.id]) {
             if (!map[pt.id]) {
                 map[pt.id] = at;
 
-                const ys = mapTypes(st, map, gat.typeParameters, gpt.typeParameters, typeParams);
+                const ys = mapTypes(st, map, at.typeParameters, pt.typeParameters, typeParams);
                 xs.push({
                     id: at.id,
                     typeParameters: ys,
-                } as P.GenericType);
+                    loc: at.loc,
+                });
             }
             else {
                 if (map[pt.id].id !== at.id) return [];
             }
         }
         else {
-            if (gat.typeParameters || gpt.typeParameters) {
-                const ys = mapTypes(st, map, gat.typeParameters, gpt.typeParameters, typeParams);
+            if (at.typeParameters.length || pt.typeParameters.length) {
+                const ys = mapTypes(st, map, at.typeParameters, pt.typeParameters, typeParams);
                 xs.push({
                     id: at.id,
                     typeParameters: ys,
-                } as P.GenericType);
+                    loc: at.loc,
+                });
             }
             else {
                 if (!Types.typesMatch(st, at, pt)) return [];
+                xs.push(at);
             }
-            xs.push(at);
         }
     }
     return xs;

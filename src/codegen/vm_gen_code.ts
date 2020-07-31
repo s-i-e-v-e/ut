@@ -168,10 +168,10 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.ArrayConstructor: {
             const x = e as A.ArrayConstructor;
-            const ty = ac.getType((x.type as P.GenericType).typeParameters[0]);
+            const ty = ac.getType(x.type.typeParameters[0]);
             const args = x.args!;
             const n = args.length;
-            const entrySizeInBytes = ty.native!.bits/8;
+            const entrySizeInBytes = 8;//ty.native!.bits/8;
             const buzzerSize = entrySizeInBytes*args.length;
 
             const bb = ByteBuffer.build(8 + 8 + buzzerSize);

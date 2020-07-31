@@ -156,11 +156,11 @@ export class Allocator {
     alloc(v: P.Variable) {
         let x: Register;
         switch (v.type.id) {
-            case NativeTypes.Array.id:
-            case KnownTypes.Integer.id:
-            case KnownTypes.String.id:
-            case KnownTypes.Bool.id:
-            case KnownTypes.Pointer.id: {
+            case NativeTypes.Base.Array.id:
+            case KnownTypes.SignedInt.id:
+            case KnownTypes.UnsignedInt.id:
+            case KnownTypes.Uint8.id:
+            {
                 const self = this;
                 x = new Register(this.b, v, this.use(), (reg: string) => self.free(reg));
                 break;

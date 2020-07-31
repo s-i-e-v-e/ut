@@ -40,7 +40,7 @@ function getFileName(path: string) {
 
 async function parseFile(path: string) {
     const modules: Dictionary<P.Module> = {};
-    const nm = parseNative();
+    const nms = parseNative();
 
     path = path.replaceAll(/\\/g, "/");
     const id = getFileName(path);
@@ -48,7 +48,7 @@ async function parseFile(path: string) {
     await parseModule(modules, id, base, path);
 
     const mods = [];
-    mods.push(nm);
+    mods.push(...nms);
     mods.push(modules[id]);
 
     mods.push(...Object.keys(modules).map(x => modules[x]).filter(x => x.id !== id));

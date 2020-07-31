@@ -255,7 +255,7 @@ export default class Errors {
     }
 
     static debug(cond?: boolean) {
-        if (cond === undefined || cond) {
+        if (cond === undefined || !cond) {
             try {
                 throw new Error();
             }

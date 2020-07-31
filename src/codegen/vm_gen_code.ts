@@ -168,15 +168,16 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.ArrayConstructor: {
             const x = e as A.ArrayConstructor;
-
+            const ty = ac.getType((x.type as P.GenericType).typeParameters[0]);
             const args = x.args!;
             const n = args.length;
-            const step = 8;
+            const entrySizeInBytes = ty.native!.bits/8;
+            const buzzerSize = entrySizeInBytes*args.length;
 
-            const bb = ByteBuffer.build(8 + 8 + (step * 8));
+            const bb = ByteBuffer.build(8 + 8 + buzzerSize);
             bb.write_u64(n);
-            bb.write_u64(step);
-            for (let i = 0; i < args.length*8; i += 1) {
+            bb.write_u64(entrySizeInBytes);
+            for (let i = 0; i < buzzerSize; i += 1) {
                 bb.write_u8(0xCC);
             }
             const offset = ac.b.heapStore(bb.asBytes());

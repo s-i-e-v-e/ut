@@ -22,8 +22,8 @@ export function typeNotInferred(t: Type) {
 }
 
 export function typesMatch(st: SymbolTable, xt1: Type, xt2: Type): boolean {
-    const t1 = st.getAlias(xt1.id) || st.getType(xt1.id);
-    const t2 = st.getAlias(xt2.id) || st.getType(xt2.id);
+    const t1 = st.getType(xt1.id);
+    const t2 = st.getType(xt2.id);
     const g1 = t1 as GenericType;
     const g2 = t2 as GenericType;
     if (!t1) Errors.raiseDebug();

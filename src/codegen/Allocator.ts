@@ -149,6 +149,10 @@ export class Allocator {
         }
     }
 
+    getType(t: P.Type) {
+        return this.types[t.id];
+    }
+
     alloc(v: P.Variable) {
         let x: Register;
         switch (v.type.id) {

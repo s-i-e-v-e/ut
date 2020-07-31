@@ -122,17 +122,39 @@ export default class SymbolTable {
         SymbolTable.add(v.id, this.ns.vars, v);
     }
 
-    getTypes() {
-        return Object.keys(this.ns.types).map(k => this.ns.types[k]);
+    getTypes(): P.Type[] {
+        return Object
+            .keys(this.ns.types)
+            .map(k => this._resolveNativeType(k))
+            .filter(x => x !== undefined)
+            .map(x => x!);
     }
 
-    getType(id: string) {
-        return this.get(id, (ns, id) => ns.types[id]);
+    private _resolveNativeType(id: string) {
+        const x = this.ns.types[id];
+        let y = this.getAlias(id);
+        y = y !== undefined ? this.ns.types[y.id] : undefined;
+        if (y !== undefined) x.native = y.native;
+        return x;
     }
 
-    getAlias(id: string) {
+    getType(id: string): P.Type|undefined {
+        /*
+        const x = this.getAlias(id);
+        if (x === undefined) return this.get(id, (ns, id) => ns.types[id]);
+        const y = this.getType(x.id);
+        console.log(`alias: ${x.id}, native: ${x.native ? x.native.id : x.native} | alias.type: ${y ? y.id : y} | alias.type.native: ${y && y.native ? y.native.id : (y ? y.native : y)}`);
+        return x.native ? x : y;// y && y.native ? y : x;
+        */
+        return this.getAlias(id) || this.get(id, (ns, id) => ns.types[id]);
+    }
+
+    private getAlias(id: string): P.Type|undefined {
         const x = this.get(id, (ns, id) => ns.typeDefinitions[id]);
-        if (x && (x as P.TypeAlias).alias) return (x as P.TypeAlias).alias;
+        if (x && (x as P.TypeAlias).alias) {
+            const y = (x as P.TypeAlias).alias;
+            return this.getAlias(y.id) || y;
+        }
         return undefined;
     }
 

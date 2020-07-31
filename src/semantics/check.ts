@@ -320,7 +320,8 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     }
     if (!st.typeExists(ty)) Errors.raiseUnknownType(ty, e.loc);
     if (Types.typeNotInferred(e.type)) {
-        e.type = ty;
+        //e.type = ty;
+        e.type = st.getType(ty.id)!;
     }
     return ty;
 }
@@ -462,7 +463,6 @@ function doTypeDeclaration(st: SymbolTable, t: P.TypeDeclaration) {
             Errors.raiseDebug(s.type.id);
         }
     }
-
     if (s.members.length != t.params.length) Errors.raiseDebug();
 
     for (let i = 0; i < s.members.length; i += 1) {

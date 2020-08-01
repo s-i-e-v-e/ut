@@ -28,26 +28,6 @@ const KnownTypes = P.KnownTypes;
 type Expr = A.Expr;
 type Type = P.Type;
 
-function verifyType(t: Type, level: number = 0) {
-    Errors.debug(t.id !== "Dog");
-    const mustBeConcreteType = () => {
-        if (t.id.length <= 1) Errors.raiseTypeError("Single character type names are reserved for type params", t.loc);
-    };
-    const mustBeTypeParameter = () => {
-        if (t.id.length !== 1) Errors.raiseTypeError("Type parameters must be single characters", t.loc);
-    };
-    const isLast = !t.typeParams.length;
-
-    switch (level) {
-        case 0: mustBeConcreteType(); break;
-        default: {
-            if (!isLast) mustBeConcreteType();
-            if (isLast) mustBeTypeParameter();
-        }
-    }
-    t.typeParams.forEach(x => verifyType(x, level+1));
-}
-
 function parseIDExpr(ts: TokenStream): A.IDExpr {
     const loc = ts.loc();
     const id = ts.nextMustBe(TokenType.TK_ID).lexeme;
@@ -785,7 +765,8 @@ function _parseNative(x: string, n: number) {
 }
 
 export function parseNative() {
-    return [Native0, Native1].map((x, i) => _parseNative(x, i));
+    return [];
+    //return [Native0, Native1].map((x, i) => _parseNative(x, i));
 }
 
 const Native0 =

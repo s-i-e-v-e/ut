@@ -39,13 +39,13 @@ export function isBoolean(st: SymbolTable, xt: Type): boolean {
     return xt.id === KnownTypes.Bool.id;
 }
 
-export function typesMatch(st: SymbolTable, t1: Type, t2: Type): boolean {
-    if (isInteger(st, t1) && isInteger(st, t2)) return true;
+export function typesMatch(st: SymbolTable, ot1: Type, ot2: Type): boolean {
+    if (isInteger(st, ot1) && isInteger(st, ot2)) return true;
 
-    t1 = st.getType(t1.id)!;
-    t2 = st.getType(t2.id)!;
-    if (!t1) Errors.raiseDebug();
-    if (!t2) Errors.raiseDebug();
+    const t1 = st.getType(ot1.id) || ot1;
+    const t2 = st.getType(ot2.id) || ot2;
+    if (!t1) Errors.raiseDebug(ot1.id);
+    if (!t2) Errors.raiseDebug(ot2.id);
 
     if (t1.id !== t2.id) return false;
     if (t1.typeParams.length !== t2.typeParams.length) return false;

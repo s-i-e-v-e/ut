@@ -349,7 +349,7 @@ export default class Vm {
                         const fn = this.read_str(offset);
                         const p0 = this.registers[1];
                         switch (fn) {
-                            case "sys-exit$Integer": {
+                            case "sys-exit$Int64": {
                                 Deno.exit(Number(p0));
                                 break;
                             }
@@ -358,7 +358,7 @@ export default class Vm {
                                 console.log(str);
                                 break;
                             }
-                            case "sys-println$Integer": {
+                            case "sys-println$Int64": {
                                 console.log(`${p0}`);
                                 break;
                             }
@@ -370,11 +370,11 @@ export default class Vm {
                                 console.log(`ptr:${p0}`);
                                 break;
                             }
-                            case "sys-new$Integer": {
+                            case "sys-new$Int64": {
                                 this.registers[0] = this.mem_alloc(p0);
                                 break;
                             }
-                            case "sys-free$Integer": {
+                            case "sys-free$Int64": {
                                 this.mem_free(p0);
                                 break;
                             }

@@ -50,11 +50,15 @@ function ifMustReturn(be: A.BlockExpr) {
 }
 
 function checkTypes(st: SymbolTable, block: A.BlockExpr, le_or_type: Type|Expr, re: Expr, loc: Location) {
-    const ltype = (le_or_type as Expr).nodeType ? getExprType(st, block, le_or_type as Expr) : le_or_type as Type;
-    const rtype = getExprType(st, block, re);
+    const getType = (e: Expr) => {
+        return Types.typeNotInferred(e.type) ? getExprType(st, block, e) : e.type;
+    }
 
-    if (!Types.typeExists(st, ltype, loc)) Errors.raiseUnknownType(ltype, loc);
+    const ltype = (le_or_type as Expr).nodeType ? getType(le_or_type as Expr) : le_or_type as Type;
+    const rtype = getType(re);
+
     Types.typesMustMatch(st, ltype, rtype, loc);
+    //todo: if (!Types.typeExists(st, ltype, loc)) Errors.raiseUnknownType(ltype, loc);
 }
 
 function getVar(st: SymbolTable, id: string, loc: Location) {
@@ -358,7 +362,6 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
-            Errors.debug();
 
             // infer
             const ty = getExprType(st, block, x.expr);
@@ -456,58 +459,60 @@ function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
     doFunctionPrototype(st, f);
 }
 
-function doStruct(st: SymbolTable, s: P.Struct) {
-    st.addStruct(s);
-    st.addType(s.type);
-    s.typeParams.forEach(x => st.addTypeParameter(x));
-    s.members.forEach(x => {
-        if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
-    })
+function doTypes(st: SymbolTable, xs: P.TypeDefinition[], ys: P.Struct[]) {
+    const doTypeDefinition = (t: P.TypeDefinition) => {
+        if ((t as P.TypeAlias).alias) {
+            st.addTypeDefinition(t);
+            const x = t as P.TypeAlias;
+            if (!st.typeExists(x.alias)) Errors.raiseUnknownType(x.alias, x.loc);
+        }
+        else if ((t as P.TypeDeclaration).cons) {
+            st.addTypeDefinition(t);
+            const x = t as P.TypeDeclaration;
+            if (!st.typeExists(x.cons)) Errors.raiseUnknownType(x.cons, x.loc);
+            doTypeDeclaration(x);
+        }
+        else {
+            Errors.raiseDebug();
+        }
+    };
+
+    const doTypeDeclaration = (t: P.TypeDeclaration) => {
+        // get struct
+        let s = st.getStruct(t.cons.id);
+        if (!s) {
+            s = ys.filter(y => y.type.id === t.cons.id)[0];
+            if (!s) Errors.raiseUnknownType(t.cons, t.loc);
+            doStruct(s);
+        }
+        if (s.members.length != t.params.length) Errors.raiseDebug(s.type.id);
+
+        for (let i = 0; i < s.members.length; i += 1) {
+            const a = s.members[i];
+            const b = t.params[i];
+            Types.typesMustMatch(st, a.type, b.type, b.loc);
+        }
+    };
+
+    const doStruct = (s: P.Struct) => {
+        if (!st.getStruct(s.type.id)) st.addStruct(s);
+        s.typeParams.forEach(x => st.addTypeParameter(x));
+        s.members.forEach(x => {
+            if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
+        })
+    }
+
+    xs.forEach(x => st.addType(x.type))
+    ys.forEach(x => st.addType(x.type))
+
+    xs.forEach(x => doTypeDefinition(x));
+    ys.forEach(x => doStruct(x));
 }
 
-function doTypeDeclaration(st: SymbolTable, t: P.TypeDeclaration) {
-    // get struct
-    const s = st.getStruct(t.cons.id);
-    if (!s) Errors.raiseUnknownType(t.cons, t.loc);
-    if (s.members.length != t.params.length) Errors.raiseDebug(s.type.id);
-
-    for (let i = 0; i < s.members.length; i += 1) {
-        const a = s.members[i];
-        const b = t.params[i];
-        Types.typesMustMatch(st, a.type, b.type, b.loc);
-    }
-}
-
-function doTypeDefinition(st: SymbolTable, t: P.TypeDefinition) {
-    st.addType(t.type);
-    if ((t as P.TypeAlias).alias) {
-        st.addTypeDefinition(t);
-        const x = t as P.TypeAlias;
-        if (!st.typeExists(x.alias)) Errors.raiseUnknownType(x.alias, x.loc);
-    }
-    else if ((t as P.TypeDeclaration).cons) {
-        st.addTypeDefinition(t);
-        const x = t as P.TypeDeclaration;
-        if (!st.typeExists(x.cons)) Errors.raiseUnknownType(x.cons, x.loc);
-        doTypeDeclaration(st, x);
-    }
-    else {
-        Errors.raiseDebug();
-    }
-}
-
-function checkModule(st: SymbolTable, m: P.Module) {
+function doModule(st: SymbolTable, m: P.Module) {
     Logger.info(`Type checking: ${m.path}`);
-    m.types.forEach(x => doTypeDefinition(st, x));
-    m.structs.forEach(x => doStruct(st, x));
-
-    for (const x of m.foreignFunctions) {
-        st.addFunction(x);
-        doForeignFunction(st, x);
-    }
 
     for (const x of m.functions) {
-        st.addFunction(x);
         doFunction(st, x);
     }
 
@@ -521,20 +526,42 @@ function checkModule(st: SymbolTable, m: P.Module) {
     }
 }
 
-function _check(st: SymbolTable, m: P.Module, map: Dictionary<P.Module>, mods: P.Module[]) {
-    if (map[m.id]) return;
-    map[m.id] = m;
-    st = m.id.startsWith(P.NativeModule) ? st : st.newTable(`mod:${m.id}`);
+function doModuleDefinition(st: SymbolTable, m: P.Module, c: Check) {
+    if (c.map[m.id]) return;
+    c.map[m.id] = m;
+
+    Logger.info(`Type checking [defs]: ${m.path}`);
+    const global = st;
+    st = st.newTable(m.id);
     m.tag = st;
+
     // for each import, perform check
-    const imports = mods.filter(x => m.imports.filter(y => x.id === y.id).length);
+    const imports = c.mods.filter(x => m.imports.filter(y => x.id === y.id).length);
     for (const im of imports) {
-        _check(st, im, map, mods);
-        //if (map[im.id]) continue;
-        //map[im.id] = im;
-        checkModule(st, im);
+        if (c.map[im.id]) continue;
+        doModuleDefinition(global, im, c);
     }
-    checkModule(st, m);
+
+    doTypes(st, m.types, m.structs);
+
+    for (const x of m.foreignFunctions) {
+        st.addFunction(x);
+        doForeignFunction(st, x);
+    }
+
+    for (const x of m.functions) {
+        st.addFunction(x);
+    }
+    c.xs.push(m);
+    Logger.info(`Type checking done [defs]: ${m.path}`);
+}
+
+class Check {
+    public readonly map: Dictionary<P.Module> = {};
+    public readonly xs: P.Module[] = [];
+
+    constructor(public readonly mods: P.Module[]) {}
+
 }
 
 export default function check(mods: P.Module[]) {
@@ -542,9 +569,13 @@ export default function check(mods: P.Module[]) {
 
     global.addType(NativeTypes.Word);
 
-    const map: Dictionary<P.Module> = {};
+    const c = new Check(mods);
     for (const m of mods) {
-        _check(global, m, map, mods);
+        doModuleDefinition(global, m, c);
+    }
+
+    for (const m of c.xs) {
+        doModule(global, m);
     }
 
     return global;

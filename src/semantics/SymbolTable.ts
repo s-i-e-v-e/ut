@@ -60,22 +60,30 @@ export default class SymbolTable {
     }
 
     private get<T>(id: string, resolve: Resolve<T>) {
-        let table: SymbolTable|undefined = this;
-        while (table) {
-            const x: T = resolve(table.ns, id);
-            if (x) return x;
-            table = table.parent || undefined;
+        const t: SymbolTable = this;
+        const xs = [t].concat(...this.getModules().filter(x => x.name !== t.name).slice());
+
+        for (let x of xs) {
+            let table: SymbolTable|undefined = x;
+            while (table) {
+                const y: T = resolve(table.ns, id);
+                if (y) return y;
+                table = table.parent
+            }
         }
         return undefined;
     }
 
-    private exists<T>(id: string, resolve: Resolve<T>) {
+    private getModules() {
         let table: SymbolTable|undefined = this;
-        while (table) {
-            if (resolve(table.ns, id)) return true;
-            table = table.parent || undefined;
+        while (table.parent) {
+            table = table.parent;
         }
-        return false;
+        return table.children;
+    }
+
+    private exists<T>(id: string, resolve: Resolve<T>) {
+        return this.get(id, resolve) !== undefined;
     }
 
     typeExists(t: P.Type) {
@@ -168,14 +176,14 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
         .keys(fp.map)
         .map(x => fp.map[x])
         .filter(x => x.params.length === argTypes.length);
-    if (!xs.length) Errors.raiseFunctionParameterCountMismatch(id, loc);
+    if (!xs.length) return undefined;
     if (xs.length == 1 && xs[0].typeParams.length == 0) {
         const f = xs[0];
         // regular function
         for (let i = 0; i < argTypes.length; i += 1) {
             const atype = argTypes[i];
             const ptype = f.params[i].type;
-            Types.typesMustMatch(st, atype, ptype, loc);
+            if(!Types.typesMatch(st, atype, ptype)) return undefined;
         }
         return f;
     }

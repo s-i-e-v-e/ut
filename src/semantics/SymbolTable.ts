@@ -114,22 +114,6 @@ export default class SymbolTable {
         SymbolTable.add(v.id, this.ns.vars, v);
     }
 
-    getTypes(): P.Type[] {
-        return Object
-            .keys(this.ns.types)
-            .map(k => this._resolveNativeType(k))
-            .filter(x => x !== undefined)
-            .map(x => x!);
-    }
-
-    private _resolveNativeType(id: string) {
-        const x = this.ns.types[id];
-        let y = this.getAlias(id);
-        y = y !== undefined ? this.ns.types[y.id] : undefined;
-        if (y !== undefined) x.native = y.native;
-        return x;
-    }
-
     getType(id: string): P.Type|undefined {
         return this.getAlias(id) || this.get(id, (ns, id) => ns.types[id]);
     }
@@ -143,12 +127,7 @@ export default class SymbolTable {
         else if (y && y.cons) {
             const a = y.cons;
             const id = `${a.id}^${y.params.map(x => x.value).join("|")}`;
-            return {
-                loc: a.loc,
-                id: id,
-                native: undefined,
-                typeParameters: a.typeParameters,
-            };
+            return P.newType(id, a.loc, a.typeParameters);
         }
         else {
             return undefined;
@@ -231,11 +210,7 @@ function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], 
                 map[pt.id] = at;
 
                 const ys = mapTypes(st, map, at.typeParameters, pt.typeParameters, typeParams);
-                xs.push({
-                    id: at.id,
-                    typeParameters: ys,
-                    loc: at.loc,
-                });
+                xs.push(P.newType(at.id, at.loc, ys));
             }
             else {
                 if (map[pt.id].id !== at.id) return [];
@@ -244,11 +219,7 @@ function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], 
         else {
             if (at.typeParameters.length || pt.typeParameters.length) {
                 const ys = mapTypes(st, map, at.typeParameters, pt.typeParameters, typeParams);
-                xs.push({
-                    id: at.id,
-                    typeParameters: ys,
-                    loc: at.loc,
-                });
+                xs.push(P.newType(at.id, at.loc, ys));
             }
             else {
                 if (!Types.typesMatch(st, at, pt)) return [];

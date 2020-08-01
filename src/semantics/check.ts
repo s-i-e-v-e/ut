@@ -280,11 +280,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             switch (y.nodeType) {
                 case NodeType.IDExpr:
                 case NodeType.ArrayExpr: {
-                    ty = {
-                        id: KnownTypes.Pointer.id,
-                        typeParameters: [t],
-                        loc: y.loc,
-                    };
+                    ty = P.newType(KnownTypes.Pointer.id, y.loc, [t]);
                     break;
                 }
                 default: Errors.raiseTypeError(`Can only acquire reference to lvalues.`, e.loc);

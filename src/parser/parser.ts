@@ -95,11 +95,7 @@ function parseTypeAnnotation(ts: TokenStream): P.Type {
         const t = ts.peek();
         const isType = t.loc.path === P.NativeModule &&  ["int", "uint", "float"].filter(x => x === t.lexeme).length;
         const id = isType ? ts.next().lexeme : ts.nextMustBe(TokenType.TK_TYPE).lexeme;
-        return getGenericType(id) || {
-            id: id,
-            loc: loc,
-            typeParameters: [],
-        };
+        return getGenericType(id) || P.newType(id, loc);
     }
 }
 
@@ -632,11 +628,7 @@ function parseStruct(ts: TokenStream): P.Struct {
     const members = parseStructMemberList(ts);
     ts.nextMustBe(")");
     return {
-        type: {
-            id: ty.id,
-            loc: ty.loc,
-            typeParameters: [],
-        },
+        type: P.newType(ty.id, ty.loc),
         typeParameters: ty.typeParameters || [],
         members: members,
         loc: loc,

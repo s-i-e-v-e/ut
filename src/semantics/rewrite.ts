@@ -23,9 +23,34 @@ type Stmt = A.Stmt;
 type Expr = A.Expr;
 const NodeType = A.NodeType;
 
-function rewriteType(st: SymbolTable, t: P.Type) {
-    const x = t.id === NativeTypes.Base.Array.id ? t : st.getType(t.id)!
-    return x || t;
+function getNativeType(t: P.Type): P.NativeType {
+    const xs = t.id.split("^");
+    switch (xs[0]) {
+        case NativeTypes.Base.SignedInt.id: {
+            return P.nativeInt(BigInt(xs[1]), xs[0]);
+        }
+        case NativeTypes.Base.UnsignedInt.id: {
+            return P.nativeUint(BigInt(xs[1]), xs[0]);
+        }
+        case NativeTypes.Base.Float.id: {
+            const ys = xs[1].split("|");
+            return P.nativeFloat(BigInt(ys[0]), BigInt(ys[1]), xs[0]);
+        }
+        case NativeTypes.Base.Array.id: {
+            return NativeTypes.Base.Array.native;
+        }
+        default: {
+            console.log(t);
+            return t.native;
+        }
+    }
+}
+
+function rewriteType(st: SymbolTable, t: P.Type): P.Type {
+    const x = t.id === NativeTypes.Base.Array.id ? t : (st.getType(t.id) || t);
+    x.typeParameters = x.typeParameters.map(y => rewriteType(st, y));
+    x.native = x.native === NativeTypes.Base.None ? getNativeType(x) : x.native;
+    return x;
 }
 
 function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
@@ -184,33 +209,7 @@ function doStruct(st: SymbolTable, s: P.Struct) {
 }
 
 function doTypeDeclaration(st: SymbolTable, t: P.TypeDeclaration) {
-    // get struct
-    const s = st.getStruct(t.cons.id);
-    if (!s) Errors.raiseDebug();
-    const ty = st.getType(t.type.id);
-    if (!ty) Errors.raiseDebug();
 
-    switch (s.type.id) {
-        case NativeTypes.Base.SignedInt.id: {
-            const bits = t.params[0] as A.NumberLiteral;
-            ty.native = P.nativeInt(bits.value, s.type.id);
-            break;
-        }
-        case NativeTypes.Base.UnsignedInt.id: {
-            const bits = t.params[0] as A.NumberLiteral;
-            ty.native = P.nativeUint(bits.value, s.type.id);
-            break;
-        }
-        case NativeTypes.Base.Float.id: {
-            const bits = t.params[0] as A.NumberLiteral;
-            const exponent = t.params[0] as A.NumberLiteral;
-            ty.native = P.nativeFloat(bits.value, exponent.value, s.type.id);
-            break;
-        }
-        default: {
-            Errors.raiseDebug(s.type.id);
-        }
-    }
 }
 
 function doTypeDefinition(st: SymbolTable, t: P.TypeDefinition) {
@@ -250,19 +249,8 @@ function doModule(st: SymbolTable, m: P.Module) {
     }
 }
 
-function collectAllTypes(st: SymbolTable) {
-    const xs = [];
-    xs.push(...st.getTypes());
-    st.children.forEach(x => xs.push(...collectAllTypes(x)));
-    return xs;
-}
-
 export default function rewrite(global: SymbolTable, mods: P.Module[]) {
     for (const m of mods) {
         doModule(m.tag, m);
     }
-
-    const types: Dictionary<P.Type> = {};
-    collectAllTypes(global).forEach(x => types[x.id] = x);
-    return types;
 }

@@ -109,7 +109,7 @@ export class Allocator {
     private readonly map: Dictionary<Store>;
     private static index = 0;
 
-    private constructor(public readonly b: VmCodeBuilder, private readonly types: Dictionary<P.Type>, private readonly regs: Dictionary<boolean>, public readonly parent?: Allocator) {
+    private constructor(public readonly b: VmCodeBuilder, private readonly regs: Dictionary<boolean>, public readonly parent?: Allocator) {
         this.map = {};
     }
 
@@ -147,10 +147,6 @@ export class Allocator {
         for (const r of xs) {
             this.b.pop_r(r);
         }
-    }
-
-    getType(t: P.Type) {
-        return this.types[t.id];
     }
 
     alloc(v: P.Variable) {
@@ -206,18 +202,11 @@ export class Allocator {
     }
 
     newAllocator() {
-        return Allocator.build(this.b, this.types, this.regs, this);
+        return Allocator.build(this.b, this.regs, this);
     }
 
-    debug(t: P.Type) {
-        const ty = this.types[t.id];
-        if (ty.native && (ty.native as P.NativeType).bits) {
-            Logger.debug(`type: ${ty.id}, native: ${ty.native.id}, bits: ${(ty.native as P.NativeType).bits}`);
-        }
-    }
-
-    static build(b: VmCodeBuilder, types: Dictionary<P.Type>, regs?: Dictionary<boolean>, parent?: Allocator) {
+    static build(b: VmCodeBuilder, regs?: Dictionary<boolean>, parent?: Allocator) {
         regs = regs || {};
-        return new Allocator(b, types, regs, parent);
+        return new Allocator(b, regs, parent);
     }
 }

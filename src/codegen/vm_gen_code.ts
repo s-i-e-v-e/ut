@@ -168,16 +168,16 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.ArrayConstructor: {
             const x = e as A.ArrayConstructor;
-            const ty = ac.getType(x.type.typeParameters[0]);
+            const ty = block.tag.getType(x.type.typeParameters[0]) || x.type.typeParameters[0];
             const args = x.args!;
             const n = args.length;
-            const entrySizeInBytes = 8;//ty.native!.bits/8;
-            const buzzerSize = entrySizeInBytes*args.length;
+            const entrySizeInBytes = 8;//ty.native.bits/8;
+            const bufferSize = entrySizeInBytes*args.length;
 
-            const bb = ByteBuffer.build(8 + 8 + buzzerSize);
+            const bb = ByteBuffer.build(8 + 8 + bufferSize);
             bb.write_u64(n);
             bb.write_u64(entrySizeInBytes);
-            for (let i = 0; i < buzzerSize; i += 1) {
+            for (let i = 0; i < bufferSize; i += 1) {
                 bb.write_u8(0xCC);
             }
             const offset = ac.b.heapStore(bb.asBytes());
@@ -369,9 +369,9 @@ function emitBlock(ac: Allocator, store: Store, block: A.BlockExpr) {
     block.xs.forEach(x => emitStmt(ac, store, block, x));
 }
 
-function emitFunction(b: VmCodeBuilder, types: Dictionary<P.Type>, f: P.Function) {
+function emitFunction(b: VmCodeBuilder, f: P.Function) {
     b.startFunction(f.mangledName);
-    const ac = Allocator.build(b, types);
+    const ac = Allocator.build(b);
     const scratch = ac.tmp();
     if (scratch.reg !== "r0") Errors.raiseDebug();
     f.params.forEach(x => ac.alloc(x));
@@ -379,7 +379,7 @@ function emitFunction(b: VmCodeBuilder, types: Dictionary<P.Type>, f: P.Function
     b.ret();
 }
 
-export default function vm_gen_code(types: Dictionary<P.Type>, mods: P.Module[]) {
+export default function vm_gen_code(mods: P.Module[]) {
     const reduce = <A>(ys: A[], xs: A[]) => { ys.push(...xs); return ys;  };
     const foreignFunctions = mods.map(x => x.foreignFunctions).reduce(reduce);
     const functions = mods.map(x => x.functions).reduce(reduce);
@@ -392,11 +392,11 @@ export default function vm_gen_code(types: Dictionary<P.Type>, mods: P.Module[])
     const xs = functions.filter(x => x.id === "main");
     const main = xs.length ? xs[0] : undefined;
     if (!main) Errors.raiseVmError("main() not found");
-    emitFunction(b, types, main!);
+    emitFunction(b, main!);
 
     // then, rest
     const ys = functions.filter(x => x.id !== "main");
-    ys.forEach(x => emitFunction(b, types, x));
+    ys.forEach(x => emitFunction(b, x));
 
     return b;
 }

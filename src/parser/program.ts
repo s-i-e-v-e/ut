@@ -73,7 +73,7 @@ export interface NativeArrayType extends NativeType {
 export interface Type extends Primitive {
     id: string;
     typeParameters: Type[];
-    native?: NativeType;
+    native: NativeType;
 }
 
 export interface TypeDefinition extends Primitive {
@@ -143,28 +143,38 @@ export function nativeFloat(bits: bigint, exponent: bigint, id: string): NativeF
     };
 }
 
-export function newNativeType(id: string, native: NativeType, loc?: Location): Type {
+export function newNativeType(t: Type, native: NativeType): Type {
     const xs = [];
     xs.push(native.bits);
     const x = (native as NativeFloatType).exponent;
     if (x) xs.push(x);
     return {
-        id: buildTypeID(id, xs),
-        loc: loc || NativeLoc,
-        native: native,
+        id: buildTypeID(t.id, xs),
+        loc: NativeLoc,
         typeParameters: [],
+        native: native,
     };
 }
 
-export function newType(id: string, loc?: Location, native?: NativeType): Type {
+export function newType(id: string, loc?: Location, typeParameters?: Type[]): Type {
     return {
         id: id,
         loc: loc || UnknownLoc,
-        native: native,
-        typeParameters: [],
+        typeParameters: typeParameters || [],
+        native: NativeNone,
     };
 }
 
+export function newBaseType(id: string, native: NativeType): Type {
+    return {
+        id: id,
+        loc: NativeLoc,
+        typeParameters: [],
+        native: native,
+    };
+}
+
+const NativeNone = nativeInt(0n, "");
 const NativeInt = nativeInt(64n, "int");
 const NativeUint = nativeUint(64n, "uint");
 const NativeUint8 = nativeUint(8n, "uint");
@@ -172,11 +182,12 @@ const NativeFloat = nativeFloat(80n, 15n, "float");
 
 export const NativeTypes = {
     Base: {
-        Word: newType("Word", NativeLoc, NativeUint),
-        SignedInt: newType("SignedInt", NativeLoc, NativeInt),
-        UnsignedInt: newType("UnsignedInt", NativeLoc, NativeUint),
-        Float: newType("Float", NativeLoc, NativeFloat),
-        Array: newType("Array", NativeLoc, NativeUint),
+        None: NativeNone,
+        Word: newBaseType("Word", NativeNone),
+        SignedInt: newBaseType("SignedInt", NativeInt),
+        UnsignedInt: newBaseType("UnsignedInt", NativeUint),
+        Float: newBaseType("Float", NativeFloat),
+        Array: newBaseType("Array", NativeUint),
     },
 };
 
@@ -187,9 +198,9 @@ export const KnownTypes = {
     String: newType("String"),
     Pointer: newType("Pointer"),
     Int64: newType("Int64"),
-    SignedInt: newNativeType("SignedInt", NativeInt),
-    UnsignedInt: newNativeType("UnsignedInt", NativeUint),
-    Uint8: newNativeType("UnsignedInt", NativeUint8),
+    SignedInt: newNativeType(NativeTypes.Base.SignedInt, NativeInt),
+    UnsignedInt: newNativeType(NativeTypes.Base.UnsignedInt, NativeUint),
+    Uint8: newNativeType(NativeTypes.Base.UnsignedInt, NativeUint8),
 };
 
 export function toTypeString(t: Type, xs?: Array<string>) {

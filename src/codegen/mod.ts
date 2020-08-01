@@ -10,9 +10,23 @@ import {
     Store,
     Allocator,
 } from "./Allocator.ts";
+import {Dictionary} from "../util/mod.ts";
+
+interface StructMember {
+    offset: number;
+    size: number;
+}
+
+interface StructState {
+    map: Dictionary<number>;
+    xs: StructMember[];
+    index: number; // nth member of struct
+    offset: number;
+}
 
 export {
     vm_gen_code,
     Store,
     Allocator,
+    StructState,
 };

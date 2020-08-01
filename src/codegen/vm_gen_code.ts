@@ -20,7 +20,8 @@ import {
 } from "../util/mod.ts";
 import {
     Allocator,
-    Store
+    Store,
+    StructState,
 } from "./mod.ts";
 const NodeType = A.NodeType;
 type Expr = A.Expr;
@@ -51,6 +52,29 @@ function derefer(store: Store, r: Store) {
             else {
                 r.write_reg(store);
             }
+        }
+    }
+}
+
+
+
+function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, id: string) {
+    const s = block.tag.getStruct(v.type.id);
+    if (!s)  {
+        const x = {
+            offset: ss.offset,
+            size: v.type.native.bits/8,
+        };
+        ss.xs[ss.index] = x;
+        ss.map[id] = ss.index;
+        ss.offset += x.size;
+        ss.index += 1;
+    }
+    else {
+        for (let i = 0; i < s.members.length; i += 1) {
+            const m = s.members[i];
+            const mid = `${id}.${m.id}`;
+            computeStructInfo(ss, block, m, mid);
         }
     }
 }
@@ -175,13 +199,17 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             const bufferSize = entrySizeInBytes*args.length;
 
             const bb = ByteBuffer.build(8 + 8 + bufferSize);
+            // write static data known at compile time
             bb.write_u64(n);
             bb.write_u64(entrySizeInBytes);
             for (let i = 0; i < bufferSize; i += 1) {
                 bb.write_u8(0xCC);
             }
+
+            // get offset
             const offset = ac.b.heapStore(bb.asBytes());
 
+            // write dynamic data
             const tmp = ac.tmp();
             let hp = offset + 8 + 8;
             for (let i = 0; i < args.length; i += 1) {
@@ -197,6 +225,36 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
         case NodeType.TypeInstance: {
             const x = e as A.TypeInstance;
 
+            // compute struct info
+            const ss: StructState = {
+                map: {},
+                xs: [],
+                offset: 0,
+                index: 0,
+            };
+            const v = P.buildVar("tmp", x.type, true, false, false, x.loc);
+            computeStructInfo(ss, block, v, v.id);
+
+            const bb = ByteBuffer.build(ss.offset);
+            // write static data known at compile time
+            for (let i = 0; i < ss.offset; i += 1) {
+                bb.write_u8(0xCC);
+            }
+
+            // get offset
+            const offset = ac.b.heapStore(bb.asBytes());
+
+            // write dynamic data
+            const tmp = ac.tmp();
+            let hp = offset;
+            for (let i = 0; i < x.args.length; i += 1) {
+                emitExpr(ac, tmp, block, x.args[i]);
+                ac.b.mov_m_r(hp, tmp.reg);
+                hp += ss.xs[i].size;
+            }
+            tmp.free();
+
+            store.write_imm(BigInt(offset));
             break;
         }
         case NodeType.DereferenceExpr: {
@@ -212,11 +270,31 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             const x = e as A.IDExpr;
             const ids = ac.get(x.id);
 
-            if (store.isWrite) {
-                store.write_reg(ids);
+            if (ids.isRegister || !x.rest.length) {
+                if (store.isWrite) {
+                    store.write_reg(ids);
+                }
+                else {
+                    ids.write_reg(store);
+                }
             }
             else {
-                ids.write_reg(store);
+                const id = [x.id].concat(...x.rest).join(".");
+                const mem = ids.memory();
+                const sm = mem.ss.xs[mem.ss.map[id]];
+
+                const tmp = ac.tmp();
+                tmp.write_reg(mem);  // tmp = mem
+                ac.b.add_r_i(tmp.reg, sm.offset);
+
+                if (store.isWrite) {
+                    store.write_deref(tmp); // store = tmp
+                }
+                else {
+                    tmp.write_reg_to_deref(store); // tmp = store
+
+                }
+                tmp.free();
             }
             break;
         }
@@ -310,8 +388,21 @@ function emitStmt(ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
             const x = s as A.VarInitStmt;
             const tmp = ac.tmp();
             emitExpr(ac, tmp, block, x.expr);
-            const r = ac.alloc(x.var);
-            r.write_reg(tmp);
+            if (x.var.type.native.bits === 0) {
+                const ss = {
+                    map: {},
+                    xs: [],
+                    offset: 0,
+                    index: 0,
+                }
+                computeStructInfo(ss, block, x.var, x.var.id);
+                const r = ac.alloc(x.var, ss);
+                r.write_reg(tmp);
+            }
+            else {
+                const r = ac.alloc(x.var);
+                r.write_reg(tmp);
+            }
             tmp.free();
             break;
         }

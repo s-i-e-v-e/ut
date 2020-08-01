@@ -128,11 +128,12 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             if (!x.rest) Errors.raiseTypeError(x.id, x.loc);
             if (x.rest.length) {
                 // check
-                while (x.rest.length) {
-                    const y = x.rest.shift();
+                let rest = x.rest.slice();
+                while (rest.length) {
+                    const y = rest.shift();
                     const s = st.getStruct(ty.id);
                     if (!s)  {
-                        if (x.rest.length) Errors.raiseDebug(ty.id);
+                        if (rest.length) Errors.raiseDebug(ty.id);
                     }
                     else {
                         const ys = s.members.filter(a => a.id === y);
@@ -357,6 +358,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
+            Errors.debug();
 
             // infer
             const ty = getExprType(st, block, x.expr);

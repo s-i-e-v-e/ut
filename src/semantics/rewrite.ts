@@ -40,7 +40,6 @@ function getNativeType(t: P.Type): P.NativeType {
             return NativeTypes.Base.Array.native;
         }
         default: {
-            console.log(t);
             return t.native;
         }
     }
@@ -139,12 +138,22 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
     }
 }
 
+function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: P.Variable) {
+    const s = st.getStruct(v.type.id);
+    if (!s)  {
+        v.type = rewriteType(st, v.type);
+    }
+    else {
+        s.members.forEach((a: P.Variable) => rewriteVar(st, block, a));
+    }
+}
+
 function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
             const v = st.getVar(x.var.id)!;
-            v.type = rewriteType(st, v.type);
+            rewriteVar(st, block, v);
             doExpr(st, block, x.expr);
             break;
         }

@@ -15,6 +15,7 @@ import {
     Logger,
 } from "../util/mod.ts";
 import {registers} from "../vm/mod.ts";
+import {StructState} from "./mod.ts";
 const KnownTypes = P.KnownTypes;
 const NativeTypes = P.NativeTypes;
 
@@ -24,7 +25,12 @@ export abstract class Store {
     public isWrite = true;
     public isValue = true;
     public isRHS = false;
-    protected constructor(public readonly b: VmCodeBuilder, public readonly v: P.Variable) {}
+    protected constructor(
+        public readonly b: VmCodeBuilder,
+        public readonly v: P.Variable,
+        public isRegister: boolean,
+        public isMemory: boolean,
+    ) {}
 
     abstract write_imm(n: bigint): void;
     abstract write_str(s: string): void;
@@ -32,6 +38,8 @@ export abstract class Store {
     abstract write_deref(rm: Store): void;
     abstract write_reg_to_deref(rm: Store): void;
     abstract free(): void;
+    abstract memory(): Memory;
+    abstract register(): Register;
 }
 
 class Register extends Store {
@@ -41,7 +49,7 @@ class Register extends Store {
         public readonly reg: string,
         private readonly f: Free,
     ) {
-        super(b, v);
+        super(b, v, true, false);
     }
 
     write_imm(n: bigint) {
@@ -70,14 +78,25 @@ class Register extends Store {
     free() {
         this.f(this.reg);
     }
+
+    memory(): Memory {
+        return Errors.raiseDebug();
+    }
+
+    register(): Register {
+        return this as Register;
+    }
 }
 
 class Memory extends Store {
     constructor(
         public readonly b: VmCodeBuilder,
         public readonly v: P.Variable,
+        public readonly reg: string,
+        private readonly f: Free,
+        public readonly ss: StructState,
     ) {
-        super(b, v);
+        super(b, v, false, true);
     }
 
     write_imm(n: bigint) {
@@ -89,11 +108,13 @@ class Memory extends Store {
     }
 
     write_reg(rm: Store) {
-        Errors.raiseDebug();
+        const r = rm as Register;
+        this.b.mov_r_r(this.reg, r.reg);
     }
 
     write_deref(rm: Store) {
-        Errors.raiseDebug();
+        const r = rm as Register;
+        this.b.mov_r_ro(this.reg, r.reg);
     }
 
     write_reg_to_deref(rm: Store) {
@@ -102,6 +123,14 @@ class Memory extends Store {
 
     free() {
         Errors.raiseDebug();
+    }
+
+    memory(): Memory {
+        return this;
+    }
+
+    register(): Register {
+        return Errors.raiseDebug();
     }
 }
 
@@ -149,19 +178,22 @@ export class Allocator {
         }
     }
 
-    alloc(v: P.Variable) {
-        let x: Register;
+    alloc(v: P.Variable, ss?: StructState) {
+        let x: Store;
         switch (v.type.id) {
             case NativeTypes.Base.Array.id:
             case KnownTypes.SignedInt.id:
             case KnownTypes.UnsignedInt.id:
-            case KnownTypes.Uint8.id:
-            {
+            case KnownTypes.Uint8.id: {
                 const self = this;
                 x = new Register(this.b, v, this.use(), (reg: string) => self.free(reg));
                 break;
             }
-            default: Errors.raiseDebug(v.type.id);
+            default: {
+                if (v.type.native.bits !== 0) Errors.raiseDebug();
+                const self = this;
+                x = new Memory(this.b, v, this.use(), (reg: string) => self.free(reg), ss!);
+            }
         }
         this.map[v.id] = x;
         return x;

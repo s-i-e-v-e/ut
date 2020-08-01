@@ -24,7 +24,6 @@ import {
 } from "../util/mod.ts";
 
 const NodeType = A.NodeType;
-const KnownTypes = P.KnownTypes;
 type Expr = A.Expr;
 type Type = P.Type;
 
@@ -36,7 +35,7 @@ function parseIDExpr(ts: TokenStream): A.IDExpr {
         nodeType: NodeType.IDExpr,
         id: id,
         loc: loc,
-        type: KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
         rest: [],
     }
 }
@@ -72,7 +71,7 @@ function parseTypeDeclarationParameters(ts: TokenStream) {
 function parseType(ts: TokenStream) {
     const loc = ts.loc();
     const id = ts.nextMustBe(TokenType.TK_TYPE).lexeme;
-    return P.newType(id, loc);
+    return P.Types.newType(id, loc);
 }
 
 function parseMultiIDExpr(ts: TokenStream): A.IDExpr {
@@ -85,7 +84,7 @@ function parseMultiIDExpr(ts: TokenStream): A.IDExpr {
         id: t.lexeme,
         rest: t.xs,
         loc: loc,
-        type: KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
     };
 }
 
@@ -104,7 +103,7 @@ function parseTypeAnnotation(ts: TokenStream): P.Type {
     const loc = ts.loc();
     const idx = ts.getIndex();
     const id = ts.nextIs("[") ? "Array" : parseTypeID(ts, false);
-    const x = P.newType(id, loc, parseTypeParameters(ts));
+    const x = P.Types.newType(id, loc, parseTypeParameters(ts));
     if (x.id === "Array" && x.typeParams.length != 1) Errors.raiseArrayType(ts.getAsToken(idx, ts.getIndex()));
     return x;
 }
@@ -149,7 +148,7 @@ function parseNumber(n: string, radix: number, loc: Location) {
     return {
         nodeType: NodeType.NumberLiteral,
         value: sum,
-        type: KnownTypes.Int64,
+        type: P.Types.Compiler.Word,
         loc: loc,
     };
 }
@@ -161,13 +160,13 @@ function parseLiteral(ts: TokenStream) {
         case TokenType.TK_STRING_LITERAL: return {
             nodeType: NodeType.StringLiteral,
             value: t.lexeme.substring(1, t.lexeme.length - 1),
-            type: KnownTypes.String,
+            type: P.Types.Compiler.String,
             loc: loc,
         };
         case TokenType.TK_BOOLEAN_LITERAL: return {
             nodeType: NodeType.BooleanLiteral,
             value: t.lexeme === "true",
-            type: KnownTypes.Bool,
+            type: P.Types.Compiler.Bool,
             loc: loc,
         };
         case TokenType.TK_BINARY_NUMBER_LITERAL: return parseNumber(t.lexeme, 2, loc);
@@ -191,7 +190,7 @@ function parseTypeInstantiation(ts: TokenStream, block: A.BlockExpr) {
     const loc = ts.loc();
     const id = parseTypeID(ts, true);
     const typeParams = parseTypeDeclarationParameters(ts);
-    const ty = P.newType(id, loc, typeParams.map(x => P.newType(x, loc)));
+    const ty = P.Types.newType(id, loc, typeParams.map(x => P.Types.newType(x, loc)));
     if (ty.id === "Array") {
         // is array constructor
         const t = ts.peek();
@@ -243,7 +242,7 @@ function parseIfExpr(ts: TokenStream, block: A.BlockExpr): A.IfExpr {
         ifBranch: ifBranch,
         elseBranch: elseBranch,
         loc: loc,
-        type: KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
         isStmt: false,
     };
 }
@@ -257,7 +256,7 @@ function parseFunctionApplication(ts: TokenStream, block: A.BlockExpr, ide: A.ID
         expr: ide,
         args: xs,
         loc: ide.loc,
-        type: KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
     };
 }
 
@@ -277,7 +276,7 @@ function parseReferenceExpr(ts: TokenStream, block: A.BlockExpr): A.ReferenceExp
         nodeType: NodeType.ReferenceExpr,
         expr: parseExpr(ts, block),
         loc: loc,
-        type: KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
     };
 }
 
@@ -289,7 +288,7 @@ function parseDereferenceExpr(ts: TokenStream): A.DereferenceExpr {
         nodeType: NodeType.DereferenceExpr,
         expr: e,
         loc: loc,
-        type: KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
     };
 }
 
@@ -302,7 +301,7 @@ function parseGroupExpr(ts: TokenStream, block: A.BlockExpr): A.GroupExpr {
         nodeType: NodeType.GroupExpr,
         expr: e,
         loc: loc,
-        type: KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
     };
 }
 
@@ -508,7 +507,7 @@ function parseAssnOrExprStmt(ts: TokenStream, block: A.BlockExpr) {
                 nodeType: NodeType.ArrayExpr,
                 expr: fa.expr,
                 args: fa.args,
-                type: KnownTypes.NotInferred,
+                type: P.Types.Compiler.NotInferred,
                 loc: loc,
             };
 
@@ -554,7 +553,7 @@ function parseVarDef(ts: TokenStream, isMutable: boolean, isPrivate: boolean, fo
     const id = parseIDExpr(ts).id;
     const type = parseVarType(ts, force);
     const isVararg = ts.consumeIfNextIs("*") !== undefined;
-    return P.buildVar(
+    return P.Types.buildVar(
         id,
         type,
         isMutable,
@@ -593,7 +592,7 @@ function parseVarType(ts: TokenStream, force: boolean) {
             return parseTypeAnnotation(ts);
         }
         else {
-            return KnownTypes.NotInferred;
+            return P.Types.Compiler.NotInferred;
         }
     }
 }
@@ -601,7 +600,7 @@ function parseVarType(ts: TokenStream, force: boolean) {
 function parseFunctionPrototype(ts: TokenStream): P.FunctionPrototype {
     const loc = ts.loc();
     ts.nextMustBe("fn");
-    const id = parseIDExpr(ts).id;
+    const id = ts.nextIsType() ? parseTypeID(ts, true) : parseIDExpr(ts).id;
     let typeParams = parseTypeDeclarationParameters(ts);
     ts.nextMustBe("(");
     const xs = parseParameterList(ts);
@@ -614,14 +613,14 @@ function parseFunctionPrototype(ts: TokenStream): P.FunctionPrototype {
         type: type,
         typeParams: typeParams,
         loc: loc,
-        mangledName: P.mangleName(id, xs.map(x => x.type)),
+        mangledName: P.Types.mangleName(id, xs.map(x => x.type)),
     };
 }
 
 export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr  {
     return {
         nodeType: NodeType.BlockExpr,
-        type: KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
         loc: loc,
         xs: new Array<any>(),
         parent: parent,
@@ -649,7 +648,7 @@ function parseStruct(ts: TokenStream): P.Struct {
     ts.nextMustBe(")");
 
     return {
-        type: P.newType(id, loc),
+        type: P.Types.newType(id, loc),
         typeParams: typeParams,
         members: members,
         loc: loc,
@@ -758,7 +757,7 @@ export function parse(id: string, f: SourceFile) {
 }
 
 function _parseNative(x: string, n: number) {
-    const name = `${P.NativeModule}.${n}`;
+    const name = `${P.Types.NativeModule}.${n}`;
     const cs = CharacterStream.build(x, name);
     const ts = lex(cs);
     return parseModule(name, ts, name);

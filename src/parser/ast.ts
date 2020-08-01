@@ -180,14 +180,14 @@ export function buildBinaryExpr(left: Expr, op: string, right: Expr): BinaryExpr
         op: op,
         right: right,
         loc: left.loc,
-        type: P.KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
     };
 }
 
 export function buildVoidExpr(loc: Location) {
     return {
         nodeType: NodeType.VoidExpr,
-        type: P.KnownTypes.Void,
+        type: P.Types.Compiler.Void,
         loc: loc,
     };
 }

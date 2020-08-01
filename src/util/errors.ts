@@ -14,7 +14,7 @@ import {
     CharacterStream,
     Token,
 } from "../parser/mod.internal.ts";
-const toTypeString = P.toTypeString;
+const toTypeString = P.Types.toTypeString;
 type Type = P.Type;
 type Variable = P.Variable;
 type NodeType = A.NodeType;
@@ -232,6 +232,10 @@ export default class Errors {
 
     static raiseUnknownIdentifier(id: string, loc: Location): never {
         throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
+    }
+
+    static raiseUnknownFunction(id: string, loc: Location): never {
+        throw new this.UnknownIdentifier(buildErrorString(`Unknown function: ${id}`, loc));
     }
 
     static raiseImmutableVar(v: Variable, loc: Location) {

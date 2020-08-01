@@ -10,22 +10,64 @@ import {
     P,
 } from "../parser/mod.ts";
 import {Errors} from "../util/mod.ts";
-import {SymbolTable} from "./mod.internal.ts";
+import {SymbolTable, Types} from "./mod.internal.ts";
 
-const NativeTypes = P.NativeTypes;
-const KnownTypes = P.KnownTypes;
 type Type = P.Type;
-type Variable = P.Variable;
 
 export function typeNotInferred(t: Type) {
-    return t === KnownTypes.NotInferred;
+    return t === P.Types.Compiler.NotInferred;
+}
+
+export function rewriteType(st: SymbolTable, t: P.Type, skipWord: boolean = false): P.Type {
+    const x0 = st.getTypeCons(t.id);
+    const x1 = x0 || st.getType(t.id)!;
+    const y = x1 ? (st.getTypeCons(x1.id) || x1) : (x0 ? x0 : t);
+
+    //let xx = `${t.id} (${t.typetype}) => ${y.id} (${y.typetype})`;
+    const xs = y.id.split("^");
+    switch (y.typetype) {
+        case P.Types.Word: {
+            if (!skipWord) {
+                y.id = P.Types.buildTypeID(P.Types.UnsignedInt, [64n]);
+                y.typetype = P.Types.UnsignedInt;
+            }
+            y.native = P.Types.NativeUint;
+            break;
+        }
+        case P.Types.SignedInt: {
+            y.native = P.Types.nativeInt(BigInt(xs[1]), xs[0]);
+            break;
+        }
+        case P.Types.UnsignedInt: {
+            y.native = P.Types.nativeUint(BigInt(xs[1]), xs[0]);
+            break;
+        }
+        case P.Types.Float: {
+            const ys = xs[1].split("|");
+            y.native = P.Types.nativeFloat(BigInt(ys[0]), BigInt(ys[1]), xs[0]);
+            break;
+        }
+        /*case P.Types.Pointer: {
+            y.native = P.Types.NativePointer;
+            break;
+        }
+        case P.Types.Array: {
+            y.native = P.Types.NativePointer;
+            break;
+        }*/
+        default: {
+            break;
+        }
+    }
+    return y;
 }
 
 export function isInteger(st: SymbolTable, t: Type): boolean {
-    const x = st.getType(t.id);
-    switch (x?.id) {
-        case NativeTypes.Word.id:
-        case KnownTypes.SignedInt.id:
+    const x = rewriteType(st, t, true);
+    switch (x.typetype) {
+        case P.Types.Word:
+        case P.Types.UnsignedInt:
+        case P.Types.SignedInt:
         {
             return true;
         }
@@ -36,7 +78,7 @@ export function isInteger(st: SymbolTable, t: Type): boolean {
 }
 
 export function isBoolean(st: SymbolTable, xt: Type): boolean {
-    return xt.id === KnownTypes.Bool.id;
+    return xt.id === P.Types.Bool;
 }
 
 export function typesMatch(st: SymbolTable, ot1: Type, ot2: Type): boolean {

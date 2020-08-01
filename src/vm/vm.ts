@@ -95,6 +95,8 @@ export default class Vm {
 
         const len = this.read_u64(ip);
         ip += 8n;
+        //console.log(`${offset}+${len}`);
+        this.check_offset(ip + len);
         const xs = [];
         for (let i = 0; i < len; i += 1) {+
             this.check_offset(ip);

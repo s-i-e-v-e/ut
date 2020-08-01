@@ -11,49 +11,19 @@ import {
 } from "../parser/mod.ts";
 import {
     SymbolTable,
+    Types,
 } from "./mod.internal.ts";
 import {
-    Dictionary,
     Errors,
     Logger,
 } from "../util/mod.ts";
 
-const NativeTypes = P.NativeTypes;
 type Stmt = A.Stmt;
 type Expr = A.Expr;
 const NodeType = A.NodeType;
 
-function getNativeType(t: P.Type): P.NativeType {
-    const xs = t.id.split("^");
-    switch (xs[0]) {
-        case NativeTypes.SignedInt.id: {
-            return P.nativeInt(BigInt(xs[1]), xs[0]);
-        }
-        case NativeTypes.UnsignedInt.id: {
-            return P.nativeUint(BigInt(xs[1]), xs[0]);
-        }
-        case NativeTypes.Float.id: {
-            const ys = xs[1].split("|");
-            return P.nativeFloat(BigInt(ys[0]), BigInt(ys[1]), xs[0]);
-        }
-        case NativeTypes.Array.id: {
-            return NativeTypes.Array.native;
-        }
-        default: {
-            return t.native;
-        }
-    }
-}
-
-function rewriteType(st: SymbolTable, t: P.Type): P.Type {
-    const x = t.id === NativeTypes.Array.id ? t : (st.getType(t.id) || t);
-    x.typeParams = x.typeParams.map(y => rewriteType(st, y));
-    x.native = x.native === NativeTypes.None ? getNativeType(x) : x.native;
-    return x;
-}
-
 function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
-    e.type = rewriteType(st, e.type);
+    e.type = Types.rewriteType(st, e.type);
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
         case NodeType.StringLiteral:
@@ -63,7 +33,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         case NodeType.IDExpr: {
             const x = e as A.IDExpr;
             const v = st.getVar(x.id)!;
-            v.type = rewriteType(st, v.type);
+            v.type = Types.rewriteType(st, v.type);
             break;
         }
         case NodeType.BinaryExpr: {
@@ -141,7 +111,11 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
 function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: P.Variable) {
     const s = st.getStruct(v.type.id);
     if (!s)  {
-        v.type = rewriteType(st, v.type);
+        const old = v.type;
+        v.type = Types.rewriteType(st, v.type);
+        let xx = `${old.id} (${old.typetype}) => ${v.type.id} (${v.type.typetype})`;
+        console.log(xx);
+
     }
     else {
         s.members.forEach((a: P.Variable) => rewriteVar(st, block, a));

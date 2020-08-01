@@ -115,7 +115,7 @@ export default class SymbolTable {
     }
 
     addTypeParameter(t: string) {
-        SymbolTable.add(t, this.ns.types, P.newType(t, P.UnknownLoc));
+        SymbolTable.add(t, this.ns.types, P.Types.newType(t));
     }
 
     addVar(v: P.Variable) {
@@ -123,19 +123,24 @@ export default class SymbolTable {
     }
 
     getType(id: string): P.Type|undefined {
-        return this.getAlias(id) || this.get(id, (ns, id) => ns.types[id]);
+        return this.getTypeAlias(id) || this.get(id, (ns, id) => ns.types[id]);
     }
 
-    private getAlias(id: string): P.Type|undefined {
+    getTypeCons(id: string): P.Type|undefined {
+        const x = this.get(id, (ns, id) => ns.typeDefinitions[id]) as P.TypeDeclaration;
+        if (x && x.cons) {
+            const y = this.getType(x.cons.id) || x.cons;
+            return this.getTypeCons(y.id) || y;
+        }
+        else {
+            return undefined;
+        }
+    }
+
+    private getTypeAlias(id: string): P.Type|undefined {
         const x = this.get(id, (ns, id) => ns.typeDefinitions[id]) as P.TypeAlias;
-        const y = this.get(id, (ns, id) => ns.typeDefinitions[id]) as P.TypeDeclaration;
         if (x && x.alias) {
             return this.getType(x.alias.id) || x.alias;
-        }
-        else if (y && y.cons) {
-            const a = y.cons;
-            const id = `${a.id}^${y.params.map(x => x.value).join("|")}`;
-            return P.newType(id, a.loc, a.typeParams);
         }
         else {
             return undefined;
@@ -188,7 +193,7 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
         return f;
     }
 
-    const x = P.mangleName(id, argTypes);
+    const x = P.Types.mangleName(id, argTypes);
     for (const f of xs) {
         const map: Dictionary<P.Type> = {};
         const tp: Dictionary<boolean> = {};
@@ -198,7 +203,7 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
             for (const x of f.typeParams) {
                 if (!map[x]) break;
             }
-            const y = P.mangleName(id, ys);
+            const y = P.Types.mangleName(id, ys);
             if (x === y) return f;
         }
     }
@@ -218,7 +223,7 @@ function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], 
                 map[pt.id] = at;
 
                 const ys = mapTypes(st, map, at.typeParams, pt.typeParams, typeParams);
-                xs.push(P.newType(at.id, at.loc, ys));
+                xs.push(P.Types.newType(at.id, at.loc, ys));
             }
             else {
                 if (map[pt.id].id !== at.id) return [];
@@ -227,7 +232,7 @@ function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], 
         else {
             if (at.typeParams.length || pt.typeParams.length) {
                 const ys = mapTypes(st, map, at.typeParams, pt.typeParams, typeParams);
-                xs.push(P.newType(at.id, at.loc, ys));
+                xs.push(P.Types.newType(at.id, at.loc, ys));
             }
             else {
                 if (!Types.typesMatch(st, at, pt)) return [];

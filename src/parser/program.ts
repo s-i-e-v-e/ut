@@ -8,7 +8,7 @@
 
 import {
     Location,
-    A,
+    A
 } from "./mod.ts";
 
 export interface Primitive {
@@ -55,6 +55,7 @@ export interface Struct extends Primitive {
 
 export interface NativeType extends Primitive {
     id: string;
+    typetype: string; // typetype
     bits: number;
 }
 
@@ -69,6 +70,7 @@ export interface NativeFloat extends NativeType {
 export interface Type extends Primitive {
     id: string;
     typeParams: Type[];
+    typetype: string // typetype
     native: NativeType;
 }
 
@@ -95,13 +97,7 @@ export interface Variable extends Primitive {
 
 export type Parameter = Variable;
 
-export const NativeModule = "<native>";
-const NativeLoc = {
-    index: 0,
-    line: 1,
-    character: 1,
-    path: NativeModule,
-};
+
 
 export const UnknownLoc = {
     index: 0,
@@ -110,143 +106,131 @@ export const UnknownLoc = {
     path: "<unknown>",
 };
 
-function buildTypeID(id: string, xs: any[]) {
-    return `${id}^${xs.map(x => x).join("|")}`
-}
+export class Types {
+    public static readonly NativeModule = "<native>";
+    public static readonly NativeNone = Types.nativeInt(0n, "");
+    public static readonly NativePointer = Types.nativePointer("ptr");
+    public static readonly NativeInt = Types.nativeInt(64n, "int");
+    public static readonly NativeUint = Types.nativeUint(64n, "uint");
+    public static readonly NativeFloat = Types.nativeFloat(80n, 15n, "float");
 
-export function nativePointer(id: string): NativePointer {
-    return {
-        loc: NativeLoc,
-        id: buildTypeID(id, [64]),
-        bits: Number(64),
+    public static readonly Word = "Word";
+    public static readonly Pointer = "Pointer";
+    public static readonly SignedInt = "SignedInt";
+    public static readonly UnsignedInt = "UnsignedInt";
+    public static readonly Float = "Float";
+    public static readonly Array = "Array";
+    public static readonly Bool = "Bool";
+
+    public static readonly Compiler = {
+        Word: Types.newType(Types.Word),
+        Array: Types.newType(Types.Array),
+        Bool: Types.newType(Types.Bool),
+        NotInferred: Types.newType("NotInferred"),
+        Void: Types.newType("Void"),
+        String: Types.newType("String"),
     };
-}
 
-export function nativeInt(bits: bigint, id: string): NativeWord {
-    return {
-        loc: NativeLoc,
-        id: buildTypeID(id, [bits]),
-        bits: Number(bits),
+    public static readonly NativeLoc = {
+        index: 0,
+        line: 1,
+        character: 1,
+        path: Types.NativeModule,
     };
-}
 
-export function nativeUint(bits: bigint, id: string): NativeWord {
-    return {
-        loc: NativeLoc,
-        id: buildTypeID(id, [bits]),
-        bits: Number(bits),
-    };
-}
-
-export function nativeFloat(bits: bigint, exponent: bigint, id: string): NativeFloat {
-    return {
-        loc: NativeLoc,
-        id: buildTypeID(id, [bits, exponent]),
-        bits: Number(bits),
-        exponent: Number(bits),
-    };
-}
-
-function newNativeType(t: Type, native: NativeType): Type {
-    const xs = [];
-    xs.push(native.bits);
-    const x = (native as NativeFloat).exponent;
-    if (x) xs.push(x);
-    return {
-        id: buildTypeID(t.id, xs),
-        loc: UnknownLoc,
-        typeParams: [],
-        native: native,
-    };
-}
-
-export function newType(id: string, loc: Location, typeParams?: Type[]): Type {
-    return {
-        id: id,
-        loc: loc,
-        typeParams: typeParams || [],
-        native: NativeNone,
-    };
-}
-
-function newBaseType(id: string, native: NativeType): Type {
-    return {
-        id: id,
-        loc: UnknownLoc,
-        typeParams: [],
-        native: native,
-    };
-}
-
-const NativeNone = nativeInt(0n, "");
-const NativePointer = nativePointer("ptr");
-const NativeInt = nativeInt(64n, "int");
-const NativeUint = nativeUint(64n, "uint");
-const NativeUint8 = nativeUint(8n, "uint");
-const NativeFloat = nativeFloat(80n, 15n, "float");
-
-export const NativeTypes = {
-    None: NativeNone,
-    Pointer: newBaseType("Pointer", NativeNone),
-    Word: newBaseType("Word", NativeNone),
-    SignedInt: newBaseType("SignedInt", NativeInt),
-    UnsignedInt: newBaseType("UnsignedInt", NativeUint),
-    Float: newBaseType("Float", NativeFloat),
-    Array: newBaseType("Array", NativeUint),
-};
-
-export const KnownTypes = {
-    NotInferred: newType("NotInferred", UnknownLoc),
-    Void: newType("Void", UnknownLoc),
-    Bool: newType("Bool", UnknownLoc),
-    String: newType("String", UnknownLoc),
-    Int64: newType("Int64", UnknownLoc),
-    SignedInt: newNativeType(NativeTypes.SignedInt, NativeInt),
-    UnsignedInt: newNativeType(NativeTypes.UnsignedInt, NativeUint),
-    Uint8: newNativeType(NativeTypes.UnsignedInt, NativeUint8),
-};
-
-export function toTypeString(t: Type, xs?: Array<string>) {
-    const g = t;
-    xs = xs ? xs : [""];
-    xs.push(g.id)
-    if (g.typeParams.length) {
-        xs.push("[");
-        for (let i = 0; i < g.typeParams.length; i += 1) {
-            toTypeString(g.typeParams[i], xs);
-        }
-        xs.push("]");
+    public static newType(id: string, loc?: Location, typeParams?: Type[]): Type {
+        return {
+            id: id,
+            typetype: id,
+            loc: loc || UnknownLoc,
+            typeParams: typeParams || [],
+            native: Types.NativeNone,
+        };
     }
-    return xs.join("");
-}
 
-function mangleTypes(xs: Type[]): string {
-    const ys = [];
-    for (const x of xs) {
-        ys.push(`$${x.id}`);
-        if (x.typeParams.length) {
-            ys.push("[");
-            ys.push(mangleTypes(x.typeParams));
-            ys.push("]");
-        }
+    public static buildTypeID (id: string, xs: any[]) {
+        return `${id}^${xs.map(x => x).join("|")}`
     }
-    return ys.join("");
-}
 
-export function mangleName(id: string, xs: Type[]) {
-    const ys = [];
-    ys.push(id);
-    ys.push(mangleTypes(xs));
-    return ys.join("");
-}
+    public static nativePointer (id: string): NativePointer {
+        return {
+            loc: Types.NativeLoc,
+            id: Types.buildTypeID(id, [64]),
+            typetype: id,
+            bits: Number(64),
+        };
+    }
 
-export function buildVar(id: string, type: Type, isMutable: boolean, isVararg: boolean, isPrivate: boolean, loc: Location) {
-    return {
-        id: id,
-        type: type,
-        isMutable: isMutable,
-        isPrivate: isPrivate,
-        isVararg: isVararg,
-        loc: loc,
-    };
+    public static nativeInt (bits: bigint, id: string): NativeWord {
+        return {
+            loc: Types.NativeLoc,
+            id: Types.buildTypeID(id, [bits]),
+            typetype: id,
+            bits: Number(bits),
+        };
+    }
+
+    public static nativeUint(bits: bigint, id: string): NativeWord {
+        return {
+            loc: Types.NativeLoc,
+            id: Types.buildTypeID(id, [bits]),
+            typetype: id,
+            bits: Number(bits),
+        };
+    }
+
+    public static nativeFloat(bits: bigint, exponent: bigint, id: string): NativeFloat {
+        return {
+            loc: Types.NativeLoc,
+            id: Types.buildTypeID(id, [bits, exponent]),
+            typetype: id,
+            bits: Number(bits),
+            exponent: Number(bits),
+        };
+    }
+
+    public static toTypeString(t: Type, xs?: Array<string>) {
+        const g = t;
+        xs = xs ? xs : [""];
+        xs.push(g.id)
+        if (g.typeParams.length) {
+            xs.push("[");
+            for (let i = 0; i < g.typeParams.length; i += 1) {
+                this.toTypeString(g.typeParams[i], xs);
+            }
+            xs.push("]");
+        }
+        return xs.join("");
+    }
+
+    public static mangleName(id: string, xs: Type[]) {
+        const mangleTypes = (xs: Type[]): string => {
+            const ys = [];
+            for (const x of xs) {
+                ys.push(`$${x.id}`);
+                if (x.typeParams.length) {
+                    ys.push("[");
+                    ys.push(mangleTypes(x.typeParams));
+                    ys.push("]");
+                }
+            }
+            return ys.join("");
+        };
+
+        const ys = [];
+        ys.push(id);
+        ys.push(mangleTypes(xs));
+        return ys.join("");
+    }
+
+    public static buildVar(id: string, type: Type, isMutable: boolean, isVararg: boolean, isPrivate: boolean, loc: Location) {
+        return {
+            id: id,
+            type: type,
+            isMutable: isMutable,
+            isPrivate: isPrivate,
+            isVararg: isVararg,
+            loc: loc,
+        };
+    }
 }

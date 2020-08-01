@@ -59,8 +59,7 @@ function derefer(store: Store, r: Store) {
 
 
 function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, id: string) {
-    const s = block.tag.getStruct(v.type.id);
-    if (!s)  {
+    const update = (v: P.Variable, id: string) => {
         const x = {
             offset: ss.offset,
             size: v.type.native.bits/8,
@@ -69,12 +68,22 @@ function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, i
         ss.map[id] = ss.index;
         ss.offset += x.size;
         ss.index += 1;
+    };
+
+    const s = block.tag.getStruct(v.type.id);
+    if (!s)  {
+        update(v, id);
     }
     else {
         for (let i = 0; i < s.members.length; i += 1) {
             const m = s.members[i];
-            const mid = `${id}.${m.id}`;
-            computeStructInfo(ss, block, m, mid);
+            if (m.type.typetype === P.Types.Pointer) {
+                update(m, id);
+            }
+            else {
+                const mid = `${id}.${m.id}`;
+                computeStructInfo(ss, block, m, mid);
+            }
         }
     }
 }
@@ -232,7 +241,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
                 offset: 0,
                 index: 0,
             };
-            const v = P.buildVar("tmp", x.type, true, false, false, x.loc);
+            const v = P.Types.buildVar("tmp", x.type, true, false, false, x.loc);
             computeStructInfo(ss, block, v, v.id);
 
             const bb = ByteBuffer.build(ss.offset);

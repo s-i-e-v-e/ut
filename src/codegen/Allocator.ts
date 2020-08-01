@@ -16,8 +16,6 @@ import {
 } from "../util/mod.ts";
 import {registers} from "../vm/mod.ts";
 import {StructState} from "./mod.ts";
-const KnownTypes = P.KnownTypes;
-const NativeTypes = P.NativeTypes;
 
 type Free = (id: string) => void;
 
@@ -180,17 +178,17 @@ export class Allocator {
 
     alloc(v: P.Variable, ss?: StructState) {
         let x: Store;
-        switch (v.type.id) {
-            case NativeTypes.Array.id:
-            case KnownTypes.SignedInt.id:
-            case KnownTypes.UnsignedInt.id:
-            case KnownTypes.Uint8.id: {
+        switch (v.type.typetype) {
+            case P.Types.Array:
+            case P.Types.Word:
+            case P.Types.SignedInt:
+            case P.Types.UnsignedInt: {
                 const self = this;
                 x = new Register(this.b, v, this.use(), (reg: string) => self.free(reg));
                 break;
             }
             default: {
-                if (v.type.native.bits !== 0) Errors.raiseDebug();
+                if (v.type.native.bits !== 0) Errors.raiseDebug(v.type.id);
                 const self = this;
                 x = new Memory(this.b, v, this.use(), (reg: string) => self.free(reg), ss!);
             }
@@ -210,9 +208,9 @@ export class Allocator {
     }
 
     tmp() {
-        const v = P.buildVar(
+        const v = P.Types.buildVar(
             `t${Allocator.index}`,
-            KnownTypes.NotInferred,
+            P.Types.Compiler.NotInferred,
             true,
             false,
             false,
@@ -224,9 +222,9 @@ export class Allocator {
     }
 
     from(reg: string) {
-        const v = P.buildVar(
+        const v = P.Types.buildVar(
             reg,
-            KnownTypes.NotInferred,
+            P.Types.Compiler.NotInferred,
             true,
             false,
             false,

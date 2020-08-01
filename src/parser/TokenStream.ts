@@ -21,6 +21,7 @@ export default class TokenStream {
         loc: P.UnknownLoc,
         type: TokenType.TK_INTERNAL,
         lexeme: "",
+        xs: [],
     };
 
     constructor(private readonly xs: Array<Token>) {
@@ -44,6 +45,7 @@ export default class TokenStream {
             type: TokenType.TK_INTERNAL,
             loc: this.xs[start].loc,
             lexeme: xs.join(""),
+            xs: [],
         };
     }
 

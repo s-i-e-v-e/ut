@@ -226,12 +226,11 @@ export default function lex(cs: CharacterStream) {
                 const pp = xs.pop();
                 if (p && pp && p.lexeme === "." && pp.type === TokenType.TK_ID) {
                     pp.type = TokenType.TK_MULTI_ID;
-                    pp.xs = new Array<string>();
                     pp.xs.push(tk.lexeme);
                     xs.push(pp);
                 }
                 else if (p && pp && p.lexeme === "." && pp.type === TokenType.TK_MULTI_ID) {
-                    pp.xs!.push(tk.lexeme);
+                    pp.xs.push(tk.lexeme);
                     xs.push(pp);
                 }
                 else if (p && pp) {

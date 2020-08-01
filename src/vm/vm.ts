@@ -378,7 +378,7 @@ export default class Vm {
                                 this.mem_free(p0);
                                 break;
                             }
-                            case "sys-size$Array": {
+                            case "sys-size$Pointer": {
                                 this.registers[0] = this.read_u64(p0);
                                 break;
                             }

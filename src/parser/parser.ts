@@ -21,13 +21,32 @@ import {
     Logger,
     Dictionary,
     SourceFile,
-    clone,
 } from "../util/mod.ts";
 
 const NodeType = A.NodeType;
 const KnownTypes = P.KnownTypes;
 type Expr = A.Expr;
 type Type = P.Type;
+
+function verifyType(t: Type, level: number = 0) {
+    Errors.debug(t.id !== "Dog");
+    const mustBeConcreteType = () => {
+        if (t.id.length <= 1) Errors.raiseTypeError("Single character type names are reserved for type params", t.loc);
+    };
+    const mustBeTypeParameter = () => {
+        if (t.id.length !== 1) Errors.raiseTypeError("Type parameters must be single characters", t.loc);
+    };
+    const isLast = !t.typeParams.length;
+
+    switch (level) {
+        case 0: mustBeConcreteType(); break;
+        default: {
+            if (!isLast) mustBeConcreteType();
+            if (isLast) mustBeTypeParameter();
+        }
+    }
+    t.typeParams.forEach(x => verifyType(x, level+1));
+}
 
 function parseIDExpr(ts: TokenStream): A.IDExpr {
     const loc = ts.loc();
@@ -38,7 +57,36 @@ function parseIDExpr(ts: TokenStream): A.IDExpr {
         id: id,
         loc: loc,
         type: KnownTypes.NotInferred,
+        rest: [],
     }
+}
+
+function parseTypeParameterID(ts: TokenStream) {
+    const loc = ts.loc();
+    const x = ts.nextMustBe(TokenType.TK_TYPE).lexeme;
+    if (x.length !== 1) Errors.raiseTypeError("Type parameters must be single characters", loc);
+    return x;
+}
+
+function parseTypeID(ts: TokenStream, isDef: boolean) {
+    const loc = ts.loc();
+    const x = ts.nextMustBe(TokenType.TK_TYPE).lexeme;
+    if (isDef && x.length <= 1) Errors.raiseTypeError("Single character type names are reserved for type params", loc);
+    return x;
+}
+
+// struct Array[A]
+// struct Map[A, B]
+function parseTypeDeclarationParameters(ts: TokenStream) {
+    if (!ts.consumeIfNextIs("[")) return [];
+
+    const xs = new Array<string>();
+    while (!ts.nextIs("]")) {
+        xs.push(parseTypeParameterID(ts));
+        if (!ts.consumeIfNextIs(",")) break;
+    }
+    ts.nextMustBe("]");
+    return xs;
 }
 
 function parseType(ts: TokenStream) {
@@ -55,48 +103,30 @@ function parseMultiIDExpr(ts: TokenStream): A.IDExpr {
     return {
         nodeType: NodeType.IDExpr,
         id: t.lexeme,
-        rest: t.xs!.join("."),
+        rest: t.xs,
         loc: loc,
         type: KnownTypes.NotInferred,
     };
 }
 
-function parseTypeParameters(ts: TokenStream) {
-    const xs = new Array<Type>();
-    while (!ts.nextIs("]")) {
-        xs.push(parseTypeAnnotation(ts));
-        if (!ts.consumeIfNextIs(",")) break;
-    }
-    return xs;
-}
-
 function parseTypeAnnotation(ts: TokenStream): P.Type {
-    const idx = ts.getIndex();
-    const loc = ts.loc();
-
-    const getGenericType = (id: string): P.Type|undefined => {
-        if (!ts.consumeIfNextIs("[")) return undefined;
-        const x = clone(P.NativeTypes.Base.Array);
-        x.id = id;
-        x.typeParameters = parseTypeParameters(ts);
+    const parseTypeParameters = (ts: TokenStream) => {
+        if (!ts.consumeIfNextIs("[")) return [];
+        const xs = new Array<Type>();
+        while (!ts.nextIs("]")) {
+            xs.push(parseTypeAnnotation(ts));
+            if (!ts.consumeIfNextIs(",")) break;
+        }
         ts.nextMustBe("]");
-        return x;
+        return xs;
     };
 
-    const x = getGenericType("Array");
-    if (x) {
-        const tx = ts.getAsToken(idx, ts.getIndex());
-        if (x.typeParameters.length != 1) {
-            Errors.raiseArrayType(tx);
-        }
-        return x;
-    }
-    else {
-        const t = ts.peek();
-        const isType = t.loc.path === P.NativeModule &&  ["int", "uint", "float"].filter(x => x === t.lexeme).length;
-        const id = isType ? ts.next().lexeme : ts.nextMustBe(TokenType.TK_TYPE).lexeme;
-        return getGenericType(id) || P.newType(id, loc);
-    }
+    const loc = ts.loc();
+    const idx = ts.getIndex();
+    const id = ts.nextIs("[") ? "Array" : parseTypeID(ts, false);
+    const x = P.newType(id, loc, parseTypeParameters(ts));
+    if (x.id === "Array" && x.typeParams.length != 1) Errors.raiseArrayType(ts.getAsToken(idx, ts.getIndex()));
+    return x;
 }
 
 const NumGrid: Dictionary<number> = {
@@ -177,9 +207,11 @@ function parseExprList(ts: TokenStream, block: A.BlockExpr) {
     return xs;
 }
 
-function parseTypeInstantiation(ts: TokenStream, block: A.BlockExpr): A.ArrayConstructor {
+function parseTypeInstantiation(ts: TokenStream, block: A.BlockExpr) {
     const loc = ts.loc();
-    const ty = parseTypeAnnotation(ts);
+    const id = parseTypeID(ts, true);
+    const typeParams = parseTypeDeclarationParameters(ts);
+    const ty = P.newType(id, loc, typeParams.map(x => P.newType(x, loc)));
     if (ty.id === "Array") {
         // is array constructor
         const t = ts.peek();
@@ -203,7 +235,15 @@ function parseTypeInstantiation(ts: TokenStream, block: A.BlockExpr): A.ArrayCon
         };
     }
     else {
-        Errors.raiseDebug();
+        ts.nextMustBe("(");
+        const args = parseExprList(ts, block);
+        ts.nextMustBe(")");
+        return <A.TypeInstance>{
+            nodeType: NodeType.TypeInstance,
+            loc: loc,
+            type: ty,
+            args: args,
+        };
     }
 }
 
@@ -578,12 +618,11 @@ function parseVarType(ts: TokenStream, force: boolean) {
     }
 }
 
-function parseFunctionPrototype(ts: TokenStream) {
+function parseFunctionPrototype(ts: TokenStream): P.FunctionPrototype {
     const loc = ts.loc();
     ts.nextMustBe("fn");
     const id = parseIDExpr(ts).id;
-    const typeParameters = ts.consumeIfNextIs("[") ? parseTypeParameters(ts) : [];
-    if (typeParameters.length) ts.nextMustBe("]");
+    let typeParams = parseTypeDeclarationParameters(ts);
     ts.nextMustBe("(");
     const xs = parseParameterList(ts);
     ts.nextMustBe(")");
@@ -593,7 +632,7 @@ function parseFunctionPrototype(ts: TokenStream) {
         id: id,
         params: xs,
         type: type,
-        typeParameters: typeParameters,
+        typeParams: typeParams,
         loc: loc,
         mangledName: P.mangleName(id, xs.map(x => x.type)),
     };
@@ -623,13 +662,15 @@ function parseForeignFunction(ts: TokenStream): P.ForeignFunction {
 function parseStruct(ts: TokenStream): P.Struct {
     const loc = ts.loc();
     ts.nextMustBe("struct");
-    let ty = parseTypeAnnotation(ts);
+    let id = parseTypeID(ts, true);
+    let typeParams = parseTypeDeclarationParameters(ts);
     ts.nextMustBe("(");
     const members = parseStructMemberList(ts);
     ts.nextMustBe(")");
+
     return {
-        type: P.newType(ty.id, ty.loc),
-        typeParameters: ty.typeParameters || [],
+        type: P.newType(id, loc),
+        typeParams: typeParams,
         members: members,
         loc: loc,
     }
@@ -641,7 +682,7 @@ function parseImport(ts: TokenStream): P.Import {
     const id = parseMultiIDExpr(ts);
 
     return {
-        id: id.id + (id.rest ? `.${id.rest}` : ""),
+        id: id.id + (id.rest.length ? `.${id.rest.join(".")}` : ""),
         loc: loc,
     }
 }

@@ -184,6 +184,7 @@ export class Allocator {
             true,
             false,
             false,
+            P.UnknownLoc,
         );
         Allocator.index += 1;
         const self = this;
@@ -197,6 +198,7 @@ export class Allocator {
             true,
             false,
             false,
+            P.UnknownLoc,
         );
         return new Register(this.b, v, reg, (reg: string) => {});
     }

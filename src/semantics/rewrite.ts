@@ -48,7 +48,7 @@ function getNativeType(t: P.Type): P.NativeType {
 
 function rewriteType(st: SymbolTable, t: P.Type): P.Type {
     const x = t.id === NativeTypes.Base.Array.id ? t : (st.getType(t.id) || t);
-    x.typeParameters = x.typeParameters.map(y => rewriteType(st, y));
+    x.typeParams = x.typeParams.map(y => rewriteType(st, y));
     x.native = x.native === NativeTypes.Base.None ? getNativeType(x) : x.native;
     return x;
 }
@@ -87,6 +87,11 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         case NodeType.ArrayConstructor: {
             const x = e as A.ArrayConstructor;
             if (x.args) x.args.forEach(y => doExpr(st, block, y));
+            break;
+        }
+        case NodeType.TypeInstance: {
+            const x = e as A.TypeInstance;
+            x.args.forEach(y => doExpr(st, block, y));
             break;
         }
         case NodeType.LocalReturnExpr: {

@@ -37,7 +37,7 @@ export interface FunctionPrototype extends Primitive, Tag {
     id: string;
     params: Parameter[];
     type: Type;
-    typeParameters: Type[];
+    typeParams: string[];
     mangledName: string;
 }
 
@@ -50,7 +50,7 @@ export interface ForeignFunction extends FunctionPrototype {}
 export interface Struct extends Primitive {
     members: Variable[];
     type: Type;
-    typeParameters: Type[];
+    typeParams: string[];
 }
 
 export interface NativeType extends Primitive {
@@ -72,7 +72,7 @@ export interface NativeArrayType extends NativeType {
 
 export interface Type extends Primitive {
     id: string;
-    typeParameters: Type[];
+    typeParams: Type[];
     native: NativeType;
 }
 
@@ -100,7 +100,7 @@ export interface Variable extends Primitive {
 export type Parameter = Variable;
 
 export const NativeModule = "<native>";
-export const NativeLoc = {
+const NativeLoc = {
     index: 0,
     line: 1,
     character: 1,
@@ -143,33 +143,33 @@ export function nativeFloat(bits: bigint, exponent: bigint, id: string): NativeF
     };
 }
 
-export function newNativeType(t: Type, native: NativeType): Type {
+function newNativeType(t: Type, native: NativeType): Type {
     const xs = [];
     xs.push(native.bits);
     const x = (native as NativeFloatType).exponent;
     if (x) xs.push(x);
     return {
         id: buildTypeID(t.id, xs),
-        loc: NativeLoc,
-        typeParameters: [],
+        loc: UnknownLoc,
+        typeParams: [],
         native: native,
     };
 }
 
-export function newType(id: string, loc?: Location, typeParameters?: Type[]): Type {
+export function newType(id: string, loc: Location, typeParams?: Type[]): Type {
     return {
         id: id,
-        loc: loc || UnknownLoc,
-        typeParameters: typeParameters || [],
+        loc: loc,
+        typeParams: typeParams || [],
         native: NativeNone,
     };
 }
 
-export function newBaseType(id: string, native: NativeType): Type {
+function newBaseType(id: string, native: NativeType): Type {
     return {
         id: id,
-        loc: NativeLoc,
-        typeParameters: [],
+        loc: UnknownLoc,
+        typeParams: [],
         native: native,
     };
 }
@@ -192,12 +192,12 @@ export const NativeTypes = {
 };
 
 export const KnownTypes = {
-    NotInferred: newType("NotInferred"),
-    Void: newType("Void"),
-    Bool: newType("Bool"),
-    String: newType("String"),
-    Pointer: newType("Pointer"),
-    Int64: newType("Int64"),
+    NotInferred: newType("NotInferred", UnknownLoc),
+    Void: newType("Void", UnknownLoc),
+    Bool: newType("Bool", UnknownLoc),
+    String: newType("String", UnknownLoc),
+    Pointer: newType("Pointer", UnknownLoc),
+    Int64: newType("Int64", UnknownLoc),
     SignedInt: newNativeType(NativeTypes.Base.SignedInt, NativeInt),
     UnsignedInt: newNativeType(NativeTypes.Base.UnsignedInt, NativeUint),
     Uint8: newNativeType(NativeTypes.Base.UnsignedInt, NativeUint8),
@@ -207,10 +207,10 @@ export function toTypeString(t: Type, xs?: Array<string>) {
     const g = t;
     xs = xs ? xs : [""];
     xs.push(g.id)
-    if (g.typeParameters.length) {
+    if (g.typeParams.length) {
         xs.push("[");
-        for (let i = 0; i < g.typeParameters.length; i += 1) {
-            toTypeString(g.typeParameters[i], xs);
+        for (let i = 0; i < g.typeParams.length; i += 1) {
+            toTypeString(g.typeParams[i], xs);
         }
         xs.push("]");
     }
@@ -221,9 +221,9 @@ function mangleTypes(xs: Type[]): string {
     const ys = [];
     for (const x of xs) {
         ys.push(`$${x.id}`);
-        if (x.typeParameters.length) {
+        if (x.typeParams.length) {
             ys.push("[");
-            ys.push(mangleTypes(x.typeParameters));
+            ys.push(mangleTypes(x.typeParams));
             ys.push("]");
         }
     }
@@ -237,13 +237,13 @@ export function mangleName(id: string, xs: Type[]) {
     return ys.join("");
 }
 
-export function buildVar(id: string, type: Type, isMutable: boolean, isVararg: boolean, isPrivate: boolean, loc?: Location) {
+export function buildVar(id: string, type: Type, isMutable: boolean, isVararg: boolean, isPrivate: boolean, loc: Location) {
     return {
         id: id,
         type: type,
         isMutable: isMutable,
         isPrivate: isPrivate,
         isVararg: isVararg,
-        loc: loc || UnknownLoc,
+        loc: loc,
     };
 }

@@ -168,7 +168,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.ArrayConstructor: {
             const x = e as A.ArrayConstructor;
-            const ty = block.tag.getType(x.type.typeParameters[0]) || x.type.typeParameters[0];
+            const ty = block.tag.getType(x.type.typeParams[0]) || x.type.typeParams[0];
             const args = x.args!;
             const n = args.length;
             const entrySizeInBytes = 8;//ty.native.bits/8;
@@ -192,6 +192,11 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             tmp.free();
 
             store.write_imm(BigInt(offset));
+            break;
+        }
+        case NodeType.TypeInstance: {
+            const x = e as A.TypeInstance;
+
             break;
         }
         case NodeType.DereferenceExpr: {

@@ -54,6 +54,7 @@ export default class CharacterStream {
             lexeme: this.lexeme(start, end),
             type: type,
             loc: start,
+            xs: [],
         };
     }
 

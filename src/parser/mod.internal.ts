@@ -30,7 +30,7 @@ export interface Token {
     type: TokenType,
     loc: Location,
     lexeme: string,
-    xs?: string[],
+    xs: string[],
 }
 
 export {

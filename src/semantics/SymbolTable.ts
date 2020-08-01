@@ -106,8 +106,8 @@ export default class SymbolTable {
         SymbolTable.add(t.id, this.ns.types, t);
     }
 
-    addTypeParameter(t: P.Type) {
-        SymbolTable.add(t.id, this.ns.types, t);
+    addTypeParameter(t: string) {
+        SymbolTable.add(t, this.ns.types, P.newType(t, P.UnknownLoc));
     }
 
     addVar(v: P.Variable) {
@@ -127,7 +127,7 @@ export default class SymbolTable {
         else if (y && y.cons) {
             const a = y.cons;
             const id = `${a.id}^${y.params.map(x => x.value).join("|")}`;
-            return P.newType(id, a.loc, a.typeParameters);
+            return P.newType(id, a.loc, a.typeParams);
         }
         else {
             return undefined;
@@ -169,7 +169,7 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
         .map(x => fp.map[x])
         .filter(x => x.params.length === argTypes.length);
     if (!xs.length) Errors.raiseFunctionParameterCountMismatch(id, loc);
-    if (xs.length == 1 && xs[0].typeParameters.length == 0) {
+    if (xs.length == 1 && xs[0].typeParams.length == 0) {
         const f = xs[0];
         // regular function
         for (let i = 0; i < argTypes.length; i += 1) {
@@ -183,12 +183,12 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
     const x = P.mangleName(id, argTypes);
     for (const f of xs) {
         const map: Dictionary<P.Type> = {};
-        const tp: Dictionary<P.Type> = {};
-        f.typeParameters.forEach(x => tp[x.id] = x);
+        const tp: Dictionary<boolean> = {};
+        f.typeParams.forEach(x => tp[x] = true);
         const ys = mapTypes(st, map, argTypes, f.params.map(x => x.type), tp);
         if (ys.length) {
-            for (const x of f.typeParameters) {
-                if (!map[x.id]) break;
+            for (const x of f.typeParams) {
+                if (!map[x]) break;
             }
             const y = P.mangleName(id, ys);
             if (x === y) return f;
@@ -197,7 +197,7 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
     return undefined;
 }
 
-function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[], typeParams: Dictionary<P.Type>): P.Type[] {
+function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[], typeParams: Dictionary<boolean>): P.Type[] {
     if (!argTypes.length) return [];
     if (!paramTypes.length) return [];
     const xs = [];
@@ -209,7 +209,7 @@ function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], 
             if (!map[pt.id]) {
                 map[pt.id] = at;
 
-                const ys = mapTypes(st, map, at.typeParameters, pt.typeParameters, typeParams);
+                const ys = mapTypes(st, map, at.typeParams, pt.typeParams, typeParams);
                 xs.push(P.newType(at.id, at.loc, ys));
             }
             else {
@@ -217,8 +217,8 @@ function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], 
             }
         }
         else {
-            if (at.typeParameters.length || pt.typeParameters.length) {
-                const ys = mapTypes(st, map, at.typeParameters, pt.typeParameters, typeParams);
+            if (at.typeParams.length || pt.typeParams.length) {
+                const ys = mapTypes(st, map, at.typeParams, pt.typeParams, typeParams);
                 xs.push(P.newType(at.id, at.loc, ys));
             }
             else {

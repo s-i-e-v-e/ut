@@ -22,6 +22,7 @@ export enum NodeType {
     BooleanLiteral,
     NumberLiteral,
     ArrayConstructor,
+    TypeInstance,
     LocalReturnExpr,
     ReturnStmt,
     ArrayExpr,
@@ -75,7 +76,7 @@ export interface Expr extends AstNode {
 
 export interface IDExpr extends Expr {
     id: string;
-    rest?: string;
+    rest: string[];
 }
 
 export interface BlockExpr extends Expr, P.Tag {
@@ -130,6 +131,10 @@ export interface FunctionApplication extends Expr {
 export interface ArrayConstructor extends Expr {
     sizeExpr: Expr | undefined;
     args: Expr[] | undefined;
+}
+
+export interface TypeInstance extends Expr {
+    args: Expr[];
 }
 
 export interface IfExpr extends Expr {

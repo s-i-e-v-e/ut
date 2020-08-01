@@ -48,10 +48,10 @@ export function typesMatch(st: SymbolTable, t1: Type, t2: Type): boolean {
     if (!t2) Errors.raiseDebug();
 
     if (t1.id !== t2.id) return false;
-    if (t1.typeParameters.length !== t2.typeParameters.length) return false;
+    if (t1.typeParams.length !== t2.typeParams.length) return false;
 
-    for (let i = 0; i < t1.typeParameters.length; i += 1) {
-        if (!typesMatch(st, t1.typeParameters[i], t2.typeParameters[i])) return false;
+    for (let i = 0; i < t1.typeParams.length; i += 1) {
+        if (!typesMatch(st, t1.typeParams[i], t2.typeParams[i])) return false;
     }
     return true;
 }
@@ -63,10 +63,10 @@ export function typesMustMatch(st: SymbolTable, t1: Type, t2: Type, loc: Locatio
 export function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {
     const g = t;
     if (!st.getType(g.id)) return false;
-    if (g.typeParameters && g.typeParameters.length) {
+    if (g.typeParams && g.typeParams.length) {
         let a = true;
-        for (let i = 0; i < g.typeParameters.length; i += 1) {
-            a = a && typeExists(st, g.typeParameters[i], loc);
+        for (let i = 0; i < g.typeParams.length; i += 1) {
+            a = a && typeExists(st, g.typeParams[i], loc);
         }
         return a;
     }

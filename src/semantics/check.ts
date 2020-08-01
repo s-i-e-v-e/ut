@@ -125,6 +125,22 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         case NodeType.IDExpr: {
             const x = e as A.IDExpr;
             ty = getVar(st, x.id, x.loc).type;
+            if (!x.rest) Errors.raiseTypeError(x.id, x.loc);
+            if (x.rest.length) {
+                // check
+                while (x.rest.length) {
+                    const y = x.rest.shift();
+                    const s = st.getStruct(ty.id);
+                    if (!s)  {
+                        if (x.rest.length) Errors.raiseDebug(ty.id);
+                    }
+                    else {
+                        const ys = s.members.filter(a => a.id === y);
+                        if (!ys.length) Errors.raiseDebug(y);
+                        ty = ys[0].type;
+                    }
+                }
+            }
             break;
         }
         case NodeType.BinaryExpr: {
@@ -171,22 +187,24 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.FunctionApplication: {
             const x = e as A.FunctionApplication;
-            if (st.varExists(x.expr.id) && !x.expr.rest) {
+            if (st.varExists(x.expr.id) && !x.expr.rest.length) {
                 const y = x as A.ArrayExpr;
                 y.nodeType = NodeType.ArrayExpr;
                 ty = getExprType(st, block, y);
             }
             else {
                 // deconstruct UFCS call
-                if (x.expr.rest) {
-                    const a = {
+                if (x.expr.rest.length) {
+                    const fn = x.expr.rest.pop()!;
+                    const a: A.IDExpr = {
                         nodeType: NodeType.IDExpr,
                         type: KnownTypes.NotInferred,
                         loc: x.expr.loc,
                         id: x.expr.id,
+                        rest: x.expr.rest,
                     };
-                    x.expr.id = x.expr.rest;
-                    x.expr.rest = undefined;
+                    x.expr.id = fn;
+                    x.expr.rest = [];
                     const xs = [];
                     xs.push(a)
                     xs.push(...x.args);
@@ -211,7 +229,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 if (!Types.isInteger(st, ty)) Errors.raiseArrayIndexError(a.type, a.loc);
             });
 
-            ty = at.typeParameters[0];
+            ty = at.typeParams[0];
             break;
         }
         case NodeType.ArrayConstructor: {
@@ -224,16 +242,30 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
 
                 // can infer type from constructor args
                 const ty = x.type;
-                if (!ty.typeParameters.length) {
-                    ty.typeParameters = [et];
+                if (!ty.typeParams.length) {
+                    ty.typeParams = [et];
                 }
                 else {
-                    Types.typesMustMatch(st, ty.typeParameters[0], et, x.loc);
+                    Types.typesMustMatch(st, ty.typeParams[0], et, x.loc);
                 }
             }
             else {
                 // ignore
             }
+            return x.type;
+        }
+        case NodeType.TypeInstance: {
+            const x = e as A.TypeInstance;
+            const s = st.getStruct(x.type.id);
+            if(!s) Errors.raiseUnknownType(x.type, x.loc);
+            const xs = x.args.map(y => {
+                const t = getExprType(st, block, y);
+                t.loc = y.loc;
+                return t;
+            })
+            const ys = s.members.map(y => y.type);
+            if (xs.length != ys.length) Errors.raiseFunctionParameterCountMismatch(x.type.id, x.loc);
+            ys.forEach((y, i) => Types.typesMustMatch(st, y, xs[i], xs[i].loc));
             return x.type;
         }
         case NodeType.LocalReturnExpr: {
@@ -290,8 +322,8 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         case NodeType.DereferenceExpr: {
             const x = e as A.DereferenceExpr;
             const t = getExprType(st, block, x.expr);
-            if (t.typeParameters.length) {
-                ty = t.typeParameters[0];
+            if (t.typeParams.length) {
+                ty = t.typeParams[0];
             }
             else {
                 Errors.raiseTypeError(`cannot dereference: ${t.id}`, x.loc);
@@ -398,7 +430,7 @@ function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {
 }
 
 function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
-    fp.typeParameters.forEach(x => st.addTypeParameter(x));
+    fp.typeParams.forEach(x => st.addTypeParameter(x));
     fp.params.forEach(x => {
         if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
         st.addVar(x);
@@ -425,7 +457,7 @@ function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
 function doStruct(st: SymbolTable, s: P.Struct) {
     st.addStruct(s);
     st.addType(s.type);
-    s.typeParameters.forEach(x => st.addTypeParameter(x));
+    s.typeParams.forEach(x => st.addTypeParameter(x));
     s.members.forEach(x => {
         if (!st.typeExists(x.type)) Errors.raiseUnknownType(x.type, x.loc);
     })

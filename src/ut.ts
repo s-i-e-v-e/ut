@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import run from "./runner.ts";
+import { run, Config,  }from "./runner.ts";
 import {
     Logger,
     LogLevel,
@@ -20,10 +20,6 @@ function help() {
     console.log("   ut help");
 }
 
-interface Config {
-    logLevel: LogLevel,
-}
-
 interface Command {
     id: string,
     args: string[],
@@ -32,6 +28,7 @@ interface Command {
 async function main(args: string[]) {
     const cfg: Config = {
         logLevel: LogLevel.NONE,
+        dump: false,
     };
 
     let cx: Command = {
@@ -57,6 +54,10 @@ async function main(args: string[]) {
             }
             case "-vvvv": {
                 cfg.logLevel = LogLevel.DEBUG2;
+                break;
+            }
+            case "-d": {
+                cfg.dump = true;
                 break;
             }
             case "help": {
@@ -90,7 +91,7 @@ async function main(args: string[]) {
             help();
             break;
         }
-        case "run": await run(cx.args[0], cfg.logLevel); break;
+        case "run": await run(cx.args[0], cfg); break;
         default: Errors.raiseDebug();
     }
 }

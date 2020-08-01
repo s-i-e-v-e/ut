@@ -16,25 +16,30 @@ import {
 import { vm_gen_code } from "./codegen/mod.ts";
 import { Vm } from "./vm/mod.ts";
 
-function process(mods: P.Module[], dump: boolean) {
+export interface Config {
+    logLevel: LogLevel,
+    dump: boolean,
+}
+
+function process(mods: P.Module[], c: Config) {
     const global = check(mods);
     rewrite(global, mods);
     const vme = vm_gen_code(mods);
     const xs = vme.asBytes();
-    if (dump) OS.writeBinaryFile("./dump.bin", xs);
+    if (c.dump) OS.writeBinaryFile("./dump.bin", xs);
     Logger.debug("@@--------VM.EXEC--------@@");
     const vm = Vm.build(vme.importsOffset);
     vm.exec(xs);
 }
 
-export default async function run(path: string, logLevel: number) {
+export async function run(path: string, c: Config) {
     try {
         const mods = await parseFile(path);
-        process(mods, logLevel > LogLevel.INFO);
+        process(mods, c);
     }
     catch (e) {
         if (e instanceof Errors.UtError) {
-            if (logLevel > LogLevel.INFO) {
+            if (c.logLevel > LogLevel.INFO) {
                 throw e;
             }
             else {

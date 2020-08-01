@@ -26,18 +26,18 @@ const NodeType = A.NodeType;
 function getNativeType(t: P.Type): P.NativeType {
     const xs = t.id.split("^");
     switch (xs[0]) {
-        case NativeTypes.Base.SignedInt.id: {
+        case NativeTypes.SignedInt.id: {
             return P.nativeInt(BigInt(xs[1]), xs[0]);
         }
-        case NativeTypes.Base.UnsignedInt.id: {
+        case NativeTypes.UnsignedInt.id: {
             return P.nativeUint(BigInt(xs[1]), xs[0]);
         }
-        case NativeTypes.Base.Float.id: {
+        case NativeTypes.Float.id: {
             const ys = xs[1].split("|");
             return P.nativeFloat(BigInt(ys[0]), BigInt(ys[1]), xs[0]);
         }
-        case NativeTypes.Base.Array.id: {
-            return NativeTypes.Base.Array.native;
+        case NativeTypes.Array.id: {
+            return NativeTypes.Array.native;
         }
         default: {
             return t.native;
@@ -46,9 +46,9 @@ function getNativeType(t: P.Type): P.NativeType {
 }
 
 function rewriteType(st: SymbolTable, t: P.Type): P.Type {
-    const x = t.id === NativeTypes.Base.Array.id ? t : (st.getType(t.id) || t);
+    const x = t.id === NativeTypes.Array.id ? t : (st.getType(t.id) || t);
     x.typeParams = x.typeParams.map(y => rewriteType(st, y));
-    x.native = x.native === NativeTypes.Base.None ? getNativeType(x) : x.native;
+    x.native = x.native === NativeTypes.None ? getNativeType(x) : x.native;
     return x;
 }
 

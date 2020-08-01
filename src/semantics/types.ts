@@ -24,7 +24,7 @@ export function typeNotInferred(t: Type) {
 export function isInteger(st: SymbolTable, t: Type): boolean {
     const x = st.getType(t.id);
     switch (x?.id) {
-        case NativeTypes.Base.Word.id:
+        case NativeTypes.Word.id:
         case KnownTypes.SignedInt.id:
         {
             return true;

@@ -181,7 +181,7 @@ export class Allocator {
     alloc(v: P.Variable, ss?: StructState) {
         let x: Store;
         switch (v.type.id) {
-            case NativeTypes.Base.Array.id:
+            case NativeTypes.Array.id:
             case KnownTypes.SignedInt.id:
             case KnownTypes.UnsignedInt.id:
             case KnownTypes.Uint8.id: {

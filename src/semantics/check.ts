@@ -222,7 +222,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         case NodeType.ArrayExpr: {
             const x = e as A.ArrayExpr;
             const t = getExprType(st, block, x.expr);
-            Types.typesMustMatch(st, t, NativeTypes.Base.Array, x.loc);
+            Types.typesMustMatch(st, t, NativeTypes.Array, x.loc);
             const at = getVar(st, x.expr.id, x.loc).type;
 
             x.args.forEach(a => {
@@ -313,7 +313,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             switch (y.nodeType) {
                 case NodeType.IDExpr:
                 case NodeType.ArrayExpr: {
-                    ty = P.newType(KnownTypes.Pointer.id, y.loc, [t]);
+                    ty = P.newType(NativeTypes.Pointer.id, y.loc, [t]);
                     break;
                 }
                 default: Errors.raiseTypeError(`Can only acquire reference to lvalues.`, e.loc);
@@ -469,7 +469,7 @@ function doTypeDeclaration(st: SymbolTable, t: P.TypeDeclaration) {
     // get struct
     const s = st.getStruct(t.cons.id);
     if (!s) Errors.raiseUnknownType(t.cons, t.loc);
-    if (s.members.length != t.params.length) Errors.raiseDebug();
+    if (s.members.length != t.params.length) Errors.raiseDebug(s.type.id);
 
     for (let i = 0; i < s.members.length; i += 1) {
         const a = s.members[i];
@@ -540,7 +540,7 @@ function _check(st: SymbolTable, m: P.Module, map: Dictionary<P.Module>, mods: P
 export default function check(mods: P.Module[]) {
     const global = SymbolTable.build("global");
 
-    global.addType(NativeTypes.Base.Word);
+    global.addType(NativeTypes.Word);
 
     const map: Dictionary<P.Module> = {};
     for (const m of mods) {

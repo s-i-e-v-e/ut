@@ -58,16 +58,12 @@ export interface NativeType extends Primitive {
     bits: number;
 }
 
-export interface NativeIntType extends NativeType {}
+export interface NativePointer extends NativeType {}
 
-export interface NativeUintType extends NativeType {}
+export interface NativeWord extends NativeType {}
 
-export interface NativeFloatType extends NativeType {
+export interface NativeFloat extends NativeType {
     exponent: number;
-}
-
-export interface NativeArrayType extends NativeType {
-    bits: number;
 }
 
 export interface Type extends Primitive {
@@ -118,7 +114,15 @@ function buildTypeID(id: string, xs: any[]) {
     return `${id}^${xs.map(x => x).join("|")}`
 }
 
-export function nativeInt(bits: bigint, id: string): NativeIntType {
+export function nativePointer(id: string): NativePointer {
+    return {
+        loc: NativeLoc,
+        id: buildTypeID(id, [64]),
+        bits: Number(64),
+    };
+}
+
+export function nativeInt(bits: bigint, id: string): NativeWord {
     return {
         loc: NativeLoc,
         id: buildTypeID(id, [bits]),
@@ -126,7 +130,7 @@ export function nativeInt(bits: bigint, id: string): NativeIntType {
     };
 }
 
-export function nativeUint(bits: bigint, id: string): NativeUintType {
+export function nativeUint(bits: bigint, id: string): NativeWord {
     return {
         loc: NativeLoc,
         id: buildTypeID(id, [bits]),
@@ -134,7 +138,7 @@ export function nativeUint(bits: bigint, id: string): NativeUintType {
     };
 }
 
-export function nativeFloat(bits: bigint, exponent: bigint, id: string): NativeFloatType {
+export function nativeFloat(bits: bigint, exponent: bigint, id: string): NativeFloat {
     return {
         loc: NativeLoc,
         id: buildTypeID(id, [bits, exponent]),
@@ -146,7 +150,7 @@ export function nativeFloat(bits: bigint, exponent: bigint, id: string): NativeF
 function newNativeType(t: Type, native: NativeType): Type {
     const xs = [];
     xs.push(native.bits);
-    const x = (native as NativeFloatType).exponent;
+    const x = (native as NativeFloat).exponent;
     if (x) xs.push(x);
     return {
         id: buildTypeID(t.id, xs),
@@ -175,20 +179,20 @@ function newBaseType(id: string, native: NativeType): Type {
 }
 
 const NativeNone = nativeInt(0n, "");
+const NativePointer = nativePointer("ptr");
 const NativeInt = nativeInt(64n, "int");
 const NativeUint = nativeUint(64n, "uint");
 const NativeUint8 = nativeUint(8n, "uint");
 const NativeFloat = nativeFloat(80n, 15n, "float");
 
 export const NativeTypes = {
-    Base: {
-        None: NativeNone,
-        Word: newBaseType("Word", NativeNone),
-        SignedInt: newBaseType("SignedInt", NativeInt),
-        UnsignedInt: newBaseType("UnsignedInt", NativeUint),
-        Float: newBaseType("Float", NativeFloat),
-        Array: newBaseType("Array", NativeUint),
-    },
+    None: NativeNone,
+    Pointer: newBaseType("Pointer", NativeNone),
+    Word: newBaseType("Word", NativeNone),
+    SignedInt: newBaseType("SignedInt", NativeInt),
+    UnsignedInt: newBaseType("UnsignedInt", NativeUint),
+    Float: newBaseType("Float", NativeFloat),
+    Array: newBaseType("Array", NativeUint),
 };
 
 export const KnownTypes = {
@@ -196,11 +200,10 @@ export const KnownTypes = {
     Void: newType("Void", UnknownLoc),
     Bool: newType("Bool", UnknownLoc),
     String: newType("String", UnknownLoc),
-    Pointer: newType("Pointer", UnknownLoc),
     Int64: newType("Int64", UnknownLoc),
-    SignedInt: newNativeType(NativeTypes.Base.SignedInt, NativeInt),
-    UnsignedInt: newNativeType(NativeTypes.Base.UnsignedInt, NativeUint),
-    Uint8: newNativeType(NativeTypes.Base.UnsignedInt, NativeUint8),
+    SignedInt: newNativeType(NativeTypes.SignedInt, NativeInt),
+    UnsignedInt: newNativeType(NativeTypes.UnsignedInt, NativeUint),
+    Uint8: newNativeType(NativeTypes.UnsignedInt, NativeUint8),
 };
 
 export function toTypeString(t: Type, xs?: Array<string>) {

@@ -196,7 +196,7 @@ export class Types {
         if (g.typeParams.length) {
             xs.push("[");
             for (let i = 0; i < g.typeParams.length; i += 1) {
-                this.toTypeString(g.typeParams[i], xs);
+                Types.toTypeString(g.typeParams[i], xs);
             }
             xs.push("]");
         }

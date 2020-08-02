@@ -74,11 +74,11 @@ function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, i
     else {
         for (let i = 0; i < s.members.length; i += 1) {
             const m = s.members[i];
-            if (m.type.typetype === P.Types.Pointer) {
-                update(m, id);
+            const mid = `${id}.${m.id}`;
+            if (m.type.native.bits !== 0) {
+                update(m, mid);
             }
             else {
-                const mid = `${id}.${m.id}`;
                 computeStructInfo(ss, block, m, mid);
             }
         }
@@ -280,21 +280,15 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
                 }
             }
             else {
-                const id = [x.id].concat(...x.rest).join(".");
+                const tmp = ac.tmp();
 
+                const id = [x.id].concat(...x.rest).join(".");
                 const sm = mv.ss.xs[mv.ss.map[id]];
 
-                const tmp = ac.tmp();
                 tmp.write_reg(mv);  // tmp = mv
                 ac.b.add_r_i(tmp.reg, sm.offset);
+                derefer(store, tmp);
 
-                if (store.isWrite) {
-                    store.write_from_mem(tmp); // store = tmp
-                }
-                else {
-                    store.write_to_mem(tmp); // tmp = store
-
-                }
                 tmp.free();
             }
             break;
@@ -320,17 +314,8 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             ac.b.add_r_i(tmp.reg, 16);
             ac.b.add_r_r(tmp.reg, base.reg);
 
-            ac.b.add_r_i(tmp.reg, 0);
-            ac.b.add_r_i(tmp.reg, 0);
-            ac.b.add_r_i(tmp.reg, 0);
-            ac.b.add_r_i(tmp.reg, 0);
-            Errors.debug();
             // update
             derefer(store, tmp);
-            ac.b.add_r_i(tmp.reg, 0);
-            ac.b.add_r_i(tmp.reg, 0);
-            ac.b.add_r_i(tmp.reg, 0);
-            ac.b.add_r_i(tmp.reg, 0);
 
             index.free();
             tmp.free();

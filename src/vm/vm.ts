@@ -95,7 +95,6 @@ export default class Vm {
 
         const len = this.read_u64(ip);
         ip += 8n;
-        //console.log(`${offset}+${len}`);
         this.check_offset(ip + len);
         const xs = [];
         for (let i = 0; i < len; i += 1) {+
@@ -173,11 +172,11 @@ export default class Vm {
 
     exec(code: Uint8Array) {
         this.init(code);
-        console.log(this.hexRange("CODE     ", Vm.SEGMENT_SIZE * 0, Vm.SEGMENT_SIZE * 1));
-        console.log(this.hexRange("IMPORTS  ", Vm.SEGMENT_SIZE * 1, Vm.SEGMENT_SIZE * 2));
-        console.log(this.hexRange("IMMUTABLE", Vm.SEGMENT_SIZE * 2, Vm.SEGMENT_SIZE * 3));
-        console.log(this.hexRange("MUTABLE  ", Vm.SEGMENT_SIZE * 3, Vm.SEGMENT_SIZE * 4));
-        console.log(this.hexRange("HEAP     ", Vm.SEGMENT_SIZE * 4, this.memory.byteLength));
+        Logger.debug2(this.hexRange("CODE     ", Vm.SEGMENT_SIZE * 0, Vm.SEGMENT_SIZE * 1));
+        Logger.debug2(this.hexRange("IMPORTS  ", Vm.SEGMENT_SIZE * 1, Vm.SEGMENT_SIZE * 2));
+        Logger.debug2(this.hexRange("IMMUTABLE", Vm.SEGMENT_SIZE * 2, Vm.SEGMENT_SIZE * 3));
+        Logger.debug2(this.hexRange("MUTABLE  ", Vm.SEGMENT_SIZE * 3, Vm.SEGMENT_SIZE * 4));
+        Logger.debug2(this.hexRange("HEAP     ", Vm.SEGMENT_SIZE * 4, this.memory.byteLength));
 
 
         this.push(0n);

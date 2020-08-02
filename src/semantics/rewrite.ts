@@ -14,6 +14,7 @@ import {
     Types,
 } from "./mod.internal.ts";
 import {
+    clone,
     Errors,
     Logger,
 } from "../util/mod.ts";
@@ -23,7 +24,6 @@ type Expr = A.Expr;
 const NodeType = A.NodeType;
 
 function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
-    e.type = Types.rewriteType(st, e.type);
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
         case NodeType.StringLiteral:
@@ -60,6 +60,33 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.TypeInstance: {
             const x = e as A.TypeInstance;
+
+            const fold = (x: A.TypeInstance): [P.Struct, P.Variable[], A.Expr[]] => {
+                x.oldStruct = x.oldStruct ? x.oldStruct : st.getStruct(x.type.id)!;
+                const xs = [];
+                const as = [];
+                const s = clone(x.oldStruct);
+                for (let i = 0; i < x.args.length; i+= 1) {
+                    const a = x.args[i];
+                    const m = s.members[i];
+                    if (a.nodeType === NodeType.TypeInstance) {
+                        // fold members into this
+                        const [ss, xxs, aas] = fold(a as A.TypeInstance);
+                        xxs.forEach(y => `${m.id}.${y.id}`);
+
+                        as.push(...aas);
+                        xs.push(...xxs);
+                    }
+                    else {
+                        as.push(a);
+                        xs.push(m);
+                    }
+                }
+                return [s, xs, as];
+            };
+            const [q, xs, as] = fold(x);
+            q.members = xs;
+            x.args = as;
             x.args.forEach(y => doExpr(st, block, y));
             break;
         }
@@ -106,16 +133,13 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
+    e.type = Types.rewriteType(st, e.type);
 }
 
 function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: P.Variable) {
     const s = st.getStruct(v.type.id);
     if (!s)  {
-        const old = v.type;
         v.type = Types.rewriteType(st, v.type);
-        let xx = `${old.id} (${old.typetype}) => ${v.type.id} (${v.type.typetype})`;
-        console.log(xx);
-
     }
     else {
         s.members.forEach((a: P.Variable) => rewriteVar(st, block, a));

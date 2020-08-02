@@ -135,6 +135,7 @@ export interface ArrayConstructor extends Expr {
 
 export interface TypeInstance extends Expr {
     args: Expr[];
+    oldStruct?: P.Struct;
 }
 
 export interface IfExpr extends Expr {

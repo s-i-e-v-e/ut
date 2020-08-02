@@ -47,11 +47,11 @@ export function rewriteType(st: SymbolTable, t: P.Type, skipWord: boolean = fals
             y.native = P.Types.nativeFloat(BigInt(ys[0]), BigInt(ys[1]), xs[0]);
             break;
         }
-        /*case P.Types.Pointer: {
+        case P.Types.Pointer: {
             y.native = P.Types.NativePointer;
             break;
         }
-        case P.Types.Array: {
+        /*case P.Types.Array: {
             y.native = P.Types.NativePointer;
             break;
         }*/

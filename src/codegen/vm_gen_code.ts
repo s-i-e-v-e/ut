@@ -379,6 +379,12 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
     }
 }
 
+function bindTypeInfo(ac: Allocator, store: Store, block: A.BlockExpr, v: P.Variable) {
+    const ss = newStructState();
+    computeStructInfo(ss, block, v, v.id);
+    return ac.alloc(v, ss);
+}
+
 function emitStmt(ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
     Logger.debug("##===========##");
     switch (s.nodeType) {
@@ -386,9 +392,7 @@ function emitStmt(ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
             const x = s as A.VarInitStmt;
             const tmp = ac.tmp();
             emitExpr(ac, tmp, block, x.expr);
-            const ss = newStructState();
-            computeStructInfo(ss, block, x.var, x.var.id);
-            const r = ac.alloc(x.var, ss);
+            const r = bindTypeInfo(ac, store, block, x.var);
             r.write_reg(tmp);
             tmp.free();
             break;
@@ -457,7 +461,7 @@ function emitFunction(b: VmCodeBuilder, f: P.Function) {
     const ac = Allocator.build(b);
     const scratch = ac.tmp();
     if (scratch.reg !== "r0") Errors.raiseDebug();
-    f.params.forEach(x => ac.alloc(x));
+    f.params.forEach(x => bindTypeInfo(ac, scratch, f.body, x));
     emitBlock(ac, scratch, f.body);
     b.ret();
 }

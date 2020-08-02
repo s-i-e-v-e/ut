@@ -72,7 +72,7 @@ function resolveDereferenceExpr(x: A.DereferenceExpr) {
     return x;
 }
 
-function resolveVar(st: SymbolTable, e: Expr): P.Variable {
+export function resolveVar(st: SymbolTable, e: Expr): P.Variable {
     switch (e.nodeType) {
         case NodeType.IDExpr: {
             const x = e as A.IDExpr;

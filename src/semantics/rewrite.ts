@@ -12,6 +12,7 @@ import {
 import {
     SymbolTable,
     Types,
+    resolveVar,
 } from "./mod.internal.ts";
 import {
     clone,
@@ -22,6 +23,24 @@ import {
 type Stmt = A.Stmt;
 type Expr = A.Expr;
 const NodeType = A.NodeType;
+
+function isValueStructExpr(st: SymbolTable, a: A.Expr) {
+    return a.nodeType === NodeType.IDExpr && st.getStruct(a.type.id);
+}
+
+function copyValueStruct(st: SymbolTable, a: A.Expr, m: P.Variable): [P.Variable[], A.Expr[]]  {
+    const is = clone(st.getStruct(a.type.id)!);
+    const ide = a as A.IDExpr;
+    const as: A.Expr[] = [];
+    is.members.forEach(y => {
+        const q = clone(ide);
+        q.rest = [y.id];
+        q.type = y.type;
+        as.push(q);
+    })
+    is.members.forEach(y => `${m.id}.${y.id}`);
+    return [is.members, as];
+}
 
 function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
     switch (e.nodeType) {
@@ -63,8 +82,8 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
 
             const fold = (x: A.TypeInstance): [P.Struct, P.Variable[], A.Expr[]] => {
                 x.oldStruct = x.oldStruct ? x.oldStruct : st.getStruct(x.type.id)!;
-                const xs = [];
-                const as = [];
+                const xs: P.Variable[] = [];
+                const as: Expr[] = [];
                 const s = clone(x.oldStruct);
                 for (let i = 0; i < x.args.length; i+= 1) {
                     const a = x.args[i];
@@ -74,6 +93,11 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
                         const [ss, xxs, aas] = fold(a as A.TypeInstance);
                         xxs.forEach(y => `${m.id}.${y.id}`);
 
+                        as.push(...aas);
+                        xs.push(...xxs);
+                    }
+                    else if (isValueStructExpr(st, a)) {
+                        const [xxs, aas] = copyValueStruct(st, a, m);
                         as.push(...aas);
                         xs.push(...xxs);
                     }
@@ -158,6 +182,28 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
             doExpr(st, block, x.lhs);
+            if (isValueStructExpr(st, x.rhs)) {
+                Errors.debug();
+                const v = resolveVar(st, x.lhs);
+                const [xxs, aas] = copyValueStruct(st, x.rhs, v);
+
+                const xs: Stmt[] = [];
+                // convert into block stmt
+                aas.forEach((a, i) => {
+                    const z = clone(x) as A.VarAssnStmt;
+                    const y = xxs[i];
+                    z.lhs = {
+                        loc: x.loc,
+                        nodeType: NodeType.IDExpr,
+                        type: y.type,
+                        id: v.id,
+                        rest: [y.id],
+                    } as A.IDExpr;
+                    z.rhs = a;
+                    xs.push(z);
+                });
+                if (!xs.length) return xs;
+            }
             break;
         }
         case NodeType.ReturnStmt: {
@@ -189,11 +235,14 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         }
         default: Errors.raiseDebug(NodeType[s.nodeType]);
     }
+    return [s];
 }
 
 function doBlock(st: SymbolTable, block: A.BlockExpr) {
     st = block.tag;
-    block.xs.forEach(y => doStmt(st, block, y));
+    const ys: Stmt[] = [];
+    block.xs.forEach(y => ys.push(...doStmt(st, block, y)));
+    block.xs = ys;
     return st;
 }
 

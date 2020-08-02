@@ -7,8 +7,10 @@
  */
 import SymbolTable from "./SymbolTable.ts";
 import * as Types from "./types.ts";
+import { resolveVar } from "./check.ts";
 
 export {
     SymbolTable,
     Types,
+    resolveVar
 };

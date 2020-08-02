@@ -55,7 +55,7 @@ export default class SymbolTable {
     }
 
     private static add<T>(name: string, ns: Dictionary<T>, x: T) {
-        if (ns[name]) Errors.raiseDebug(name);
+        Errors.ASSERT(!ns[name]);
         ns[name] = x;
     }
 
@@ -86,6 +86,10 @@ export default class SymbolTable {
         return this.get(id, resolve) !== undefined;
     }
 
+    typeMustExist(t: P.Type, loc?: Location) {
+        if (!this.typeExists(t)) return Errors.Checker.raiseUnknownType(t, loc || t.loc);
+    }
+
     typeExists(t: P.Type) {
         return this.exists(t.id, (ns, id) => ns.types[id]);
     }
@@ -97,7 +101,7 @@ export default class SymbolTable {
     addFunction(fp: P.FunctionPrototype) {
         const exists = this.ns.functions[fp.id] !== undefined;
         const m = this.ns.functions[fp.id] || { map: {} };
-        if (m.map[fp.mangledName]) Errors.raiseDebug(fp.mangledName);
+        Errors.ASSERT(!m.map[fp.mangledName]);
         m.map[fp.mangledName] = fp;
         if (!exists) SymbolTable.add(fp.id, this.ns.functions, m);
     }

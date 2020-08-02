@@ -86,8 +86,8 @@ export function typesMatch(st: SymbolTable, ot1: Type, ot2: Type): boolean {
 
     const t1 = st.getType(ot1.id) || ot1;
     const t2 = st.getType(ot2.id) || ot2;
-    if (!t1) Errors.raiseDebug(ot1.id);
-    if (!t2) Errors.raiseDebug(ot2.id);
+    Errors.ASSERT(!!t1, ot1.id);
+    Errors.ASSERT(!!t2, ot2.id);
 
     if (t1.id !== t2.id) return false;
     if (t1.typeParams.length !== t2.typeParams.length) return false;
@@ -99,7 +99,7 @@ export function typesMatch(st: SymbolTable, ot1: Type, ot2: Type): boolean {
 }
 
 export function typesMustMatch(st: SymbolTable, t1: Type, t2: Type, loc: Location) {
-    if (!typesMatch(st, t1, t2)) Errors.raiseTypeMismatch(t1, t2, loc);
+    if (!typesMatch(st, t1, t2)) Errors.Checker.raiseTypeMismatch(t1, t2, loc);
 }
 
 export function typeExists(st: SymbolTable, t: Type, loc: Location): boolean {

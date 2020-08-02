@@ -114,20 +114,13 @@ export default class TokenStream {
         if (typeof x === "string") {
             t = this.next();
             if (t.lexeme !== x as string) {
-                Errors.raiseExpectedButFound(`\`${x}\``, t);
+                Errors.Parser.raiseExpectedButFound("String", t);
             }
         }
         else {
-            const y = x as TokenType;
             t = this.next();
-            if (t.type !== y) {
-                let exp;
-                switch (y) {
-                    case TokenType.TK_ID: exp = "Identifier"; break;
-                    case TokenType.TK_TYPE: exp = "Type"; break;
-                    default: return Errors.raiseDebug(JSON.stringify(t));
-                }
-                Errors.raiseExpectedButFound(exp, t);
+            if (t.type !== x as TokenType) {
+                Errors.Parser.raiseExpectedButFound("ID or Type", t);
             }
         }
         return t;

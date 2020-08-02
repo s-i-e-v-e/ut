@@ -49,7 +49,7 @@ function re(e: any): string {
             const rr = re(x.right);
             return `${ll}${x.op}${rr}`;
         }
-        default: Errors.raiseDebug(""+e.nodeType);
+        default: Errors.raiseDebug(A.NodeType[e.nodeType]);
     }
 }
 

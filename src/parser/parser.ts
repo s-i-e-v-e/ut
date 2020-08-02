@@ -41,17 +41,15 @@ function parseIDExpr(ts: TokenStream): A.IDExpr {
 }
 
 function parseTypeParameterID(ts: TokenStream) {
-    const loc = ts.loc();
-    const x = ts.nextMustBe(TokenType.TK_TYPE).lexeme;
-    if (x.length !== 1) Errors.raiseTypeError("Type parameters must be single characters", loc);
-    return x;
+    const t = ts.nextMustBe(TokenType.TK_TYPE);
+    if (t.lexeme.length !== 1) Errors.Parser.parserError("Type parameters must be single characters", t);
+    return t.lexeme;
 }
 
 function parseTypeID(ts: TokenStream, isDef: boolean) {
-    const loc = ts.loc();
-    const x = ts.nextMustBe(TokenType.TK_TYPE).lexeme;
-    if (isDef && x.length <= 1) Errors.raiseTypeError("Single character type names are reserved for type params", loc);
-    return x;
+    const t = ts.nextMustBe(TokenType.TK_TYPE);
+    if (isDef && t.lexeme.length <= 1) Errors.Parser.parserError("Single character type names are reserved for type params", t);
+    return t.lexeme;
 }
 
 // struct Array[A]
@@ -104,7 +102,7 @@ function parseTypeAnnotation(ts: TokenStream): P.Type {
     const idx = ts.getIndex();
     const id = ts.nextIs("[") ? "Array" : parseTypeID(ts, false);
     const x = P.Types.newType(id, loc, parseTypeParameters(ts));
-    if (x.id === "Array" && x.typeParams.length != 1) Errors.raiseArrayType(ts.getAsToken(idx, ts.getIndex()));
+    if (x.id === "Array" && x.typeParams.length != 1) Errors.Parser.raiseArrayType(ts.getAsToken(idx, ts.getIndex()));
     return x;
 }
 
@@ -173,7 +171,7 @@ function parseLiteral(ts: TokenStream) {
         case TokenType.TK_OCTAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 8, loc);
         case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 16, loc);
         case TokenType.TK_DECIMAL_NUMBER_LITERAL: return parseNumber(t.lexeme, 10, loc);
-        default: return Errors.raiseDebug();
+        default: return Errors.Parser.raiseExpectedButFound("Number/String/Bool literal", t);
     }
 }
 
@@ -202,7 +200,7 @@ function parseTypeInstantiation(ts: TokenStream, block: A.BlockExpr) {
         }
         else {
             args = parseExprList(ts, block);
-            if (!args.length) Errors.raiseArrayInitArgs(t);
+            if (!args.length) Errors.Parser.raiseArrayInitArgs(t);
         }
         ts.nextMustBe(")");
         return <A.ArrayConstructor>{
@@ -366,7 +364,7 @@ function parseExpr(ts: TokenStream, block: A.BlockExpr, le?: Expr, rbp?: number)
     };
 
     // prefix expr
-    const nud = (op: string) => {
+    const nud = (op: string): Expr => {
         switch (op) {
             case "&": {
                 return parseReferenceExpr(ts, block);
@@ -446,8 +444,8 @@ function parseVarAssignment(ts: TokenStream, block: A.BlockExpr, le: Expr): A.Va
     }
     else {
         const e = parseExpr(ts, block, le) as A.BinaryExpr;
-        if (!e.op) Errors.raiseParserError("assignment stmt", e);
-        if (le !== e.left) Errors.raiseDebug();
+        Errors.ASSERT(!!e.op);
+        Errors.ASSERT(le === e.left);
         return rewriteBinaryExprIntoAssignment(e);
     }
 }
@@ -495,7 +493,7 @@ function parseAssnOrExprStmt(ts: TokenStream, block: A.BlockExpr) {
         }
     }
 
-    if (e.nodeType !== NodeType.IDExpr) Errors.raiseDebug();
+    Errors.ASSERT(e.nodeType === NodeType.IDExpr);
     const ide = e as A.IDExpr;
     if (ts.nextIs("(")) {
         const fa = parseFunctionApplication(ts, block, ide);
@@ -669,7 +667,7 @@ function parseImport(ts: TokenStream): P.Import {
 function parseLiteralExprList(ts: TokenStream, block: A.BlockExpr) {
     const xs = new Array<any>();
     while (!ts.nextIs(")")) {
-        if (!ts.nextIsLiteral()) Errors.raiseExpectedButFound("Literal", ts.peek());
+        if (!ts.nextIsLiteral()) Errors.Parser.raiseExpectedButFound("Literal", ts.peek());
         xs.push(parseExpr(ts, block));
         if (!ts.consumeIfNextIs(",")) break;
     }
@@ -733,7 +731,7 @@ export function parseModule(id: string, ts: TokenStream, path: string) {
             types.push(parseTypeDefinition(ts));
         }
         else {
-            Errors.raiseDebug(ts.peek().lexeme);
+            Errors.Parser.raiseExpectedButFound("one of: struct|foreign|fn|type|import", ts.peek());
         }
     }
 

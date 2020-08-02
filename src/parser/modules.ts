@@ -30,12 +30,8 @@ async function parseModule(modules: Dictionary<P.Module>, id: string, base: stri
 function getFileName(path: string) {
     const a = path.lastIndexOf("/")+1;
     const b = path.lastIndexOf(".");
-    if (a < b) {
-        return path.substring(a, b);
-    }
-    else {
-        Errors.raiseDebug(path);
-    }
+    Errors.ASSERT(a < b);
+    return path.substring(a, b);
 }
 
 async function parseFile(path: string) {

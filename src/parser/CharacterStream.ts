@@ -59,7 +59,7 @@ export default class CharacterStream {
     }
 
     back() {
-        if (!this.old) return Errors.raiseDebug();
+        Errors.ASSERT(!!this.old);
         this.index = this.old.index;
         this.character = this.old.character;
         this.line = this.old.line;

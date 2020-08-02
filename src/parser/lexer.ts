@@ -106,7 +106,7 @@ function readComment(cs: CharacterStream) {
     }
     catch (e) {
         if (e instanceof Errors.EOF) {
-            return Errors.raiseUnbalancedComment(cs, loc);
+            return Errors.Lexer.raiseUnbalancedComment(cs, loc);
         }
         else {
             throw e;
@@ -123,7 +123,7 @@ function readString(cs: CharacterStream) {
     }
     catch (e) {
         if (e instanceof Errors.EOF) {
-            return Errors.raiseUnterminatedString(cs, loc);
+            return Errors.Lexer.raiseUnterminatedString(cs, loc);
         }
         else {
             throw e;
@@ -153,7 +153,7 @@ function readNumber(cs: CharacterStream) {
     const mustBeSeparator = () => {
         if (IDChar[cs.peek()]) {
             cs.next();
-            Errors.raiseInvalidNumber(cs, loc);
+            Errors.Lexer.raiseInvalidNumber(cs, loc);
         }
     }
 
@@ -168,10 +168,10 @@ function readNumber(cs: CharacterStream) {
             case "o": type = TokenType.TK_OCTAL_NUMBER_LITERAL; Char = OctDigits; break;
             default: {
                 if (Char[x]) {
-                    Errors.raiseInvalidDecimalNumber(cs, loc);
+                    Errors.Lexer.raiseInvalidDecimalNumber(cs, loc);
                 }
                 else if (IDChar[x]) {
-                    Errors.raiseInvalidNumber(cs, loc);
+                    Errors.Lexer.raiseInvalidNumber(cs, loc);
                 }
                 else {
                     cs.back();
@@ -185,7 +185,7 @@ function readNumber(cs: CharacterStream) {
             case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: {
                 // must at least be be one of 0xN | 0oN | 0bN
                 if (!Char[cs.next()]) {
-                    Errors.raiseInvalidNumber(cs, loc);
+                    Errors.Lexer.raiseInvalidNumber(cs, loc);
                 }
                 break;
             }

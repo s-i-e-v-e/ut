@@ -183,7 +183,6 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
             const x = s as A.VarAssnStmt;
             doExpr(st, block, x.lhs);
             if (isValueStructExpr(st, x.rhs)) {
-                Errors.debug();
                 const v = resolveVar(st, x.lhs);
                 const [xxs, aas] = copyValueStruct(st, x.rhs, v);
 

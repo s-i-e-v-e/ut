@@ -231,6 +231,7 @@ function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], 
             }
             else {
                 if (map[pt.id].id !== at.id) return [];
+                xs.push(at);
             }
         }
         else {

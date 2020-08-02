@@ -390,22 +390,20 @@ function emitStmt(ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
-            const tmp = ac.tmp();
-            emitExpr(ac, tmp, block, x.expr);
+            const r0 = ac.from("r0");
+            emitExpr(ac, r0, block, x.expr);
             const r = bindTypeInfo(ac, store, block, x.var);
-            r.write_reg(tmp);
-            tmp.free();
+            r.write_reg(r0);
             break;
         }
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
-            const r = ac.tmp();
-            r.isRHS = true;
-            emitExpr(ac, r, block, x.rhs);
-            r.isWrite = false;
-            r.isRHS = false;
-            emitExpr(ac, r, block, x.lhs);
-            r.free();
+            const r0 = ac.from("r0");
+            r0.isRHS = true;
+            emitExpr(ac, r0, block, x.rhs);
+            r0.isWrite = false;
+            r0.isRHS = false;
+            emitExpr(ac, r0, block, x.lhs);
             break;
         }
         case NodeType.ReturnStmt: {

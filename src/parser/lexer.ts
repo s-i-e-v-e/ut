@@ -90,6 +90,9 @@ function readComment(cs: CharacterStream) {
                     if (cs.next() === "/") {
                         return cs.token(TokenType.TK_COMMENT, loc);
                     }
+                    else {
+                        cs.back();
+                    }
                 }
                 else if (c === "/") {
                     if (cs.peek() === "*") {

@@ -114,6 +114,81 @@ function setBlockType(st: SymbolTable, block: A.BlockExpr, expr: Expr) {
     return ty;
 }
 
+// Array[?](...) -- call
+// Person[?](...) -- call
+// xs(0) -- array expr
+// println[?](q) -- call
+// xs.size[?]() -- ufcs
+function doApplication(st: SymbolTable, block: A.BlockExpr, x: A.FunctionApplication): Type {
+    const isUFCS = x.expr.rest.length && st.varExists(x.expr.id);
+    const isCall = !st.varExists(x.expr.id);
+    if (isCall) {
+        const s = st.getStruct(x.expr.id);
+        if (!s) {
+            // regular function
+        }
+        else if (s.id === P.Types.Array) {
+            // todo: should ideally be handled by getFunction
+            // todo: hold till vararg is implemented correctly
+            // is array constructor
+            if (!x.args.length) Errors.Checker.raiseArrayInitArgs(x.loc);
+
+            // check arg types
+            // get type of first arg
+            const et = getExprType(st, block, x.args[0]);
+            x.args.forEach(y => Types.typesMustMatch(st, et, y.type, y.loc))
+
+            // can infer type from constructor args
+            if (!x.typeParams.length) {
+                x.typeParams = [et];
+            }
+            else {
+                Types.typesMustMatch(st, x.typeParams[0], et, x.loc);
+            }
+            if (x.typeParams.length != 1) Errors.Parser.raiseArrayType(x.loc);
+            return P.Types.newType(x.expr.id, x.loc, x.typeParams);
+        }
+        else {
+            // type instantiation function
+            x.nodeType = NodeType.TypeInstance;
+        }
+    }
+    else if (isUFCS) {
+        // deconstruct UFCS call
+        const fn = x.expr.rest.pop()!;
+        const a: A.IDExpr = {
+            nodeType: NodeType.IDExpr,
+            type: P.Types.Compiler.NotInferred,
+            loc: x.expr.loc,
+            id: x.expr.id,
+            rest: x.expr.rest,
+        };
+        x.expr.id = fn;
+        x.expr.rest = [];
+        const xs = [];
+        xs.push(a)
+        xs.push(...x.args);
+        x.args = xs;
+    }
+    else {
+        const y = x as A.ArrayExpr;
+        y.nodeType = NodeType.ArrayExpr;
+        return getExprType(st, block, y);
+    }
+
+    const argTypes = x.args.map(y => {
+        const t = getExprType(st, block, y);
+        t.loc = y.loc;
+        return t;
+    });
+    const f = getFunction(st, argTypes, x.expr.id, x.loc);
+    const paramTypes = f.params.map(y => y.type);
+    if (argTypes.length != paramTypes.length) return Errors.Checker.raiseFunctionParameterCountMismatch(x.type.id, x.loc);
+    paramTypes.forEach((y, i) => Types.typesMustMatch(st, y, argTypes[i], argTypes[i].loc));
+    x.mangledName = f.mangledName;
+    return f.type;
+}
+
 function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     if (st.as.ret) Errors.Checker.unreachableCode(e.loc);
     let ty;
@@ -138,7 +213,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                         if (rest.length) return Errors.raiseDebug(ty.id);
                     }
                     else {
-                        const ys = s.members.filter(a => a.id === y);
+                        const ys = s.params.filter(a => a.id === y);
                         if (!ys.length) return Errors.raiseDebug(y);
                         ty = ys[0].type;
                     }
@@ -182,41 +257,12 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                     ty = ta;
                     break;
                 }
-                default: return Errors.raiseDebug(x.op);
+                default: return Errors.Checker.error(x.op, x.loc);
             }
             break;
         }
         case NodeType.FunctionApplication: {
-            const x = e as A.FunctionApplication;
-            if (st.varExists(x.expr.id) && !x.expr.rest.length) {
-                const y = x as A.ArrayExpr;
-                y.nodeType = NodeType.ArrayExpr;
-                ty = getExprType(st, block, y);
-            }
-            else {
-                // deconstruct UFCS call
-                if (x.expr.rest.length) {
-                    const fn = x.expr.rest.pop()!;
-                    const a: A.IDExpr = {
-                        nodeType: NodeType.IDExpr,
-                        type: P.Types.Compiler.NotInferred,
-                        loc: x.expr.loc,
-                        id: x.expr.id,
-                        rest: x.expr.rest,
-                    };
-                    x.expr.id = fn;
-                    x.expr.rest = [];
-                    const xs = [];
-                    xs.push(a)
-                    xs.push(...x.args);
-                    x.args = xs;
-                }
-
-                const argTypes = x.args.map(x => getExprType(st, block, x));
-                const f = getFunction(st, argTypes, x.expr.id, x.loc);
-                x.mangledName = f.mangledName;
-                ty = f.type;
-            }
+            ty = doApplication(st, block, e as A.FunctionApplication);
             break;
         }
         case NodeType.ArrayExpr: {
@@ -232,42 +278,6 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
 
             ty = at.typeParams[0];
             break;
-        }
-        case NodeType.ArrayConstructor: {
-            const x = e as A.ArrayConstructor;
-            if (x.args) {
-                // check arg types
-                // get type of first arg
-                const et = getExprType(st, block, x.args[0]);
-                x.args.forEach(y => Types.typesMustMatch(st, et, y.type, y.loc))
-
-                // can infer type from constructor args
-                const ty = x.type;
-                if (!ty.typeParams.length) {
-                    ty.typeParams = [et];
-                }
-                else {
-                    Types.typesMustMatch(st, ty.typeParams[0], et, x.loc);
-                }
-            }
-            else {
-                // ignore
-            }
-            return x.type;
-        }
-        case NodeType.TypeInstance: {
-            const x = e as A.TypeInstance;
-            const s = st.getStruct(x.type.id);
-            if(!s) return Errors.Checker.raiseUnknownType(x.type, x.loc);
-            const xs = x.args.map(y => {
-                const t = getExprType(st, block, y);
-                t.loc = y.loc;
-                return t;
-            })
-            const ys = s.members.map(y => y.type);
-            if (xs.length != ys.length) return Errors.Checker.raiseFunctionParameterCountMismatch(x.type.id, x.loc);
-            ys.forEach((y, i) => Types.typesMustMatch(st, y, xs[i], xs[i].loc));
-            return x.type;
         }
         case NodeType.LocalReturnExpr: {
             const x = e as A.LocalReturnExpr;
@@ -438,7 +448,7 @@ function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
     });
 }
 
-function doFunction(st: SymbolTable, f: P.Function) {
+function doFunction(st: SymbolTable, f: P.FunctionDef) {
     if (f.id == "main") f.body.type = P.Types.Compiler.Void;
     st = st.newTable(`fn:${f.id}`, f);
     doFunctionPrototype(st, f);
@@ -447,7 +457,7 @@ function doFunction(st: SymbolTable, f: P.Function) {
     if (Types.typeNotInferred(f.type)) f.type = P.Types.Compiler.Void;
 }
 
-function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
+function doForeignFunction(st: SymbolTable, f: P.ForeignFunctionDef) {
     if (Types.typeNotInferred(f.type)) {
         f.type = P.Types.Compiler.Void;
     }
@@ -455,66 +465,64 @@ function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
     doFunctionPrototype(st, f);
 }
 
-function doTypes(st: SymbolTable, xs: P.TypeDefinition[], ys: P.Struct[]) {
-    const doTypeDefinition = (t: P.TypeDefinition) => {
-        if ((t as P.TypeAlias).alias) {
-            st.addTypeDefinition(t);
-            const x = t as P.TypeAlias;
-            st.typeMustExist(x.alias);
+function doTypes(st: SymbolTable, xs: P.TypeDecl[], ys: P.StructDef[]) {
+    const doTypeDecl = (t: P.TypeDecl) => {
+        st.addTypeDecl(t);
+        if ((t as P.TypeAliasDef).isAlias) {
+            const x = t as P.TypeAliasDef;
+            st.typeMustExist(x.type);
         }
-        else if ((t as P.TypeDeclaration).cons) {
-            st.addTypeDefinition(t);
-            const x = t as P.TypeDeclaration;
-            st.typeMustExist(x.cons);
-            doTypeDeclaration(x);
+        else if ((t as P.TypeDef).isDef) {
+            const x = t as P.TypeDef;
+            st.typeMustExist(x.type);
+            doTypeDef(x);
         }
         else {
             Errors.raiseDebug(t.type.id);
         }
     };
 
-    const doTypeDeclaration = (t: P.TypeDeclaration) => {
+    const doTypeDef = (t: P.TypeDef) => {
         // get struct
-        let s = st.getStruct(t.cons.id);
+        let s = st.getStruct(t.type.id);
         if (!s) {
-            s = ys.filter(y => y.type.id === t.cons.id)[0];
-            if (!s) Errors.Checker.raiseUnknownType(t.cons, t.loc);
+            s = ys.filter(y => y.type.id === t.type.id)[0];
+            if (!s) Errors.Checker.raiseUnknownType(t.type, t.loc);
             doStruct(s);
         }
-        Errors.ASSERT(s.members.length == t.params.length, s.type.id);
+        Errors.ASSERT(s.params.length == t.args.length, s.type.id);
 
-        for (let i = 0; i < s.members.length; i += 1) {
-            const a = s.members[i];
-            const b = t.params[i];
-            Types.typesMustMatch(st, a.type, b.type, b.loc);
+        for (let i = 0; i < s.params.length; i += 1) {
+            const p = s.params[i];
+            const a = t.args[i];
+            Types.typesMustMatch(st, p.type, a.type, a.loc);
         }
 
-        switch (t.cons.typetype) {
+        switch (t.type.typetype) {
             case P.Types.SignedInt:
             case P.Types.UnsignedInt:
             case P.Types.Float: {
-                t.cons.id = `${t.cons.typetype}^${t.params.map(x => x.value).join("|")}`;
+                t.type.id = `${t.type.typetype}^${t.args.map(x => x.value).join("|")}`;
                 break;
             }
-            default: Errors.raiseDebug(t.cons.typetype);
+            default: Errors.raiseDebug(t.type.typetype);
         }
     };
 
-    const doStruct = (s: P.Struct) => {
+    const doStruct = (s: P.StructDef) => {
         if (!st.getStruct(s.type.id)) st.addStruct(s);
         s.typeParams.forEach(x => st.addTypeParameter(x));
-        s.members.forEach(x => st.typeMustExist(x.type));
-    }
+        s.params.forEach(x => st.typeMustExist(x.type));
+    };
 
-    xs.forEach(x => st.addType(x.type))
-    ys.forEach(x => st.addType(x.type))
-
-    xs.forEach(x => doTypeDefinition(x));
+    ys.forEach(x => st.addType(x.type));
+    xs.forEach(x => doTypeDecl(x));
     ys.forEach(x => doStruct(x));
 }
 
-function doModule(st: SymbolTable, m: P.Module) {
+function doModule(m: P.Module) {
     Logger.info(`Type checking: ${m.path}`);
+    const st = m.tag;
 
     for (const x of m.functions) {
         doFunction(st, x);
@@ -542,7 +550,7 @@ function doModuleDefinition(st: SymbolTable, m: P.Module, c: Check) {
     // for each import, perform check
     const imports = c.mods.filter(x => m.imports.filter(y => x.id === y.id).length);
     for (const im of imports) {
-        if (c.map[im.id]) continue;
+        st.addImport(im);
         doModuleDefinition(global, im, c);
     }
 
@@ -565,21 +573,25 @@ class Check {
     public readonly xs: P.Module[] = [];
 
     constructor(public readonly mods: P.Module[]) {}
-
 }
 
 export default function check(mods: P.Module[]) {
-    const global = SymbolTable.build("global");
+    const global = SymbolTable.build(P.Types.NativeModule);
 
     global.addType(P.Types.Compiler.Word);
 
     const c = new Check(mods);
     for (const m of mods) {
+        if (m.id === P.Types.NativeModule) {
+            c.map[m.id] = m;
+            continue;
+        }
+        m.imports = [{id: P.Types.NativeModule, loc: P.Types.NativeLoc}].concat(...m.imports);
         doModuleDefinition(global, m, c);
     }
 
     for (const m of c.xs) {
-        doModule(global, m);
+        doModule(m);
     }
 
     return global;

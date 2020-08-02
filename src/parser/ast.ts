@@ -12,32 +12,31 @@ export enum NodeType {
     VarInitStmt,
     VarAssnStmt,
     ForStmt,
+    ReturnStmt,
 
+    StmtExpr,
     VoidExpr,
+    CastExpr,
+    GroupExpr,
     BlockExpr,
-    IDExpr,
-    FunctionApplication,
-    IfExpr,
     StringLiteral,
     BooleanLiteral,
     NumberLiteral,
-    ArrayConstructor,
+    IDExpr,
     TypeInstance,
+    FunctionApplication,
+    IfExpr,
     LocalReturnExpr,
-    ReturnStmt,
     ArrayExpr,
     BinaryExpr,
     ReferenceExpr,
     DereferenceExpr,
-    CastExpr,
-    GroupExpr,
 }
 
 import {
     Location,
     P,
 } from "./mod.ts";
-
 
 export interface AstNode {
     nodeType: NodeType,
@@ -61,6 +60,10 @@ export interface VarAssnStmt extends Stmt {
 
 export interface ReturnStmt extends Stmt {
     expr: Expr;
+}
+
+export interface StmtExpr extends Expr {
+    stmt: Stmt;
 }
 
 export interface ForStmt extends Stmt, P.Tag {
@@ -124,18 +127,10 @@ export interface ReferenceExpr extends Expr {
  */
 export interface FunctionApplication extends Expr {
     expr: IDExpr;
+    typeParams: P.Type[];
+    args: Expr[];
     mangledName?: string;
-    args: Expr[];
-}
-
-export interface ArrayConstructor extends Expr {
-    sizeExpr: Expr | undefined;
-    args: Expr[] | undefined;
-}
-
-export interface TypeInstance extends Expr {
-    args: Expr[];
-    oldStruct?: P.Struct;
+    oldStruct?: P.StructDef;
 }
 
 export interface IfExpr extends Expr {

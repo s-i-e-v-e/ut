@@ -182,23 +182,20 @@ export default class Errors {
             throw new Errors.ExpectedButFound(buildErrorString(`Expected: ${exp}. Found: \`${x.lexeme ? x.lexeme : NodeTypeEnum[y.nodeType]}\``, t_n.loc));
         }
 
-        static raiseArrayType(t: Token): never {
-            throw new Errors.ArrayType(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
-        }
-
-        static raiseGenericTypeError(t: Token): never {
-            throw new Errors.TypeMismatch(buildErrorString(`Generic Type must have at least one type parameter: \`${t.lexeme}\``, t.loc));
-        }
-
-        static raiseArrayInitArgs(t: Token): never {
-            throw new Errors.ArrayInit(buildErrorString(`Array initialization failure: argument list is empty`, t.loc));
+        static raiseArrayType(loc: Location): never {
+            throw new Errors.ArrayType(buildErrorString(`Array must have exactly one type parameter.`, loc));
         }
     };
 
 
     static Checker = class {
-        static raiseUnknownType(t: Type, loc: Location): never {
-            throw new Errors.UnknownType(buildErrorString(`Unknown type: ${toTypeString(t)}`, loc));
+        static raiseArrayInitArgs(loc: Location): never {
+            throw new Errors.ArrayInit(buildErrorString(`Array initialization failure: argument list is empty`, loc));
+        }
+
+        static raiseUnknownType(t: Type|string, loc: Location): never {
+            const s = (t as Type).id ? toTypeString(t as Type) : t;
+            throw new Errors.UnknownType(buildErrorString(`Unknown type: ${s}`, loc));
         }
 
         static raiseTypeMismatch(ltype: Type, rtype: Type, loc: Location): never {
@@ -252,6 +249,10 @@ export default class Errors {
         static unreachableCode(loc: Location): never {
             throw new Errors.TypeMismatch(buildErrorString(`Unreachable code after return.`, loc));
         }
+
+        static error(msg: string, loc: Location): never {
+            throw new Errors.UnknownType(buildErrorString(msg, loc));
+        }
     };
 
     static raiseEOF(): never {
@@ -269,6 +270,10 @@ export default class Errors {
 
     static raiseVmError(msg: string) {
         throw new this.VmError(msg);
+    }
+
+    static breakIf(cond: boolean) {
+        Errors.debug(!cond);
     }
 
     static debug(cond?: boolean) {

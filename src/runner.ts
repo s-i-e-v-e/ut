@@ -21,7 +21,7 @@ export interface Config {
     dump: boolean,
 }
 
-function process(mods: P.Module[], c: Config) {
+function process(mods: P.Module[], args: string[], c: Config) {
     const global = check(mods);
     rewrite(global, mods);
     const vme = vm_gen_code(mods);
@@ -29,13 +29,14 @@ function process(mods: P.Module[], c: Config) {
     if (c.dump) OS.writeBinaryFile("./dump.bin", xs);
     Logger.debug("@@--------VM.EXEC--------@@");
     const vm = Vm.build(vme.importsOffset);
-    vm.exec(xs);
+    vm.exec(xs, args);
 }
 
-export async function run(path: string, c: Config) {
+export async function run(args: string[], c: Config) {
     try {
+        const path = args.shift() || "";
         const mods = await parseFile(path);
-        process(mods, c);
+        process(mods, args, c);
     }
     catch (e) {
         if (e instanceof Errors.UtError) {

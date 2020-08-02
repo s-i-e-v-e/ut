@@ -32,14 +32,14 @@ function copyValueStruct(st: SymbolTable, a: A.Expr, m: P.Variable): [P.Variable
     const is = clone(st.getStruct(a.type.id)!);
     const ide = a as A.IDExpr;
     const as: A.Expr[] = [];
-    is.members.forEach(y => {
+    is.params.forEach(y => {
         const q = clone(ide);
         q.rest = [y.id];
         q.type = y.type;
         as.push(q);
     })
-    is.members.forEach(y => `${m.id}.${y.id}`);
-    return [is.members, as];
+    is.params.forEach(y => `${m.id}.${y.id}`);
+    return [is.params, as];
 }
 
 function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
@@ -72,25 +72,20 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
             x.args.forEach(a => doExpr(st, block, a));
             break;
         }
-        case NodeType.ArrayConstructor: {
-            const x = e as A.ArrayConstructor;
-            if (x.args) x.args.forEach(y => doExpr(st, block, y));
-            break;
-        }
         case NodeType.TypeInstance: {
-            const x = e as A.TypeInstance;
+            const x = e as A.FunctionApplication;
 
-            const fold = (x: A.TypeInstance): [P.Struct, P.Variable[], A.Expr[]] => {
+            const fold = (x: A.FunctionApplication): [P.StructDef, P.Variable[], A.Expr[]] => {
                 x.oldStruct = x.oldStruct ? x.oldStruct : st.getStruct(x.type.id)!;
                 const xs: P.Variable[] = [];
                 const as: Expr[] = [];
                 const s = clone(x.oldStruct);
                 for (let i = 0; i < x.args.length; i+= 1) {
                     const a = x.args[i];
-                    const m = s.members[i];
+                    const m = s.params[i];
                     if (a.nodeType === NodeType.TypeInstance) {
                         // fold members into this
-                        const [ss, xxs, aas] = fold(a as A.TypeInstance);
+                        const [ss, xxs, aas] = fold(a as A.FunctionApplication);
                         xxs.forEach(y => `${m.id}.${y.id}`);
 
                         as.push(...aas);
@@ -109,7 +104,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
                 return [s, xs, as];
             };
             const [q, xs, as] = fold(x);
-            q.members = xs;
+            q.params = xs;
             x.args = as;
             x.args.forEach(y => doExpr(st, block, y));
             break;
@@ -166,7 +161,7 @@ function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: P.Variable) {
         v.type = Types.rewriteType(st, v.type);
     }
     else {
-        s.members.forEach((a: P.Variable) => rewriteVar(st, block, a));
+        s.params.forEach((a: P.Variable) => rewriteVar(st, block, a));
     }
 }
 
@@ -253,31 +248,31 @@ function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
 
 }
 
-function doFunction(st: SymbolTable, f: P.Function) {
+function doFunction(st: SymbolTable, f: P.FunctionDef) {
     st = f.tag;
     doFunctionPrototype(st, f);
     doBlock(st, f.body);
 }
 
-function doForeignFunction(st: SymbolTable, f: P.ForeignFunction) {
+function doForeignFunction(st: SymbolTable, f: P.ForeignFunctionDef) {
     st = f.tag;
     doFunctionPrototype(st, f);
 }
 
-function doStruct(st: SymbolTable, s: P.Struct) {
+function doStruct(st: SymbolTable, s: P.StructDef) {
 
 }
 
-function doTypeDeclaration(st: SymbolTable, t: P.TypeDeclaration) {
+function doTypeDeclaration(st: SymbolTable, t: P.TypeDef) {
 
 }
 
-function doTypeDefinition(st: SymbolTable, t: P.TypeDefinition) {
-    if ((t as P.TypeAlias).alias) {
-        const x = t as P.TypeAlias;
+function doTypeDecl(st: SymbolTable, t: P.TypeDecl) {
+    if ((t as P.TypeAliasDef).isAlias) {
+        const x = t as P.TypeAliasDef;
     }
-    else if ((t as P.TypeDeclaration).cons) {
-        const x = t as P.TypeDeclaration;
+    else if ((t as P.TypeDef).isDef) {
+        const x = t as P.TypeDef;
         doTypeDeclaration(st, x);
     }
     else {
@@ -289,7 +284,7 @@ function doModule(st: SymbolTable, m: P.Module) {
     Logger.info(`Type rewriting: ${m.path}`);
 
     m.structs.forEach(x => doStruct(st, x));
-    m.types.forEach(x => doTypeDefinition(st, x));
+    m.types.forEach(x => doTypeDecl(st, x));
 
     for (const x of m.foreignFunctions) {
         doForeignFunction(st, x);

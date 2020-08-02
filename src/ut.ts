@@ -35,9 +35,10 @@ async function main(args: string[]) {
         id: "",
         args: []
     };
-    for (let i = 0; i < args.length;) {
-        const cmd = args[i];
-        i += 1;
+
+    args = args.slice();
+    for (;args.length;) {
+        const cmd = args.shift();
 
         switch (cmd) {
             case "-v": {
@@ -68,12 +69,11 @@ async function main(args: string[]) {
                 break;
             }
             case "run": {
-                const a = args[i];
-                i += 1;
                 cx = {
                     id: cmd,
-                    args: [a],
+                    args: args,
                 };
+                args = [];
                 break;
             }
             default: {
@@ -91,7 +91,7 @@ async function main(args: string[]) {
             help();
             break;
         }
-        case "run": await run(cx.args[0], cfg); break;
+        case "run": await run(cx.args, cfg); break;
         default: Errors.raiseDebug();
     }
 }

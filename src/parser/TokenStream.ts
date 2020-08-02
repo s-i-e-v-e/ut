@@ -49,8 +49,8 @@ export default class TokenStream {
         };
     }
 
-    eof() {
-        return this.index >= this.xs.length;
+    eof(n?: number) {
+        return this.index + (n || 0) >= this.xs.length;
     }
 
     loc() {
@@ -58,7 +58,7 @@ export default class TokenStream {
     }
 
     peek(n?: number) {
-        return this.eof() ? this.EOF : this.xs[n ? this.index + n : this.index];
+        return this.eof(n) ? this.EOF : this.xs[n ? this.index + n : this.index];
     }
 
     next() {
@@ -109,19 +109,15 @@ export default class TokenStream {
         }
     }
 
-    nextMustBe(x: string | TokenType): Token {
-        let t;
+    nextMustBe(x: string | TokenType, msg?: string): Token {
+        const t = this.next();
+        let xx = x as string;
         if (typeof x === "string") {
-            t = this.next();
-            if (t.lexeme !== x as string) {
-                Errors.Parser.raiseExpectedButFound("String", t);
-            }
+            if (t.lexeme !== xx) Errors.Parser.raiseExpectedButFound(msg || xx, t);
         }
         else {
-            t = this.next();
-            if (t.type !== x as TokenType) {
-                Errors.Parser.raiseExpectedButFound("ID or Type", t);
-            }
+            let yy = x as TokenType;
+            if (t.type !== yy) Errors.Parser.raiseExpectedButFound(msg || TokenType[yy], t);
         }
         return t;
     }

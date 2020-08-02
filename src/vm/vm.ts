@@ -30,11 +30,13 @@ export default class Vm {
     };
     private readonly memory: Uint8Array;
     private readonly dv: DataView;
+    private readonly enc: TextEncoder;
     private readonly dec: TextDecoder;
 
     private constructor(private readonly imports: bigint) {
         this.memory = new Uint8Array(Vm.SEGMENT_SIZE*8);
         this.dv = new DataView(this.memory.buffer);
+        this.enc = new TextEncoder();
         this.dec = new TextDecoder();
         this.ip = 0n;
         this.hp = BigInt(Vm.SEGMENT_SIZE*4);
@@ -88,6 +90,20 @@ export default class Vm {
             this.ip += 8n;
             return x;
         }
+    }
+
+    private write_str(x: string) {
+        const xs = this.enc.encode(x);
+        const offset = this.mem_alloc(BigInt(xs.byteLength + 8));
+        let ptr = Number(offset);
+
+        this.write_u64(BigInt(ptr), BigInt(xs.length));
+        ptr += 8;
+        for (let i = 0; i < xs.length; i += 1) {
+            this.dv.setUint8(ptr, xs[i]);
+            ptr += 1;
+        }
+        return offset;
     }
 
     private read_str(offset: bigint) {
@@ -170,7 +186,7 @@ export default class Vm {
         return `${label}\t\t${this.hex(a)}-${this.hex(b)}`;
     }
 
-    exec(code: Uint8Array) {
+    exec(code: Uint8Array, args: string[]) {
         this.init(code);
         Logger.debug2(this.hexRange("CODE     ", Vm.SEGMENT_SIZE * 0, Vm.SEGMENT_SIZE * 1));
         Logger.debug2(this.hexRange("IMPORTS  ", Vm.SEGMENT_SIZE * 1, Vm.SEGMENT_SIZE * 2));
@@ -178,9 +194,19 @@ export default class Vm {
         Logger.debug2(this.hexRange("MUTABLE  ", Vm.SEGMENT_SIZE * 3, Vm.SEGMENT_SIZE * 4));
         Logger.debug2(this.hexRange("HEAP     ", Vm.SEGMENT_SIZE * 4, this.memory.byteLength));
 
-
+        const offset = this.mem_alloc(BigInt((args.length * 8) + 8 + 8));
+        let ptr = offset;
+        this.write_u64(ptr, BigInt(args.length));
+        ptr += 8n;
+        this.write_u64(ptr, 8n);
+        ptr += 8n;
+        for (let i = 0; i < args.length; i += 1) {
+            const x = this.write_str(args[i]);
+            this.write_u64(ptr, x);
+            ptr += 8n;
+        }
+        this.registers[1] = offset;
         this.push(0n);
-
         while (true) {
             const ins = this.read_u8();
             switch (ins) {

@@ -67,21 +67,74 @@ function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, i
         ss.index += 1;
     };
 
-    const s = block.tag.getStruct(v.type.id);
+    const s: P.StructDef|undefined = block.tag.getStruct(v.type.id);
     if (!s)  {
         update(v, id);
     }
     else {
-        for (let i = 0; i < s.members.length; i += 1) {
-            const m = s.members[i];
+        //console.log(`@ => ${s.id}:${s.type.id}::${s.type.typetype}`);
+        //if (s.id === "String") return;
+        for (let i = 0; i < s.params.length; i += 1) {
+            const m = s.params[i];
             const mid = `${id}.${m.id}`;
+            //console.log(`#${mid}:${m.type.id}::${m.type.typetype}`);
             if (m.type.native.bits !== 0) {
                 update(m, mid);
             }
             else {
+                update(m, mid);
                 computeStructInfo(ss, block, m, mid);
             }
         }
+    }
+}
+
+function doApplication(ac: Allocator, store: Store, block: A.BlockExpr, x: A.FunctionApplication) {
+    if (x.expr.id === P.Types.Array) {
+        const ty = block.tag.getType(x.type.typeParams[0]) || x.type.typeParams[0];
+        const args = x.args!;
+        const n = args.length;
+        const entrySizeInBytes = 8;//ty.native.bits/8;
+        const bufferSize = entrySizeInBytes*args.length;
+
+        const bb = ByteBuffer.build(8 + 8 + bufferSize);
+        // write static data known at compile time
+        bb.write_u64(n);
+        bb.write_u64(entrySizeInBytes);
+        for (let i = 0; i < bufferSize; i += 1) {
+            bb.write_u8(0xCC);
+        }
+
+        // get offset
+        const offset = ac.b.heapStore(bb.asBytes());
+
+        // write dynamic data
+        const tmp = ac.tmp();
+        let hp = offset + 8 + 8;
+        for (let i = 0; i < args.length; i += 1) {
+            emitExpr(ac, tmp, block, args[i]);
+            ac.b.mov_m_r(hp, tmp.reg);
+            hp += 8;
+        }
+        tmp.free();
+
+        store.write_imm(BigInt(offset));
+    }
+    else {
+        // push used regs to stack
+        const saved = ac.save();
+
+        // put args in  r1 ... rN
+        for (let i = 0; i < x.args.length; i += 1) {
+            const r = ac.from(`r${i+1}`);
+            emitExpr(ac, r, block, x.args[i]);
+        }
+        ac.b.call(x.mangledName!);
+
+        // pop used regs from stack
+        ac.restore(saved);
+
+        store.write_reg(ac.from("r0"));
     }
 }
 
@@ -178,58 +231,11 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             break;
         }
         case NodeType.FunctionApplication: {
-            const x = e as A.FunctionApplication;
-
-            // push used regs to stack
-            const saved = ac.save();
-
-            // put args in  r1 ... rN
-            for (let i = 0; i < x.args.length; i += 1) {
-                const r = ac.from(`r${i+1}`);
-                emitExpr(ac, r, block, x.args[i]);
-            }
-            ac.b.call(x.mangledName!);
-
-            // pop used regs from stack
-            ac.restore(saved);
-
-            store.write_reg(ac.from("r0"));
-            break;
-        }
-        case NodeType.ArrayConstructor: {
-            const x = e as A.ArrayConstructor;
-            const ty = block.tag.getType(x.type.typeParams[0]) || x.type.typeParams[0];
-            const args = x.args!;
-            const n = args.length;
-            const entrySizeInBytes = 8;//ty.native.bits/8;
-            const bufferSize = entrySizeInBytes*args.length;
-
-            const bb = ByteBuffer.build(8 + 8 + bufferSize);
-            // write static data known at compile time
-            bb.write_u64(n);
-            bb.write_u64(entrySizeInBytes);
-            for (let i = 0; i < bufferSize; i += 1) {
-                bb.write_u8(0xCC);
-            }
-
-            // get offset
-            const offset = ac.b.heapStore(bb.asBytes());
-
-            // write dynamic data
-            const tmp = ac.tmp();
-            let hp = offset + 8 + 8;
-            for (let i = 0; i < args.length; i += 1) {
-                emitExpr(ac, tmp, block, args[i]);
-                ac.b.mov_m_r(hp, tmp.reg);
-                hp += 8;
-            }
-            tmp.free();
-
-            store.write_imm(BigInt(offset));
+            doApplication(ac, store, block, e as A.FunctionApplication);
             break;
         }
         case NodeType.TypeInstance: {
-            const x = e as A.TypeInstance;
+            const x = e as A.FunctionApplication;
 
             // compute struct info
             const ss = newStructState();
@@ -284,6 +290,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
 
                 const id = [x.id].concat(...x.rest).join(".");
                 const sm = mv.ss.xs[mv.ss.map[id]];
+                if (!sm) Errors.raiseDebug(`Unknown var: ${id}`);
 
                 tmp.write_reg(mv);  // tmp = mv
                 ac.b.add_r_i(tmp.reg, sm.offset);
@@ -454,7 +461,7 @@ function emitBlock(ac: Allocator, store: Store, block: A.BlockExpr) {
     block.xs.forEach(x => emitStmt(ac, store, block, x));
 }
 
-function emitFunction(b: VmCodeBuilder, f: P.Function) {
+function emitFunction(b: VmCodeBuilder, f: P.FunctionDef) {
     b.startFunction(f.mangledName);
     const ac = Allocator.build(b);
     const scratch = ac.tmp();

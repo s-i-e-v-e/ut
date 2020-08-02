@@ -23,7 +23,6 @@ export function rewriteType(st: SymbolTable, t: P.Type, skipWord: boolean = fals
     const x1 = x0 || st.getType(t.id)!;
     const y = x1 ? (st.getTypeCons(x1.id) || x1) : (x0 ? x0 : t);
 
-    //let xx = `${t.id} (${t.typetype}) => ${y.id} (${y.typetype})`;
     const xs = y.id.split("^");
     switch (y.typetype) {
         case P.Types.Word: {

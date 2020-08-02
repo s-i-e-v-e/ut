@@ -11,51 +11,49 @@ import {
     A
 } from "./mod.ts";
 
-export interface Primitive {
-    loc: Location;
-}
-
 export interface Tag {
     tag?: any;
 }
 
-export interface Module extends Primitive, Tag {
+export interface Primitive extends Tag {
+    loc: Location;
     id: string;
+}
+
+export interface Module extends Primitive {
     path: string,
-    types: TypeDefinition[],
-    structs: Struct[],
-    foreignFunctions: ForeignFunction[],
-    functions: Function[],
+    types: TypeDecl[],
+    structs: StructDef[],
+    foreignFunctions: ForeignFunctionDef[],
+    functions: FunctionDef[],
     imports: Import[],
 }
 
-export interface Import extends Primitive {
-    id: string;
+export interface Import extends Primitive {}
+
+export interface TypedPrimitive extends Primitive {
+    typeParams: string[];
+    type: Type;
 }
 
-export interface FunctionPrototype extends Primitive, Tag {
-    id: string;
-    params: Parameter[];
-    type: Type;
-    typeParams: string[];
+export interface StructDef extends TypedPrimitive {
+    params: Variable[]; // members
     mangledName: string;
 }
 
-export interface Function extends FunctionPrototype {
+export interface FunctionPrototype extends TypedPrimitive {
+    params: Variable[];
+    mangledName: string;
+}
+
+export interface FunctionDef extends FunctionPrototype {
     body: A.BlockExpr;
 }
 
-export interface ForeignFunction extends FunctionPrototype {}
-
-export interface Struct extends Primitive {
-    members: Variable[];
-    type: Type;
-    typeParams: string[];
-}
+export interface ForeignFunctionDef extends FunctionPrototype {}
 
 export interface NativeType extends Primitive {
-    id: string;
-    typetype: string; // typetype
+    typetype: string;
     bits: number;
 }
 
@@ -68,36 +66,27 @@ export interface NativeFloat extends NativeType {
 }
 
 export interface Type extends Primitive {
-    id: string;
     typeParams: Type[];
-    typetype: string // typetype
+    typetype: string
     native: NativeType;
 }
 
-export interface TypeDefinition extends Primitive {
-    type: Type;
+export interface TypeDecl extends TypedPrimitive {}
+export interface TypeAliasDef extends TypeDecl {
+    isAlias: boolean,
 }
 
-export interface TypeAlias extends TypeDefinition {
-    alias: Type;
-}
-
-export interface TypeDeclaration extends TypeDefinition {
-    cons: Type;
-    params: A.Literal<any>[];
+export interface TypeDef extends TypeDecl {
+    isDef: boolean,
+    args: A.Literal<any>[];
 }
 
 export interface Variable extends Primitive {
-    id: string;
     type: Type;
     isMutable: boolean;
     isPrivate: boolean;
     isVararg: boolean;
 }
-
-export type Parameter = Variable;
-
-
 
 export const UnknownLoc = {
     index: 0,

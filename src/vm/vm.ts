@@ -135,7 +135,7 @@ export default class Vm {
         const rr = this.read_u8();
         const rd = (rr >>> 4) & 0x0F;
         const rs = rr & 0x0F;
-        if (ins) Logger.debug(`${ins} r${rd}, r${rs} // r${rd} ! ${this.registers[Number(rs)]}`);
+        if (ins) Logger.debug(`${ins} r${rd}, r${rs} // r${rd} ! ${this.hex(this.registers[Number(rs)])}`);
         return [rd, rs];
     }
 
@@ -163,8 +163,22 @@ export default class Vm {
         this.registers[Number(rd)] = flag ? 1n : 0n;
     }
 
+    hex(n: number|bigint) {
+        return `0x${Number(n).toString(16)}`;
+    }
+
+    hexRange(label: string, a: number|bigint, b: number|bigint) {
+        return `${label}\t\t${this.hex(a)}-${this.hex(b)}`;
+    }
+
     exec(code: Uint8Array) {
         this.init(code);
+        console.log(this.hexRange("CODE     ", Vm.SEGMENT_SIZE * 0, Vm.SEGMENT_SIZE * 1));
+        console.log(this.hexRange("IMPORTS  ", Vm.SEGMENT_SIZE * 1, Vm.SEGMENT_SIZE * 2));
+        console.log(this.hexRange("IMMUTABLE", Vm.SEGMENT_SIZE * 2, Vm.SEGMENT_SIZE * 3));
+        console.log(this.hexRange("MUTABLE  ", Vm.SEGMENT_SIZE * 3, Vm.SEGMENT_SIZE * 4));
+        console.log(this.hexRange("HEAP     ", Vm.SEGMENT_SIZE * 4, this.memory.byteLength));
+
 
         this.push(0n);
 
@@ -238,7 +252,7 @@ export default class Vm {
                 case VmOperation.MOV_R_I: {
                     const [rd, x] = this.parse_r_i();
                     this.registers[Number(rd)] = x;
-                    Logger.debug(`MOV r${rd}, ${x}`);
+                    Logger.debug(`MOV r${rd}, 0x${Number(x).toString(16)}`);
                     break;
                 }
                 case VmOperation.MOV_R_RO: {
@@ -246,7 +260,7 @@ export default class Vm {
                     const offset = this.registers[rs];
                     const n = this.read_u64(offset);
                     this.registers[Number(rd)] = n;
-                    Logger.debug(`MOV r${rd}, [r${rs}] // ${n} = [${offset}]`);
+                    Logger.debug(`MOV r${rd}, [r${rs}] // 0x${Number(n).toString(16)} = [0x${Number(offset).toString(16)}]`);
                     break;
                 }
                 case VmOperation.MOV_RO_R: {
@@ -254,19 +268,19 @@ export default class Vm {
                     const offset = this.registers[rd];
                     const n = this.registers[Number(rs)];
                     this.write_u64(offset, n);
-                    Logger.debug(`MOV [r${rd}], r${rs} // [${offset}] = ${n}`);
+                    Logger.debug(`MOV [r${rd}], r${rs} // [0x${Number(offset).toString(16)}] = 0x${Number(n).toString(16)}`);
                     break;
                 }
                 case VmOperation.MOV_R_M: {
                     const [rd, offset] = this.parse_r_i();
                     this.registers[Number(rd)] = this.read_u64(offset);
-                    Logger.debug(`MOV r${rd}, [${offset}]`);
+                    Logger.debug(`MOV r${rd}, [0x${Number(offset).toString(16)}]`);
                     break;
                 }
                 case VmOperation.MOV_M_R: {
                     const [rs, offset] = this.parse_r_i();
                     this.write_u64(offset, this.registers[Number(rs)]);
-                    Logger.debug(`MOV [${offset}], r${rs}`);
+                    Logger.debug(`MOV [0x${Number(offset).toString(16)}], r${rs}`);
                     break;
                 }
                 case VmOperation.CMP_R_R: {
@@ -334,19 +348,20 @@ export default class Vm {
                 }
                 case VmOperation.PUSH: {
                     const rs = this.parse_r();
-                    Logger.debug(`PUSH r${rs}`);
+                    Logger.debug2(`PUSH r${rs}`);
                     this.push(this.registers[Number(rs)]);
                     break;
                 }
                 case VmOperation.POP: {
                     const rd = this.parse_r();
-                    Logger.debug(`POP r${rd}`);
+                    Logger.debug2(`POP r${rd}`);
                     this.registers[Number(rd)] = this.pop();
                     break;
                 }
                 case VmOperation.CALL: {
                     const offset = this.read_u64();
-                    Logger.debug(`CALL ${offset}`);
+                    console.group();
+                    Logger.debug(`CALL 0x${Number(offset).toString(16)}`);
                     if (offset >= this.imports) {
                         const fn = this.read_str(offset);
                         const p0 = this.registers[1];
@@ -357,19 +372,15 @@ export default class Vm {
                             }
                             case "sys-println$String": {
                                 const str = this.read_str(p0);
-                                console.log(str);
+                                console.log(`$> ${str}`);
                                 break;
                             }
                             case "sys-println$Int64": {
-                                console.log(`${p0}`);
+                                console.log(`$> ${p0}`);
                                 break;
                             }
                             case "sys-println$Bool": {
-                                console.log(`${p0 === 1n}`);
-                                break;
-                            }
-                            case "sys-println$Pointer": {
-                                console.log(`ptr:${p0}`);
+                                console.log(`$> ${p0 === 1n}`);
                                 break;
                             }
                             case "sys-new$Int64": {
@@ -386,6 +397,7 @@ export default class Vm {
                             }
                             default: Errors.raiseVmError(`Unknown foreign function: ${fn}`);
                         }
+                        console.groupEnd();
                     }
                     else {
                         this.push(this.ip);
@@ -418,6 +430,7 @@ export default class Vm {
                 case VmOperation.RET: {
                     Logger.debug("RET");
                     this.ip = this.pop();
+                    console.groupEnd()
                     if (this.ip === 0n) {
                         Logger.debug("DONE");
                         return;

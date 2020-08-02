@@ -36,8 +36,16 @@ export class ByteBuffer {
         return new ByteBuffer(size);
     }
 
+    set_offset(offs: number)  {
+        this._offset = offs;
+    }
+
     offset() {
         return this._offset;
+    }
+
+    get_u8(offs: number) {
+        return this.dv.getUint8(offs);
     }
 
     private check_offset(offset: bigint|number) {
@@ -94,36 +102,16 @@ interface Reloc {
     id: string;
 }
 
-function write_r_r(bb: ByteBuffer, rd: string, rs: string, op: VmOperation) {
-    bb.write_u8(op);
-    const a = registers[rd];
-    const b = registers[rs];
-    bb.write_u8(a << 4 | b);
-}
-
-function write_r_i(bb: ByteBuffer, rd: string, n: number, op: VmOperation) {
-    bb.write_u8(op);
-    const a = registers[rd];
-    bb.write_u8(a << 4 | 0);
-    bb.write_u64(n);
-}
-
-function write_r(bb: ByteBuffer, rd: string, op: VmOperation) {
-    bb.write_u8(op);
-    const a = registers[rd];
-    bb.write_u8(a << 4 | 0);
-}
-
 function checkRegister(r: string) {
     if (registers[r] === undefined) Errors.raiseDebug(`Unknown register: ${r}`);
 }
 
 export class VmCodeBuilder {
     private static readonly SEGMENT_SIZE = Vm.SEGMENT_SIZE;
-    private static readonly CS_BASE = 0;
-    private static readonly DS_BASE = VmCodeBuilder.SEGMENT_SIZE;
+    private static readonly CS_BASE = VmCodeBuilder.SEGMENT_SIZE*0;
+    private static readonly IMPORTS_BASE = VmCodeBuilder.SEGMENT_SIZE*1;
     private static readonly RDS_BASE = VmCodeBuilder.SEGMENT_SIZE*2;
-    private static readonly IMPORTS_BASE = VmCodeBuilder.SEGMENT_SIZE*3;
+    private static readonly DS_BASE = VmCodeBuilder.SEGMENT_SIZE*3;
 
     private readonly cs: ByteBuffer
     private readonly ds: ByteBuffer;
@@ -137,9 +125,9 @@ export class VmCodeBuilder {
     private constructor() {
         this.importsOffset = BigInt(VmCodeBuilder.IMPORTS_BASE);
         this.cs = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
-        this.ds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
-        this.rds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.imports = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
+        this.rds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
+        this.ds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.labels = {};
         this.reloc = [];
         this.internedStrings = {};
@@ -185,17 +173,41 @@ export class VmCodeBuilder {
         return this.internedStrings[x];
     }
 
+    private do_ins(op: number) {
+        this.cs.write_u8(op);
+    }
+
     heapStore(xs: Uint8Array) {
         const offs = this.ds.offset();
         this.ds.write(xs);
         return VmCodeBuilder.DS_BASE+offs;
     }
 
+    private write_r_r(rd: string, rs: string, op: VmOperation) {
+        this.do_ins(op);
+        const a = registers[rd];
+        const b = registers[rs];
+        this.cs.write_u8(a << 4 | b);
+    }
+
+    private write_r_i(rd: string, n: number, op: VmOperation) {
+        this.do_ins(op);
+        const a = registers[rd];
+        this.cs.write_u8(a << 4 | 0);
+        this.cs.write_u64(n);
+    }
+
+    private write_r(rd: string, op: VmOperation) {
+        this.do_ins(op);
+        const a = registers[rd];
+        this.cs.write_u8(a << 4 | 0);
+    }
+
     mov_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
         if (rd === rs) return;
-        this.cs.write_u8(VmOperation.MOV_R_R);
+        this.do_ins(VmOperation.MOV_R_R);
         const a = registers[rd];
         const b = registers[rs];
         this.cs.write_u8(a << 4 | b);
@@ -204,7 +216,7 @@ export class VmCodeBuilder {
 
     mov_r_i(rd: string, n: bigint) {
         checkRegister(rd);
-        this.cs.write_u8(VmOperation.MOV_R_I);
+        this.do_ins(VmOperation.MOV_R_I);
         const a = registers[rd];
         this.cs.write_u8(a << 4 | 0);
         this.cs.write_u64(n);
@@ -219,7 +231,7 @@ export class VmCodeBuilder {
 
     mov_m_r(offset: number, rs: string) {
         checkRegister(rs);
-        this.cs.write_u8(VmOperation.MOV_M_R);
+        this.do_ins(VmOperation.MOV_M_R);
         const a = registers[rs];
         this.cs.write_u8(a << 4 | 0);
         this.cs.write_u64(offset);
@@ -228,7 +240,7 @@ export class VmCodeBuilder {
 
     mov_r_m(rd: string, offset: number) {
         checkRegister(rd);
-        this.cs.write_u8(VmOperation.MOV_R_M);
+        this.do_ins(VmOperation.MOV_R_M);
         const a = registers[rd];
         this.cs.write_u8(a << 4 | 0);
         this.cs.write_u64(offset);
@@ -238,7 +250,7 @@ export class VmCodeBuilder {
     mov_r_ro(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        this.cs.write_u8(VmOperation.MOV_R_RO);
+        this.do_ins(VmOperation.MOV_R_RO);
         const a = registers[rd];
         const b = registers[rs];
         this.cs.write_u8(a << 4 | b);
@@ -248,7 +260,7 @@ export class VmCodeBuilder {
     mov_ro_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        this.cs.write_u8(VmOperation.MOV_RO_R);
+        this.do_ins(VmOperation.MOV_RO_R);
         const a = registers[rd];
         const b = registers[rs];
         this.cs.write_u8(a << 4 | b);
@@ -256,26 +268,26 @@ export class VmCodeBuilder {
     }
 
     push_i(x: number) {
-        this.cs.write_u8(VmOperation.PUSH_I);
+        this.do_ins(VmOperation.PUSH_I);
         this.cs.write_u64(x);
     }
 
     push_r(rs: string) {
         checkRegister(rs);
-        this.cs.write_u8(VmOperation.PUSH);
+        this.do_ins(VmOperation.PUSH);
         const a = registers[rs];
         this.cs.write_u8(a << 4 | 0);
     }
 
     pop_r(rd: string) {
         checkRegister(rd);
-        this.cs.write_u8(VmOperation.POP);
+        this.do_ins(VmOperation.POP);
         const a = registers[rd];
         this.cs.write_u8(a << 4 | 0);
     }
 
     private goto(op: VmOperation, id: string, map: Dictionary<number>) {
-        this.cs.write_u8(op);
+        this.do_ins(op);
         let offset;
         Logger.debug(`goto:: ${id} => ${map[id]}`);
         if (map[id] !== undefined) {
@@ -312,141 +324,141 @@ export class VmCodeBuilder {
     }
 
     ret() {
-        this.cs.write_u8(VmOperation.RET);
+        this.do_ins(VmOperation.RET);
         Logger.debug(`RET`);
     }
 
     mul_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        write_r_r(this.cs, rd, rs, VmOperation.MUL_R_R);
+        this.write_r_r(rd, rs, VmOperation.MUL_R_R);
         Logger.debug(`MUL ${rd}, ${rs}`);
     }
 
     div_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        write_r_r(this.cs, rd, rs, VmOperation.DIV_R_R);
+        this.write_r_r(rd, rs, VmOperation.DIV_R_R);
         Logger.debug(`DIV ${rd}, ${rs}`);
     }
 
     mod_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        write_r_r(this.cs, rd, rs, VmOperation.MOD_R_R);
+        this.write_r_r(rd, rs, VmOperation.MOD_R_R);
         Logger.debug(`MOD ${rd}, ${rs}`);
     }
 
     add_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        write_r_r(this.cs, rd, rs, VmOperation.ADD_R_R);
+        this.write_r_r(rd, rs, VmOperation.ADD_R_R);
         Logger.debug(`ADD ${rd}, ${rs}`);
     }
 
     sub_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        write_r_r(this.cs, rd, rs, VmOperation.SUB_R_R);
+        this.write_r_r(rd, rs, VmOperation.SUB_R_R);
         Logger.debug(`SUB ${rd}, ${rs}`);
     }
 
     mul_r_i(rd: string, n: number) {
         checkRegister(rd);
-        write_r_i(this.cs, rd, n, VmOperation.MUL_R_I);
+        this.write_r_i(rd, n, VmOperation.MUL_R_I);
         Logger.debug(`MUL ${rd}, ${n}`);
     }
 
     div_r_i(rd: string, n: number) {
         checkRegister(rd);
-        write_r_i(this.cs, rd, n, VmOperation.DIV_R_I);
+        this.write_r_i(rd, n, VmOperation.DIV_R_I);
         Logger.debug(`DIV ${rd}, ${n}`);
     }
 
     mod_r_i(rd: string, n: number) {
         checkRegister(rd);
-        write_r_i(this.cs, rd, n, VmOperation.MOD_R_I);
+        this.write_r_i(rd, n, VmOperation.MOD_R_I);
         Logger.debug(`MOD ${rd}, ${n}`);
     }
 
     add_r_i(rd: string, n: number) {
         checkRegister(rd);
-        write_r_i(this.cs, rd, n, VmOperation.ADD_R_I);
+        this.write_r_i(rd, n, VmOperation.ADD_R_I);
         Logger.debug(`ADD ${rd}, ${n}`);
     }
 
     sub_r_i(rd: string, n: number) {
         checkRegister(rd);
-        write_r_i(this.cs, rd, n, VmOperation.SUB_R_I);
+        this.write_r_i(rd, n, VmOperation.SUB_R_I);
         Logger.debug(`SUB ${rd}, ${n}`);
     }
 
     cmp_r_i(rs: string, n: number) {
         checkRegister(rs);
-        write_r_i(this.cs, rs, n, VmOperation.CMP_R_I);
+        this.write_r_i(rs, n, VmOperation.CMP_R_I);
         Logger.debug(`CMP ${rs}, ${n}`);
     }
 
     cmp_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        write_r_r(this.cs, rd, rs, VmOperation.CMP_R_R);
+        this.write_r_r(rd, rs, VmOperation.CMP_R_R);
         Logger.debug(`CMP ${rd}, ${rs}`);
     }
 
     and_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        write_r_r(this.cs, rd, rs, VmOperation.AND_R_R);
+        this.write_r_r(rd, rs, VmOperation.AND_R_R);
         Logger.debug(`AND ${rd}, ${rs}`);
     }
 
     or_r_r(rd: string, rs: string) {
         checkRegister(rd);
         checkRegister(rs);
-        write_r_r(this.cs, rd, rs, VmOperation.OR_R_R);
+        this.write_r_r(rd, rs, VmOperation.OR_R_R);
         Logger.debug(`OR ${rd}, ${rs}`);
     }
 
     not(rd: string) {
         checkRegister(rd);
-        write_r(this.cs, rd, VmOperation.NOT);
+        this.write_r(rd, VmOperation.NOT);
         Logger.debug(`NOT ${rd}`);
     }
 
     sete(rd: string) {
         checkRegister(rd);
-        write_r(this.cs, rd, VmOperation.SET_E);
+        this.write_r(rd, VmOperation.SET_E);
         Logger.debug(`SETE ${rd}`);
     }
 
     setne(rd: string) {
         checkRegister(rd);
-        write_r(this.cs, rd, VmOperation.SET_NE);
+        this.write_r(rd, VmOperation.SET_NE);
         Logger.debug(`SETNE ${rd}`);
     }
 
     setlt(rd: string) {
         checkRegister(rd);
-        write_r(this.cs, rd, VmOperation.SET_LT);
+        this.write_r(rd, VmOperation.SET_LT);
         Logger.debug(`SETLT ${rd}`);
     }
 
     setle(rd: string) {
         checkRegister(rd);
-        write_r(this.cs, rd, VmOperation.SET_LE);
+        this.write_r(rd, VmOperation.SET_LE);
         Logger.debug(`SETLE ${rd}`);
     }
 
     setgt(rd: string) {
         checkRegister(rd);
-        write_r(this.cs, rd, VmOperation.SET_GT);
+        this.write_r(rd, VmOperation.SET_GT);
         Logger.debug(`SETGT ${rd}`);
     }
 
     setge(rd: string) {
         checkRegister(rd);
-        write_r(this.cs, rd, VmOperation.SET_GE);
+        this.write_r(rd, VmOperation.SET_GE);
         Logger.debug(`SETGE ${rd}`);
     }
 
@@ -461,11 +473,11 @@ export class VmCodeBuilder {
             Logger.debug(`reloc::${r.id}:${offset} @ ${dest}`)
         }
 
-        const xs = new Uint8Array(VmCodeBuilder.SEGMENT_SIZE * 4);
-        xs.set(this.cs.asBytes(), 0);
-        xs.set(this.ds.asBytes(), VmCodeBuilder.SEGMENT_SIZE);
-        xs.set(this.rds.asBytes(), VmCodeBuilder.SEGMENT_SIZE * 2);
-        xs.set(this.imports.asBytes(), VmCodeBuilder.SEGMENT_SIZE * 3);
+        const xs = new Uint8Array(VmCodeBuilder.CS_BASE+VmCodeBuilder.IMPORTS_BASE+VmCodeBuilder.RDS_BASE+VmCodeBuilder.DS_BASE);
+        xs.set(this.cs.asBytes(), VmCodeBuilder.CS_BASE);
+        xs.set(this.imports.asBytes(), VmCodeBuilder.IMPORTS_BASE);
+        xs.set(this.rds.asBytes(), VmCodeBuilder.RDS_BASE);
+        xs.set(this.ds.asBytes(), VmCodeBuilder.DS_BASE);
         return xs;
     }
 }

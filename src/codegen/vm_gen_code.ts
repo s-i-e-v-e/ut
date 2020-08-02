@@ -14,12 +14,11 @@ import {
     VmCodeBuilder
 } from "../vm/mod.ts";
 import {
-    Dictionary,
     Errors,
     Logger,
 } from "../util/mod.ts";
 import {
-    Allocator,
+    Allocator, newStructState,
     Store,
     StructState,
 } from "./mod.ts";
@@ -30,7 +29,7 @@ type Stmt = A.Stmt;
 function derefer(store: Store, r: Store) {
     if (store.isWrite) {
         if (store.isValue) {
-            store.write_deref(r);
+            store.write_from_mem(r);
         }
         else {
             store.write_reg(r);
@@ -39,7 +38,7 @@ function derefer(store: Store, r: Store) {
     else {
         if (store.isRHS) {
             if (store.isValue) {
-                r.write_deref(store);
+                r.write_from_mem(store);
             }
             else {
                 r.write_reg(store);
@@ -47,7 +46,7 @@ function derefer(store: Store, r: Store) {
         }
         else {
             if (store.isValue) {
-                r.write_reg_to_deref(store);
+                r.write_to_mem(store);
             }
             else {
                 r.write_reg(store);
@@ -55,8 +54,6 @@ function derefer(store: Store, r: Store) {
         }
     }
 }
-
-
 
 function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, id: string) {
     const update = (v: P.Variable, id: string) => {
@@ -97,7 +94,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.StringLiteral: {
             const x = e as A.StringLiteral;
-            store.write_str(x.value);
+            store.write_imm_str(x.value);
             break;
         }
         case NodeType.NumberLiteral: {
@@ -235,12 +232,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             const x = e as A.TypeInstance;
 
             // compute struct info
-            const ss: StructState = {
-                map: {},
-                xs: [],
-                offset: 0,
-                index: 0,
-            };
+            const ss = newStructState();
             const v = P.Types.buildVar("tmp", x.type, true, false, false, x.loc);
             computeStructInfo(ss, block, v, v.id);
 
@@ -277,30 +269,30 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.IDExpr: {
             const x = e as A.IDExpr;
-            const ids = ac.get(x.id);
+            const mv: Store = ac.get(x.id);
 
-            if (ids.isRegister || !x.rest.length) {
+            if (!x.rest.length) {
                 if (store.isWrite) {
-                    store.write_reg(ids);
+                    store.write_reg(mv);
                 }
                 else {
-                    ids.write_reg(store);
+                    mv.write_reg(store);
                 }
             }
             else {
                 const id = [x.id].concat(...x.rest).join(".");
-                const mem = ids.memory();
-                const sm = mem.ss.xs[mem.ss.map[id]];
+
+                const sm = mv.ss.xs[mv.ss.map[id]];
 
                 const tmp = ac.tmp();
-                tmp.write_reg(mem);  // tmp = mem
+                tmp.write_reg(mv);  // tmp = mv
                 ac.b.add_r_i(tmp.reg, sm.offset);
 
                 if (store.isWrite) {
-                    store.write_deref(tmp); // store = tmp
+                    store.write_from_mem(tmp); // store = tmp
                 }
                 else {
-                    tmp.write_reg_to_deref(store); // tmp = store
+                    store.write_to_mem(tmp); // tmp = store
 
                 }
                 tmp.free();
@@ -310,26 +302,38 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
         case NodeType.ArrayExpr: {
             const x = e as A.ArrayExpr;
 
+            // get index
             const index = ac.tmp();
             emitExpr(ac, index, block, x.args[0]);
 
-            // get element size offset
-            const t1 = ac.tmp();
-            t1.write_reg(ac.get(x.expr.id));
-            ac.b.add_r_i(t1.reg, 8);
+            // compute element offset
+            const base = ac.get(x.expr.id);
 
-            const t2 = ac.tmp();
-            ac.b.mov_r_ro(t2.reg, t1.reg);
-            ac.b.mul_r_r(t2.reg, index.reg);
+            // tmp = ([base + 8] * index)
+            const tmp = ac.tmp();
+            ac.b.mov_r_r(tmp.reg, base.reg);
+            ac.b.add_r_i(tmp.reg, 8);
+            ac.b.mov_r_ro(tmp.reg, tmp.reg);
+            ac.b.mul_r_r(tmp.reg, index.reg);
 
-            ac.b.add_r_i(t2.reg, 8);
-            ac.b.add_r_r(t2.reg, t1.reg);
+            // tmp = tmp + base + 8 + 8
+            ac.b.add_r_i(tmp.reg, 16);
+            ac.b.add_r_r(tmp.reg, base.reg);
 
-            derefer(store, t2);
+            ac.b.add_r_i(tmp.reg, 0);
+            ac.b.add_r_i(tmp.reg, 0);
+            ac.b.add_r_i(tmp.reg, 0);
+            ac.b.add_r_i(tmp.reg, 0);
+            Errors.debug();
+            // update
+            derefer(store, tmp);
+            ac.b.add_r_i(tmp.reg, 0);
+            ac.b.add_r_i(tmp.reg, 0);
+            ac.b.add_r_i(tmp.reg, 0);
+            ac.b.add_r_i(tmp.reg, 0);
 
             index.free();
-            t1.free();
-            t2.free();
+            tmp.free();
             break;
         }
         case NodeType.LocalReturnExpr: {
@@ -397,21 +401,10 @@ function emitStmt(ac: Allocator, store: Store, block: A.BlockExpr, s: Stmt) {
             const x = s as A.VarInitStmt;
             const tmp = ac.tmp();
             emitExpr(ac, tmp, block, x.expr);
-            if (x.var.type.native.bits === 0) {
-                const ss = {
-                    map: {},
-                    xs: [],
-                    offset: 0,
-                    index: 0,
-                }
-                computeStructInfo(ss, block, x.var, x.var.id);
-                const r = ac.alloc(x.var, ss);
-                r.write_reg(tmp);
-            }
-            else {
-                const r = ac.alloc(x.var);
-                r.write_reg(tmp);
-            }
+            const ss = newStructState();
+            computeStructInfo(ss, block, x.var, x.var.id);
+            const r = ac.alloc(x.var, ss);
+            r.write_reg(tmp);
             tmp.free();
             break;
         }

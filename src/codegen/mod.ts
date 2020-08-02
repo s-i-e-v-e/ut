@@ -12,12 +12,12 @@ import {
 } from "./Allocator.ts";
 import {Dictionary} from "../util/mod.ts";
 
-interface StructMember {
+export interface StructMember {
     offset: number;
     size: number;
 }
 
-interface StructState {
+export interface StructState {
     map: Dictionary<number>;
     xs: StructMember[];
     index: number; // nth member of struct
@@ -28,5 +28,13 @@ export {
     vm_gen_code,
     Store,
     Allocator,
-    StructState,
 };
+
+export function newStructState(): StructState {
+    return {
+        map: {},
+        xs: [],
+        index: 0,
+        offset: 0,
+    };
+}

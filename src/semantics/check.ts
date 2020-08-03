@@ -511,8 +511,11 @@ function doTypes(st: SymbolTable, xs: P.TypeDecl[], ys: P.StructDef[]) {
 
     const doStruct = (s: P.StructDef) => {
         if (!st.getStruct(s.type.id)) st.addStruct(s);
+        const old = st;
+        st = st.newTable(`struct:${s.id}`);
         s.typeParams.forEach(x => st.addTypeParameter(x));
         s.params.forEach(x => st.typeMustExist(x.type));
+        st = old;
     };
 
     ys.forEach(x => st.addType(x.type));

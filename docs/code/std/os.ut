@@ -1,0 +1,32 @@
+import std
+foreign fn sys-new(size: Int64): Pointer[Uint8]
+foreign fn sys-free(p: Pointer[Uint8]): Void
+foreign fn sys-size(xs: Pointer): Int64
+foreign fn sys-println(x: Int64): Void
+foreign fn sys-println(x: String): Void
+foreign fn sys-println(x: Bool): Void
+foreign fn sys-exit(x: Int64): Void
+
+fn exit(code: Int64) {
+    return sys-exit(code);
+}
+
+fn new(size: Int64) {
+    return sys-new(size);
+}
+
+fn free(p: Pointer[Uint8]) {
+    sys-free(p);
+}
+
+fn println(x: Int64) {
+    sys-println(x);
+}
+
+fn println(x: String) {
+    sys-println(x);
+}
+
+fn println(x: Bool) {
+    sys-println(x);
+}

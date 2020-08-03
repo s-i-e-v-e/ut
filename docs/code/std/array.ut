@@ -1,0 +1,18 @@
+import std
+import std.os
+
+fn size[A](xs: Array[A]) {
+    return sys-size(xs: Pointer);
+}
+
+fn reverse[A](xs: Array[A]) {
+    let n = xs.length - 1;
+    let nx = xs.length/2;
+    var ys = xs;
+    for (var i = 0; i < nx; i += 1) {
+        let j = n - i;
+        var x = ys(i);
+        ys(i) = ys(j);
+        ys(j) = x;
+    };
+}

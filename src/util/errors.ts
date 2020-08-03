@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    Location,
     P,
     A,
 } from "../parser/mod.ts";
@@ -18,6 +17,7 @@ const toTypeString = P.Types.toTypeString;
 type Type = P.Type;
 type Variable = P.Variable;
 type NodeType = A.NodeType;
+type Location = P.Location;
 const NodeTypeEnum = A.NodeType;
 
 export function buildLocation(loc: Location) {
@@ -119,6 +119,12 @@ export default class Errors {
         }
     }
 
+    static DuplicateDef = class extends Errors.SemanticError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
     static TypeMismatch = class extends Errors.SemanticError {
         constructor(msg: string) {
             super(msg);
@@ -189,6 +195,9 @@ export default class Errors {
 
 
     static Checker = class {
+        static raiseDuplicateDef(id: string, loc: Location): never {
+            throw new Errors.ArrayInit(buildErrorString(`\`${id}\` already exists in current scope.`, loc));
+        }
         static raiseArrayInitArgs(loc: Location): never {
             throw new Errors.ArrayInit(buildErrorString(`Array initialization failure: argument list is empty`, loc));
         }
@@ -259,8 +268,9 @@ export default class Errors {
         throw new this.EOF("EOF");
     }
 
-    static ASSERT(condition: boolean, msg?: string): asserts condition {
-        if (!condition) throw new this.Debug(msg || "");
+    static ASSERT(condition: boolean, msg?: string, loc?: Location): asserts condition {
+        const m = msg ? (loc ? buildErrorString(msg || "", loc!) : msg) : "";
+        if (!condition) throw new this.Debug(m);
     }
 
     static raiseDebug(msgOrNode?: string|NodeType): never {

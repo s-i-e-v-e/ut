@@ -11,7 +11,6 @@ import {
 } from "../parser/mod.ts";
 import {
     SymbolTable,
-    Types,
     resolveVar,
 } from "./mod.internal.ts";
 import {
@@ -19,6 +18,7 @@ import {
     Errors,
     Logger,
 } from "../util/mod.ts";
+import {buildBlockExpr} from "../parser/parser.ts";
 
 type Stmt = A.Stmt;
 type Expr = A.Expr;
@@ -52,7 +52,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         case NodeType.IDExpr: {
             const x = e as A.IDExpr;
             const v = st.getVar(x.id)!;
-            v.type = Types.rewriteType(st, v.type);
+            v.type = st.resolver.rewriteType(v.type);
             break;
         }
         case NodeType.BinaryExpr: {
@@ -117,7 +117,6 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         case NodeType.IfExpr: {
             const x = e as A.IfExpr;
             doExpr(st, block, x.condition);
-
             doBlock(x.ifBranch.tag, x.ifBranch);
             doBlock(x.elseBranch.tag, x.elseBranch);
             break;
@@ -152,25 +151,24 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
-    e.type = Types.rewriteType(st, e.type);
+    e.type = st.resolver.rewriteType(e.type);
 }
 
 function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: P.Variable) {
     const s = st.getStruct(v.type.id);
-    if (!s)  {
-        v.type = Types.rewriteType(st, v.type);
-    }
-    else {
+    if (s)  {
         s.params.forEach((a: P.Variable) => rewriteVar(st, block, a));
     }
+    v.type = st.resolver.rewriteType(v.type);
+    //Errors.ASSERT(v.type.native.bits !== 0, v.id);
 }
 
 function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
     switch (s.nodeType) {
         case NodeType.VarInitStmt: {
             const x = s as A.VarInitStmt;
-            const v = st.getVar(x.var.id)!;
-            rewriteVar(st, block, v);
+            x.var = st.getVar(x.var.id)!;
+            rewriteVar(st, block, x.var);
             doExpr(st, block, x.expr);
             break;
         }
@@ -241,11 +239,12 @@ function doBlock(st: SymbolTable, block: A.BlockExpr) {
 }
 
 function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {
-
+    fp.returns = st.resolver.rewriteType(fp.returns!);
 }
 
 function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
-
+    const block = buildBlockExpr(fp.loc);
+    fp.params.forEach(p => rewriteVar(st, block, p));
 }
 
 function doFunction(st: SymbolTable, f: P.FunctionDef) {
@@ -289,6 +288,12 @@ function doModule(st: SymbolTable, m: P.Module) {
     for (const x of m.foreignFunctions) {
         doForeignFunction(st, x);
     }
+
+    const xs = [];
+    for (const x of m.functions) {
+        xs.push(...(st.getAllFunctions(x.id) as P.FunctionDef[] || []));
+    }
+    m.functions = xs.filter(f => f.typeParams.length === 0);
 
     for (const x of m.functions) {
         doFunction(st, x);

@@ -6,8 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { TokenType } from "./mod.internal.ts";
-import { Location } from "./mod.ts";
+import { P } from "./mod.ts";
 import { Errors } from "../util/mod.ts";
+type Location = P.Location;
 
 export default class CharacterStream {
     private old?: Location;

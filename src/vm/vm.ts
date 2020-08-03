@@ -15,7 +15,7 @@ import {
 } from "./mod.internal.ts";
 
 export default class Vm {
-    public static readonly SEGMENT_SIZE = 1024*8;
+    public static readonly SEGMENT_SIZE = 1024*32;
     private ip: bigint;
     private hp: bigint; // heap pointer
     private sp: bigint; // stack pointer
@@ -385,44 +385,42 @@ export default class Vm {
                 }
                 case VmOperation.CALL: {
                     const offset = this.read_u64();
-                    console.group();
                     Logger.debug(`CALL 0x${Number(offset).toString(16)}`);
                     if (offset >= this.imports) {
                         const fn = this.read_str(offset);
                         const p0 = this.registers[1];
                         switch (fn) {
-                            case "sys-exit$Int64": {
+                            case "sys-exit($Int64)": {
                                 Deno.exit(Number(p0));
                                 break;
                             }
-                            case "sys-println$String": {
+                            case "sys-println($String)": {
                                 const str = this.read_str(p0);
-                                console.log(`$> ${str}`);
+                                console.log(`${str}`);
                                 break;
                             }
-                            case "sys-println$Int64": {
-                                console.log(`$> ${p0}`);
+                            case "sys-println($Int64)": {
+                                console.log(`${p0}`);
                                 break;
                             }
-                            case "sys-println$Bool": {
-                                console.log(`$> ${p0 === 1n}`);
+                            case "sys-println($Bool)": {
+                                console.log(`${p0 === 1n}`);
                                 break;
                             }
-                            case "sys-new$Int64": {
+                            case "sys-new($Int64)": {
                                 this.registers[0] = this.mem_alloc(p0);
                                 break;
                             }
-                            case "sys-free$Int64": {
+                            case "sys-free($Int64)": {
                                 this.mem_free(p0);
                                 break;
                             }
-                            case "sys-size$Pointer": {
+                            case "sys-size($Pointer)": {
                                 this.registers[0] = this.read_u64(p0);
                                 break;
                             }
                             default: Errors.raiseVmError(`Unknown foreign function: ${fn}`);
                         }
-                        console.groupEnd();
                     }
                     else {
                         this.push(this.ip);
@@ -455,7 +453,6 @@ export default class Vm {
                 case VmOperation.RET: {
                     Logger.debug("RET");
                     this.ip = this.pop();
-                    console.groupEnd()
                     if (this.ip === 0n) {
                         Logger.debug("DONE");
                         return;

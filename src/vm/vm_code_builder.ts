@@ -469,8 +469,8 @@ export class VmCodeBuilder {
         for (const r of this.reloc) {
             const offset = this.labels[r.id];
             const dest = r.offset;
-            this.cs.write_u64_at(offset, dest);
             Logger.debug(`reloc::${r.id}:${offset} @ ${dest}`)
+            this.cs.write_u64_at(offset, dest);
         }
 
         const xs = new Uint8Array(VmCodeBuilder.CS_BASE+VmCodeBuilder.IMPORTS_BASE+VmCodeBuilder.RDS_BASE+VmCodeBuilder.DS_BASE);

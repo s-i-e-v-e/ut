@@ -6,40 +6,37 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    clone,
     Dictionary,
     Errors,
     Logger,
 } from "../util/mod.ts";
 import {
-    Location,
     P,
     A,
 } from "../parser/mod.ts";
 import {
-    Types,
+    TypeResolver,
+    GenericMap,
 } from "./mod.internal.ts";
+type Location = P.Location;
 
 interface AnalysisState {
     ret?: A.ReturnStmt;
-}
-
-interface FunctionPrototypes {
-    map: Dictionary<P.FunctionPrototype>;
 }
 
 interface Namespaces {
     import: Dictionary<P.Import>;
     types: Dictionary<P.Type>;
     typeDefinitions: Dictionary<P.TypeDecl>;
-    structs: Dictionary<P.StructDef>;
-    functions: Dictionary<FunctionPrototypes>;
+    structs: GenericMap<P.StructDef>;
+    functions: GenericMap<P.FunctionPrototype>;
     vars: Dictionary<P.Variable>;
 }
 
-type Resolve<T> = (ns: Namespaces, id: string) => T;
+type Resolve<T> = (st: SymbolTable, id: string) => T;
 
 export default class SymbolTable {
+    public readonly resolver: TypeResolver;
     private readonly ns: Namespaces;
     public readonly children: SymbolTable[];
     public readonly as: AnalysisState = {
@@ -56,39 +53,33 @@ export default class SymbolTable {
             vars: {},
         };
         this.children = [];
+        this.resolver = new TypeResolver(this);
     }
 
     private static add<T>(name: string, ns: Dictionary<T>, x: T) {
+        const q = x as any as P.Primitive;
+        Errors.ASSERT(!!q.loc);
+        if (!!ns[name]) Errors.Checker.raiseDuplicateDef(name, q.loc);
         Errors.ASSERT(!ns[name], name);
         ns[name] = x;
     }
 
     private get<T>(id: string, resolve: Resolve<T>) {
         const mod = this.getModule();
-        const parents = this.getParents();
         const t: SymbolTable = this;
-        const xs = [t].concat(...this.getModules().filter(x => x.name !== t.name).slice());
+        let xs = mod.getModules();
+        xs = xs.filter(x => mod.ns.import[x.name]);
+        xs = [t].concat(...xs);
 
         for (let x of xs) {
             let table: SymbolTable|undefined = x;
-            if (!(parents.filter(y => y.name === table!.name).length || mod.ns.import[table.name])) continue;
             while (table) {
-                const y: T = resolve(table.ns, id);
+                const y: T = resolve(table, id);
                 if (y) return y;
                 table = table.parent;
             }
         }
         return undefined;
-    }
-
-    private getParents() {
-        let table: SymbolTable|undefined = this;
-        const xs = [];
-        while (table.parent) {
-            xs.push(table);
-            table = table.parent;
-        }
-        return xs;
     }
 
     private getModule() {
@@ -118,28 +109,41 @@ export default class SymbolTable {
     }
 
     typeExists(t: P.Type) {
-        return this.exists(t.id, (ns, id) => ns.types[id]);
+        return this.exists(t.id, (st, id) => st.ns.types[id]);
     }
 
     varExists(id: string) {
-        return this.exists(id, (ns, id) => ns.vars[id]);
+        return this.exists(id, (st, id) => st.ns.vars[id]);
     }
 
     addImport(im: P.Import) {
         SymbolTable.add(im.id, this.ns.import, im);
     }
 
-    addFunction(fp: P.FunctionPrototype) {
-        Logger.debug(`#fn:${fp.mangledName}`);
-        const exists = this.ns.functions[fp.id] !== undefined;
-        const m = this.ns.functions[fp.id] || { map: {} };
-        Errors.ASSERT(!m.map[fp.mangledName]);
-        m.map[fp.mangledName] = fp;
-        if (!exists) SymbolTable.add(fp.id, this.ns.functions, m);
+    addFunction(x: P.FunctionPrototype) {
+        Logger.debug(`#fn:${x.mangledName}`);
+        if (!this.ns.functions[x.id]) {
+            this.ns.functions[x.id] = {};
+        }
+        Errors.ASSERT(this.ns.functions[x.id][x.mangledName] === undefined, x.mangledName);
+        this.ns.functions[x.id][x.mangledName] = x;
     }
 
-    addStruct(s: P.StructDef) {
-        SymbolTable.add(s.type.id, this.ns.structs, s);
+    addStruct(x: P.StructDef) {
+        Logger.debug(`#st:${x.mangledName}`);
+        if (!this.ns.structs[x.id]) {
+            this.ns.structs[x.id] = {};
+        }
+        Errors.ASSERT(this.ns.structs[x.id][x.mangledName] === undefined, x.mangledName);
+        this.ns.structs[x.id][x.mangledName] = x;
+    }
+
+    addType(t: P.Type) {
+        SymbolTable.add(t.id, this.ns.types, t);
+    }
+
+    addTypeParameter(t: P.Type) {
+        this.addType(t);
     }
 
     addTypeDecl(t: P.TypeDecl) {
@@ -148,24 +152,16 @@ export default class SymbolTable {
         SymbolTable.add(t.id, this.ns.typeDefinitions, t);
     }
 
-    addType(t: P.Type) {
-        SymbolTable.add(t.id, this.ns.types, t);
-    }
-
-    addTypeParameter(t: string) {
-        SymbolTable.add(t, this.ns.types, P.Types.newType(t));
-    }
-
     addVar(v: P.Variable) {
         SymbolTable.add(v.id, this.ns.vars, v);
     }
 
     getType(id: string): P.Type|undefined {
-        return this.getTypeAlias(id) || this.get(id, (ns, id) => ns.types[id]);
+        return this.getTypeAlias(id) || this.get(id, (st, id) => st.ns.types[id]);
     }
 
     getTypeCons(id: string): P.Type|undefined {
-        const x = this.get(id, (ns, id) => ns.typeDefinitions[id]) as P.TypeDef;
+        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as P.TypeDef;
         if (x && x.isDef) {
             const y = this.getType(x.type.id) || x.type;
             return this.getTypeCons(y.id) || y;
@@ -176,7 +172,7 @@ export default class SymbolTable {
     }
 
     private getTypeAlias(id: string): P.Type|undefined {
-        const x = this.get(id, (ns, id) => ns.typeDefinitions[id]) as P.TypeAliasDef;
+        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as P.TypeAliasDef;
         if (x && x.isAlias) {
             return this.getType(x.type.id) || x.type;
         }
@@ -186,22 +182,48 @@ export default class SymbolTable {
     }
 
     getVar(id: string): P.Variable|undefined {
-        return this.get(id, (ns, id) => ns.vars[id]);
+        return this.get(id, (st, id) => st.ns.vars[id]);
     }
 
-    getFunction(id: string, argTypes: P.Type[], loc: Location): P.FunctionPrototype|undefined {
-        return this.get(id, (ns, id) => {
-            if (!ns.functions[id]) return undefined;
-            const x = matchFunction(this, id, argTypes, loc, ns.functions[id]);
-            if (x && !ns.functions[id].map[x.mangledName]) {
-                ns.functions[id].map[x.mangledName] = x;
+    getAllFunctions(id: string): P.FunctionPrototype[]|undefined {
+        const  m = this.getModule();
+        return Object.keys(m.ns.functions[id]).map(k => m.ns.functions[id][k]);
+    }
+
+    getFunction(id: string, loc: Location, typeParams: P.Type[], argTypes: P.Type[]): P.FunctionPrototype|undefined {
+        return this.get(id, (st, id) => {
+            if (!st.ns.functions[id]) return undefined;
+            const mid = P.Types.mangleName(id, typeParams, argTypes, P.Types.Compiler.NotInferred);
+            if (st.ns.functions[id][mid]) return st.ns.functions[id][mid];
+            const x = st.resolver.resolveFunction(id, mid, typeParams, argTypes, loc, st.ns.functions);
+            if (x) {
+                Logger.debug(`adding: ${x.mangledName}`);
+                Errors.ASSERT(x.mangledName === mid, `[fn]${x.mangledName} != [use]${mid}`);
+                st.addFunction(x);
             }
             return x;
         });
     }
 
-    getStruct(id: string): P.StructDef|undefined {
-        return this.get(id, (ns, id) => ns.structs[id]);
+    getStruct(id: string, loc?: Location, typeParams?: P.Type[], argTypes?: P.Type[]): P.StructDef|undefined {
+        return this.get(id, (st, id) => {
+            typeParams =  typeParams || [];
+            argTypes =  argTypes || [];
+            loc = loc || P.UnknownLoc;
+            if (!st.ns.structs[id]) return undefined;
+            const mid = P.Types.mangleName(id, typeParams, argTypes, P.Types.Compiler.NotInferred);
+            if (st.ns.structs[id][mid]) return st.ns.structs[id][mid];
+            const x = st.resolver.resolveFunction(id, mid, typeParams, argTypes, loc, st.ns.structs);
+            if (x) {
+                Logger.debug(`adding: ${x.mangledName}`);
+                Errors.ASSERT(x.mangledName === mid, `[st]${x.mangledName} != [use]${mid}`);
+                st.addStruct(x);
+                return x;
+            }
+            else {
+                return Object.keys(st.ns.structs[id]).map(k => st.ns.structs[id][k])[0];
+            }
+        });
     }
 
     newTable(name: string, tag?: P.Tag) {
@@ -214,85 +236,4 @@ export default class SymbolTable {
     static build(name: string, parent?: SymbolTable) {
         return new SymbolTable(name, parent);
     }
-}
-
-//
-function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Location, fp: FunctionPrototypes) {
-    const x = P.Types.mangleName(id, argTypes);
-    Errors.breakIf(id === "Array");
-    // match arity
-    const xs = Object
-        .keys(fp.map)
-        .map(x => fp.map[x])
-        .filter(x => x.params.length === argTypes.length);
-    if (!xs.length) return undefined;
-    if (xs.length == 1 && xs[0].typeParams.length == 0) {
-        const f = xs[0];
-        // regular function
-        for (let i = 0; i < argTypes.length; i += 1) {
-            const atype = argTypes[i];
-            const ptype = f.params[i].type;
-            if(!Types.typesMatch(st, atype, ptype)) return undefined;
-        }
-        return f;
-    }
-
-    Logger.debug(`found: ${id}:${x}:${xs.length}: ${xs.map(y => y.mangledName).join("; ")}`);
-    for (const f of xs) {
-        const map: Dictionary<P.Type> = {};
-        const tp: Dictionary<boolean> = {};
-        f.typeParams.forEach(x => tp[x] = true);
-        const ys = mapTypes(st, map, argTypes, f.params.map(x => x.type), tp);
-        const zs = mapTypes(st, map, argTypes, f.type.typeParams.map(x => x), tp);
-        if (ys.length) {
-            for (const x of f.typeParams) {
-                if (!map[x]) break;
-            }
-            const y = P.Types.mangleName(id, ys);
-            if (x === y) {
-                const ff = clone(f);
-                ff.params.map((p, i) => p.type = ys[i]);
-                ff.typeParams = [];
-                ff.type.typeParams = zs;
-                //ff.mangledName = y;
-                Logger.debug(`reified: ${ff.mangledName}`);
-                return ff;
-            }
-        }
-    }
-    return undefined;
-}
-
-function mapTypes(st: SymbolTable, map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[], typeParams: Dictionary<boolean>): P.Type[] {
-    if (!argTypes.length) return [];
-    if (!paramTypes.length) return [];
-    const xs = [];
-    for (let i = 0; i < argTypes.length; i += 1) {
-        const at = argTypes[i];
-        const pt = paramTypes[i];
-
-        if (typeParams[pt.id]) {
-            if (!map[pt.id]) {
-                map[pt.id] = at;
-
-                const ys = mapTypes(st, map, at.typeParams, pt.typeParams, typeParams);
-                xs.push(P.Types.newType(at.id, at.loc, ys));
-            }
-            else {
-                if (map[pt.id].id !== at.id) return [];
-                xs.push(at);
-            }
-        }
-        else {
-            if (at.typeParams.length && pt.typeParams.length) {
-                const ys = mapTypes(st, map, at.typeParams, pt.typeParams, typeParams);
-                xs.push(P.Types.newType(at.id, at.loc, ys));
-            }
-            else {
-                if (!Types.typesMatch(st, at, pt)) return [];
-                xs.push(at);
-            }
-        }
-    }
-    return xs;
 }

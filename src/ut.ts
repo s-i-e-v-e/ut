@@ -46,14 +46,10 @@ async function main(args: string[]) {
                 break;
             }
             case "-vv": {
-                cfg.logLevel = LogLevel.DEBUG0;
-                break;
-            }
-            case "-vvv": {
                 cfg.logLevel = LogLevel.DEBUG1;
                 break;
             }
-            case "-vvvv": {
+            case "-vvv": {
                 cfg.logLevel = LogLevel.DEBUG2;
                 break;
             }

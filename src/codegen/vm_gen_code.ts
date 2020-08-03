@@ -57,9 +57,11 @@ function derefer(store: Store, r: Store) {
 
 function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, id: string) {
     const update = (v: P.Variable, id: string) => {
+        const n = v.type.native.bits/8;
+        Errors.ASSERT(n !== 0, id, v.loc);
         const x = {
             offset: ss.offset,
-            size: v.type.native.bits/8,
+            size: n,
         };
         ss.xs[ss.index] = x;
         ss.map[id] = ss.index;
@@ -72,12 +74,11 @@ function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, i
         update(v, id);
     }
     else {
-        //console.log(`@ => ${s.id}:${s.type.id}::${s.type.typetype}`);
-        //if (s.id === "String") return;
+        Logger.debug2(`@ => ${s.id}:${s.id}::${s.typetype}`);
         for (let i = 0; i < s.params.length; i += 1) {
             const m = s.params[i];
             const mid = `${id}.${m.id}`;
-            //console.log(`#${mid}:${m.type.id}::${m.type.typetype}`);
+            Logger.debug2(`#${mid}:${m.type.id}::${m.type.typetype}`);
             if (m.type.native.bits !== 0) {
                 update(m, mid);
             }
@@ -387,8 +388,13 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
 }
 
 function bindTypeInfo(ac: Allocator, store: Store, block: A.BlockExpr, v: P.Variable) {
+    //Errors.ASSERT(v.type.native.bits !== 0, `${v.id}:${v.type.id}`, v.loc);
     const ss = newStructState();
     computeStructInfo(ss, block, v, v.id);
+    for (const [k, i] of Object.entries(ss.map)) {
+        const vx = ss.xs[i]
+        Logger.debug2(`${v.id}.${k} = ${vx.offset}:${vx.size}`);
+    }
     return ac.alloc(v, ss);
 }
 

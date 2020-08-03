@@ -1,0 +1,328 @@
+import std
+import std.os
+import std.array
+import std.string
+
+fn title(x: String) {
+    println("~~~~~~~~~~~~");
+    println(x);
+    println("=====");
+}
+
+fn print(xs: Array[String]) {
+    for (var i = 0; i < xs.length; i += 1) {
+        println(xs(i));
+    };
+}
+
+fn print(xs: Array[Int64]) {
+    for (var i = 0; i < xs.length; i += 1) {
+        println(xs(i));
+    };
+}
+
+fn hello() {
+    title("hello()");
+    println("Hello, World!");
+}
+
+fn math() {
+    title("math()");
+    let i = 4 / 2;
+    let j = 3 * 2 + 1 * 200 / 105;
+    println(i);
+    println(j);
+}
+
+fn newIntegerArray() {
+    return Array(101, 202, 303, 404);
+}
+
+fn newStringArray(a: String) {
+    return Array(a, "b", "c", "d");
+}
+
+fn array-for() {
+    title("array-for()");
+    let xs = newIntegerArray();
+    let ys = newStringArray("z");
+    let zs = Array("a100", "a200", "a300", "a400", "a500");
+    for (var i = 0; i < xs.length; i += 1) {
+        println(xs(i));
+    };
+    for (var i = 0; i < ys.length; i += 1) {
+        println(ys(i));
+    };
+    for (var i = 0; i < zs.length; i += 1) {
+        println(zs(i));
+    };
+
+    for (var i = 0; i < 5; i += 1) {
+        println(i);
+        if (i % 2 == 0) {
+            sys-println("divisible by 2");
+        }
+        else {};
+    };
+}
+
+fn if-stmt(a: Int64) {
+    title("if-stmt()");
+
+    println(a);
+    if (a % 2 == 0) {
+        println("/ by 2");
+        if (a % 3 == 0) {
+            println("/ by 3");
+            if (a % 4 == 0) {
+                println("/ by 4");
+            }
+            else {
+                println("not/ by 4");
+            };
+        }
+        else {
+            println("not/ by 3");
+        };
+    }
+    else {
+        println("not/ by 2");
+    };
+
+    if (100 != 100) {
+        println(1000);
+    }
+    else {
+        println(2000);
+    };
+}
+
+fn if-expr(a: Int64) {
+    title("if-expr()");
+
+    println(a);
+    let msg = if (a % 2 == 0) {
+        if (a % 3 == 0) {
+            if (a % 4 == 0) {
+                "/ by 2, / by 3, / by 4";
+            }
+            else {
+                "/ by 2, / by 3, not / by 4";
+            };
+        }
+        else {
+            "/ by 2, not / by 3";
+        };
+    }
+    else {
+        "not / by 2";
+    };
+    println(msg);
+}
+
+fn if-ret(a: Int64) {
+    title("if-ret()");
+    println(a);
+    let msg = if (a % 2 == 0) {
+        "/ by 2";
+    }
+    else {
+       sys-println("ret: not / by 2");
+       return;
+    };
+    sys-println(msg);
+}
+
+fn ptr-ref() {
+    title("ptr-ref()");
+    let xs = Array(5, 8);
+    let ys = &xs(0);
+    let zs = &xs;
+
+    println(xs:Int64 == ys:Int64);
+    println(xs:Int64 == zs:Int64);
+}
+
+fn nos() {
+    title("nos()");
+    let a = 1_000_000;
+    var b = 5;
+    let c = 0x100;
+    let d = 0b100;
+    let e = 0o777;
+    let f = 4K;
+    let g = false;
+    let h = true;
+    let i = 0xFFFF_FFFF_FFFF_FFFF;
+
+    println(a);
+    println(b);
+    println(c);
+    println(d);
+    println(e);
+    println(f);
+    println(g);
+    println(h);
+    println(i);
+    {
+        let a = a * 2;
+        println(a);
+    };
+}
+
+fn conditions() {
+    title("if-conditions()");
+    let a = 100 != 200 | false;
+    let b = false;
+    let c = a | b;
+    println(a);
+    println(b);
+    println(c);
+}
+
+fn unsafe(): Void {
+    title("unsafe()");
+    let xs = Array(55, 66, 77, 88);
+    for (var i = 0; i < xs.length; i += 1) {
+        var p = &xs(i);
+        let x = *p;
+        println(p: Int64);
+        println(x);
+        *p *= 2;
+    };
+
+    for (var i = 0; i < xs.length; i += 1) {
+        let p = &xs(i);
+        println(p:Int64);
+        println(xs(i));
+    };
+}
+
+fn array-reverse() {
+    title("array-reverse()");
+
+    let xs = Array("Alice", "Bob", "Carl", "Darwin", "Ellen");
+    print(xs);
+    xs.reverse();
+    print(xs);
+
+    let ys = Array(1000, 2000, 3000, 4000, 5000);
+    print(ys);
+    ys.reverse();
+    print(ys);
+}
+
+fn string() {
+    title("string()");
+    let a = "abc";
+    let b = "def";
+    let c = a.concat(b);
+    let d = a.size();
+
+    println(a);
+    println(b);
+    println(c);
+    println(equals(a, b));
+    println(equals(a, "abc"));
+    println(a.size());
+    println(a.length);
+    println(b.length);
+    println(c.length);
+}
+
+fn newP2[A, B](a: A, b: B) {
+    return P2[A, B](a, b);
+}
+
+fn tuples() {
+    title("tuples()");
+    let x = P2(400, 500);
+    let y = newP2("b", "a");
+
+    println(x.a);
+    println(x.b);
+    println(y.a);
+    println(y.b);
+}
+
+fn array-z() {
+    title("array-z()");
+    let xs = Array(0, 100, 200, 300, 400, 500, 600, 700, 800, 900);
+    var ys = Array("a", "b", "c");
+    let zs = Array(true, false);
+
+    println("---");
+    println(xs.size());
+    println(ys.size());
+    println(zs.size());
+    println("---");
+    println(xs.length);
+    println(xs.stride);
+    println(ys.length);
+    println(ys.stride);
+    println(zs.length);
+    println(zs.stride);
+    println("---");
+    println(xs(9));
+    println(ys(0));
+    println(zs(1));
+    println("---");
+    println(ys(2));
+    ys(2) = "x";
+    println(ys(2));
+}
+
+type U8 = Uint8
+fn array-8() {
+    title("array-8()");
+    let xs = Array(100:U8, 200:U8, 300:U8);
+    println(xs.size());
+    println("---");
+    println(xs(0):Int64);
+    println(xs(2):Int64);
+}
+
+fn print(x: Person) {
+    println(x.name);
+    println(x.age);
+}
+
+struct Person(name: String, age: Int64)
+struct Contact(city: String, country: String)
+fn person() {
+    title("person()");
+
+    let ca = Contact("London", "UK");
+    let cb = Contact("Santiago", "Chile");
+
+    let a = Person("Alice", 25);
+    let b = Person("Bob", 92);
+
+    print(a);
+    print(b);
+
+    var m = b;
+    m.age -= 23;
+    print(m);
+}
+
+fn main() {
+    hello();
+    math();
+    array-for();
+    ptr-ref();
+    nos();
+    conditions();
+    unsafe();
+    array-reverse();
+    string();
+    tuples();
+    array-8();
+    array-z();
+    if-stmt(18);
+    if-expr(18);
+    if-ret(498);
+    person();
+
+    exit(0);
+}

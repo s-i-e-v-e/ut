@@ -5,8 +5,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {A} from "./mod.ts";
 
+import {
+    A,
+    P,
+} from "./mod.ts";
+import {Logger} from "../util/mod.ts";
+
+type Location = P.Location;
 export enum NodeType {
     ExprStmt,
     VarInitStmt,
@@ -33,17 +39,12 @@ export enum NodeType {
     DereferenceExpr,
 }
 
-import {
-    Location,
-    P,
-} from "./mod.ts";
-
 export function node_str(n: NodeType) {
     return NodeType[n];
 }
 
 export function node_print(n: NodeType) {
-    console.log(node_str(n));
+    Logger.debug(node_str(n));
 }
 
 export interface AstNode {

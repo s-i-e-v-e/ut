@@ -7,7 +7,6 @@
  */
 
 import {
-    Location,
     A
 } from "./mod.ts";
 
@@ -15,10 +14,31 @@ export interface Tag {
     tag?: any;
 }
 
+export interface Location {
+    line: number;
+    character: number;
+    index: number;
+    path: string;
+}
+
 export interface Primitive extends Tag {
     loc: Location;
     id: string;
 }
+
+export interface Type extends Primitive {
+    typeParams: Type[];
+    takes: Type[],
+    returns: Type|undefined,
+    mangledName: string;
+    typetype: string
+    native: NativeType;
+}
+
+export interface FunctionType extends Type {
+    params: Variable[];
+}
+export interface StructType extends FunctionType {}
 
 export interface Module extends Primitive {
     path: string,
@@ -31,26 +51,12 @@ export interface Module extends Primitive {
 
 export interface Import extends Primitive {}
 
-export interface TypedPrimitive extends Primitive {
-    typeParams: string[];
-    type: Type;
-}
-
-export interface StructDef extends TypedPrimitive {
-    params: Variable[]; // members
-    mangledName: string;
-}
-
-export interface FunctionPrototype extends TypedPrimitive {
-    params: Variable[];
-    mangledName: string;
-}
-
+export interface StructDef extends StructType {}
+export interface FunctionPrototype extends FunctionType {}
+export interface ForeignFunctionDef extends FunctionPrototype {}
 export interface FunctionDef extends FunctionPrototype {
     body: A.BlockExpr;
 }
-
-export interface ForeignFunctionDef extends FunctionPrototype {}
 
 export interface NativeType extends Primitive {
     typetype: string;
@@ -65,13 +71,10 @@ export interface NativeFloat extends NativeType {
     exponent: number;
 }
 
-export interface Type extends Primitive {
-    typeParams: Type[];
-    typetype: string
-    native: NativeType;
+export interface TypeDecl extends Primitive {
+    typeParams: string[];
+    type: Type;
 }
-
-export interface TypeDecl extends TypedPrimitive {}
 export interface TypeAliasDef extends TypeDecl {
     isAlias: boolean,
 }
@@ -128,11 +131,45 @@ export class Types {
     };
 
     public static newType(id: string, loc?: Location, typeParams?: Type[]): Type {
+        typeParams = typeParams || [];
         return {
-            id: id,
-            typetype: id,
             loc: loc || UnknownLoc,
-            typeParams: typeParams || [],
+            id: id,
+            typeParams: typeParams,
+            takes: [],
+            returns: undefined,
+            mangledName: Types.mangleName(id, typeParams, []),
+            typetype: id,
+            native: Types.NativeNone,
+        };
+    }
+
+    public static newFunctionType(id: string, loc: Location, typeParams: Type[], returns: Type, params: Variable[]): FunctionType {
+        const takes = params.map(x => x.type);
+        return {
+            loc: loc || UnknownLoc,
+            id: id,
+            typeParams: typeParams,
+            takes: takes,
+            returns: returns,
+            params: params,
+            mangledName: Types.mangleName(id, typeParams, takes, returns),
+            typetype: id,
+            native: Types.NativeNone,
+        };
+    }
+
+    public static newStructType(id: string, loc: Location, typeParams: Type[], params: Variable[]): StructType {
+        const takes = params.map(x => x.type);
+        return {
+            loc: loc || UnknownLoc,
+            id: id,
+            typeParams: typeParams,
+            takes: takes,
+            returns: Types.Compiler.Void,
+            params: params,
+            mangledName: Types.mangleName(id, typeParams, takes),
+            typetype: id,
             native: Types.NativeNone,
         };
     }
@@ -192,7 +229,7 @@ export class Types {
         return xs.join("");
     }
 
-    public static mangleName(id: string, xs: Type[]) {
+    public static mangleName(id: string, typeParams: Type[], takes: Type[], returns?: Type) {
         const mangleTypes = (xs: Type[]): string => {
             const ys = [];
             for (const x of xs) {
@@ -207,8 +244,19 @@ export class Types {
         };
 
         const ys = [];
-        ys.push(id);
-        ys.push(mangleTypes(xs));
+        ys.push(`${id}`);
+        if (typeParams.length) {
+            ys.push("[");
+            ys.push(mangleTypes(typeParams));
+            ys.push("]");
+        }
+        ys.push("(");
+        ys.push(mangleTypes(takes));
+        ys.push(")");
+        /*if (returns) {
+            ys.push(":");
+            ys.push(mangleTypes([returns]));
+        }*/
         return ys.join("");
     }
 

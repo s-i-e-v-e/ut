@@ -10,7 +10,6 @@ import { OS } from "./mod.ts";
 export enum LogLevel {
     NONE,
     INFO,
-    DEBUG0,
     DEBUG1,
     DEBUG2,
 }
@@ -37,7 +36,7 @@ export class Logger {
     }
 
     static debug2(msg: string) {
-        if (this.level < LogLevel.DEBUG2) return;
+        if (this.level < LogLevel.DEBUG1) return;
         console.log(msg);
     }
 }

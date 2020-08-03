@@ -12,7 +12,6 @@ import {
     lex,
 } from "./mod.internal.ts";
 import {
-    Location,
     P,
     A,
 } from "./mod.ts";
@@ -20,9 +19,10 @@ import {
     Errors,
     Logger,
     Dictionary,
-    SourceFile,
+    SourceFile, deep_clone,
 } from "../util/mod.ts";
 
+type Location = P.Location;
 const NodeType = A.NodeType;
 type Expr = A.Expr;
 type Type = P.Type;
@@ -550,16 +550,9 @@ function parseFunctionPrototype(ts: TokenStream): P.FunctionPrototype {
     ts.nextMustBe("(");
     const params = parseParameterList(ts);
     ts.nextMustBe(")");
-    let type = parseVarType(ts, false);
+    let returns = parseVarType(ts, false);
 
-    return {
-        loc: loc,
-        id: id,
-        type: type,
-        typeParams: typeParams,
-        params: params,
-        mangledName: P.Types.mangleName(id, params.map(x => x.type)),
-    };
+    return P.Types.newFunctionType(id, loc, typeParams.map(x => P.Types.newType(x)), returns, params);
 }
 
 export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr  {
@@ -592,14 +585,7 @@ function parseStruct(ts: TokenStream): P.StructDef {
     const params = parseStructMemberList(ts);
     ts.nextMustBe(")");
 
-    return {
-        loc: loc,
-        id: id,
-        type: P.Types.newType(id, loc, typeParams.map(y => P.Types.newType(y, loc))),
-        typeParams: typeParams,
-        params: params,
-        mangledName: P.Types.mangleName(id, params.map(x => x.type)),
-    }
+    return P.Types.newStructType(id, loc, typeParams.map(x => P.Types.newType(x)), params);
 }
 
 function parseImport(ts: TokenStream): P.Import {
@@ -688,7 +674,9 @@ export function parseModule(id: string, ts: TokenStream, path: string): P.Module
     // add type instantiation function
     structs.forEach(x => {
         if (!(xs.filter(y => y.id === x.id).length || ys.filter(y => y.id === x.id).length)) {
-            xs.push(x);
+            const f = deep_clone(x) as P.FunctionPrototype;
+            f.returns = x;
+            xs.push(f);
         }
     });
 

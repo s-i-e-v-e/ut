@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
+    clone,
     Dictionary,
     Errors,
     Logger,
@@ -64,12 +65,13 @@ export default class SymbolTable {
 
     private get<T>(id: string, resolve: Resolve<T>) {
         const mod = this.getModule();
+        const parents = this.getParents();
         const t: SymbolTable = this;
         const xs = [t].concat(...this.getModules().filter(x => x.name !== t.name).slice());
 
         for (let x of xs) {
             let table: SymbolTable|undefined = x;
-            if (!(table.name == t.name || mod.ns.import[table.name])) continue;
+            if (!(parents.filter(y => y.name === table!.name).length || mod.ns.import[table.name])) continue;
             while (table) {
                 const y: T = resolve(table.ns, id);
                 if (y) return y;
@@ -77,6 +79,16 @@ export default class SymbolTable {
             }
         }
         return undefined;
+    }
+
+    private getParents() {
+        let table: SymbolTable|undefined = this;
+        const xs = [];
+        while (table.parent) {
+            xs.push(table);
+            table = table.parent;
+        }
+        return xs;
     }
 
     private getModule() {
@@ -231,7 +243,12 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
                 if (!map[x]) break;
             }
             const y = P.Types.mangleName(id, ys);
-            if (x === y) return f;
+            if (x === y) {
+                const ff = clone(f);
+                ff.params.map((p, i) => p.type = ys[i]);
+                ff.typeParams = [];
+                return ff;
+            }
         }
     }
     return undefined;

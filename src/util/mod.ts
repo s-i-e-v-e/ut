@@ -24,7 +24,8 @@ export interface SourceFile {
 }
 
 export function clone<T>(x: T) {
-    return Object.assign({}, x);
+    return Object(x) as T;
+    //return Object.assign({}, x);
 }
 
 export function toHexString(xs: Uint8Array) {

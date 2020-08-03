@@ -308,7 +308,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         case NodeType.CastExpr: {
             const x = e as A.CastExpr;
             const t = getExprType(st, block, x.expr);
-            //if (Types.typesMatch(st, t, x.type)) Errors.raiseTypeError("Unnecessary cast", x.loc);
+            //todo: if (Types.typesMatch(st, t, x.type)) Errors.raiseTypeError("Unnecessary cast", x.loc);
             ty = x.type;
             break;
         }
@@ -399,7 +399,6 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
             while (b.parent) {
                 b = b.parent;
             }
-            getExprType(st, b, x.expr);
             setBlockType(st, b, x.expr);
             st.as.ret = x;
             break;

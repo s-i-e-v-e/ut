@@ -595,7 +595,7 @@ function parseStruct(ts: TokenStream): P.StructDef {
     return {
         loc: loc,
         id: id,
-        type: P.Types.newType(id, loc),
+        type: P.Types.newType(id, loc, typeParams.map(y => P.Types.newType(y, loc))),
         typeParams: typeParams,
         params: params,
         mangledName: P.Types.mangleName(id, params.map(x => x.type)),

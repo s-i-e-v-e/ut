@@ -38,6 +38,14 @@ import {
     P,
 } from "./mod.ts";
 
+export function node_str(n: NodeType) {
+    return NodeType[n];
+}
+
+export function node_print(n: NodeType) {
+    console.log(node_str(n));
+}
+
 export interface AstNode {
     nodeType: NodeType,
     loc: Location,

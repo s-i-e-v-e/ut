@@ -208,7 +208,8 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 let rest = x.rest.slice();
                 while (rest.length) {
                     const y = rest.shift();
-                    const s = st.getStruct(ty.id);
+                    //const s = st.getStruct(ty.id);
+                    const s = getFunction(st, ty.typeParams, ty.id, x.loc);
                     if (!s)  {
                         if (rest.length) return Errors.raiseDebug(ty.id);
                     }
@@ -359,7 +360,8 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     }
     st.typeMustExist(ty, e.loc);
     if (Types.typeNotInferred(e.type)) {
-        e.type = st.getType(ty.id)!;
+        //todo: e.type = st.getType(ty.id)!;
+        e.type = ty;
     }
     return ty;
 }

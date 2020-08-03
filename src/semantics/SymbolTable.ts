@@ -192,7 +192,11 @@ export default class SymbolTable {
     getFunction(id: string, argTypes: P.Type[], loc: Location): P.FunctionPrototype|undefined {
         return this.get(id, (ns, id) => {
             if (!ns.functions[id]) return undefined;
-            return matchFunction(this, id, argTypes, loc, ns.functions[id]);
+            const x = matchFunction(this, id, argTypes, loc, ns.functions[id]);
+            if (x && !ns.functions[id].map[x.mangledName]) {
+                ns.functions[id].map[x.mangledName] = x;
+            }
+            return x;
         });
     }
 
@@ -215,6 +219,7 @@ export default class SymbolTable {
 //
 function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Location, fp: FunctionPrototypes) {
     const x = P.Types.mangleName(id, argTypes);
+    Errors.breakIf(id === "Array");
     // match arity
     const xs = Object
         .keys(fp.map)
@@ -238,6 +243,7 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
         const tp: Dictionary<boolean> = {};
         f.typeParams.forEach(x => tp[x] = true);
         const ys = mapTypes(st, map, argTypes, f.params.map(x => x.type), tp);
+        const zs = mapTypes(st, map, argTypes, f.type.typeParams.map(x => x), tp);
         if (ys.length) {
             for (const x of f.typeParams) {
                 if (!map[x]) break;
@@ -247,6 +253,9 @@ function matchFunction(st: SymbolTable, id: string, argTypes: P.Type[], loc: Loc
                 const ff = clone(f);
                 ff.params.map((p, i) => p.type = ys[i]);
                 ff.typeParams = [];
+                ff.type.typeParams = zs;
+                //ff.mangledName = y;
+                Logger.debug(`reified: ${ff.mangledName}`);
                 return ff;
             }
         }

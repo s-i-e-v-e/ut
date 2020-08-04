@@ -5,34 +5,47 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { parse, A } from "./parser/mod.ts";
-import { check } from "./semantics/mod.ts";
+import { parseFile, P } from "./parser/mod.ts";
+import { check, rewrite } from "./semantics/mod.ts";
 import {
     Logger,
     Errors,
+    LogLevel,
     OS,
 } from "./util/mod.ts";
 import { vm_gen_code } from "./codegen/mod.ts";
 import { Vm } from "./vm/mod.ts";
 
-export default async function run(path: string) {
-    try {
-        const f = await OS.readSourceFile(path);
-        Logger.info(`Running: ${path} [${f.fsPath}]`);
-        const m = parse(f);
-        check(m);
+export interface Config {
+    logLevel: LogLevel,
+    dump: boolean,
+}
 
-        const vme = vm_gen_code(m);
-        const xs = vme.asBytes();
-        //await Deno.writeFile("./dump.bin", xs);
-        Logger.debug("@@--------VM.EXEC--------@@");
-        const vm = Vm.build(vme.importsOffset);
-        vm.exec(xs);
+function process(mods: P.Module[], args: string[], c: Config) {
+    const global = check(mods);
+    rewrite(global, mods);
+    const vme = vm_gen_code(mods);
+    const xs = vme.asBytes();
+    if (c.dump) OS.writeBinaryFile("./dump.bin", xs);
+    Logger.debug("@@--------VM.EXEC--------@@");
+    const vm = Vm.build(vme.importsOffset);
+    vm.exec(xs, args);
+}
+
+export async function run(args: string[], c: Config) {
+    try {
+        const path = args.shift() || "";
+        const mods = await parseFile(path);
+        process(mods, args, c);
     }
     catch (e) {
         if (e instanceof Errors.UtError) {
-            Logger.error(e);
-            //throw e;
+            if (c.logLevel > LogLevel.INFO) {
+                throw e;
+            }
+            else {
+                Logger.error(e);
+            }
         }
         else {
             throw e;

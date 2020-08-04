@@ -23,4 +23,20 @@ export default class OS {
             contents: x,
         };
     }
+
+    static writeBinaryFile(path: string, xs: Uint8Array) {
+        Deno.writeFileSync(path, xs);
+    }
+
+    static isDir(path: string) {
+        try {
+            return Deno.statSync(path).isDirectory;
+        }
+        catch (e) {
+            if (e instanceof Deno.errors.NotFound) {
+                return false;
+            }
+            throw e;
+        }
+    }
 }

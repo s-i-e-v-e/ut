@@ -1,0 +1,64 @@
+import std
+import std.os
+
+fn size(this: String) {
+    let p = this : Pointer[Int64];
+    return *p;
+}
+
+fn concat(this: String, that: String) {
+    let na = this.size();
+    let nb = that.size();
+    let n = na + nb;
+    let p = new(na + nb);
+
+    // set size
+    var ps = p : Pointer[Int64];
+    *ps = n;
+
+    var pa = this : Pointer[Uint8];
+    var pb = that : Pointer[Uint8];
+    var pp = p : Pointer[Uint8];
+
+    pa : Int64 += 8;
+    pb : Int64 += 8;
+    pp : Int64 += 8;
+
+    for (var i = 0; i < na; i += 1) {
+        *pp = *pa;
+        pa : Int64 += 1;
+        pp : Int64 += 1;
+    };
+
+    for (var i = 0; i < nb; i += 1) {
+        *pp = *pb;
+        pb : Int64 += 1;
+        pp : Int64 += 1;
+    };
+    return p : String;
+}
+
+fn equals(this: String, that: String) {
+	if (this.size() != that.size()) {
+	    return false;
+	}
+	else {
+	    var pa = this : Pointer[Uint8];
+        var pb = that : Pointer[Uint8];
+        pa : Int64 += 8;
+        pb : Int64 += 8;
+		var equals = true;
+    	for (var i = 0; i < this.size(); i += 1) {
+    		equals &= *pa == *pb;
+    		pa : Int64 += 1;
+            pb : Int64 += 1;
+    		if (equals) {
+    		    equals = equals;
+    		}
+    		else {
+    		    return false;
+    		};
+    	};
+    	return true;
+	};
+}

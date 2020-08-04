@@ -20,7 +20,7 @@ const Lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", 
 const Upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 const Digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const Whitespace = [" ", "\t", "\n"];
-const UniSym = ["(", ")", "{", "}", "[", "]", ":", ";", ",", "=", "#", "+", "-", "*", "/", "%", "<", ">", "!", "&", "|"];
+const UniSym = ["(", ")", "{", "}", "[", "]", ":", ";", ",", "=", "#", "+", "-", "*", "/", "%", "<", ">", "!", "&", "|", "."];
 type ReadToken = (cs: CharacterStream) => Token;
 
 function toMap(xs: string[]) {
@@ -90,6 +90,9 @@ function readComment(cs: CharacterStream) {
                     if (cs.next() === "/") {
                         return cs.token(TokenType.TK_COMMENT, loc);
                     }
+                    else {
+                        cs.back();
+                    }
                 }
                 else if (c === "/") {
                     if (cs.peek() === "*") {
@@ -106,7 +109,7 @@ function readComment(cs: CharacterStream) {
     }
     catch (e) {
         if (e instanceof Errors.EOF) {
-            return Errors.raiseUnbalancedComment(cs, loc);
+            return Errors.Lexer.raiseUnbalancedComment(cs, loc);
         }
         else {
             throw e;
@@ -123,7 +126,7 @@ function readString(cs: CharacterStream) {
     }
     catch (e) {
         if (e instanceof Errors.EOF) {
-            return Errors.raiseUnterminatedString(cs, loc);
+            return Errors.Lexer.raiseUnterminatedString(cs, loc);
         }
         else {
             throw e;
@@ -153,7 +156,7 @@ function readNumber(cs: CharacterStream) {
     const mustBeSeparator = () => {
         if (IDChar[cs.peek()]) {
             cs.next();
-            Errors.raiseInvalidNumber(cs, loc);
+            Errors.Lexer.raiseInvalidNumber(cs, loc);
         }
     }
 
@@ -168,10 +171,10 @@ function readNumber(cs: CharacterStream) {
             case "o": type = TokenType.TK_OCTAL_NUMBER_LITERAL; Char = OctDigits; break;
             default: {
                 if (Char[x]) {
-                    Errors.raiseInvalidDecimalNumber(cs, loc);
+                    Errors.Lexer.raiseInvalidDecimalNumber(cs, loc);
                 }
                 else if (IDChar[x]) {
-                    Errors.raiseInvalidNumber(cs, loc);
+                    Errors.Lexer.raiseInvalidNumber(cs, loc);
                 }
                 else {
                     cs.back();
@@ -185,7 +188,7 @@ function readNumber(cs: CharacterStream) {
             case TokenType.TK_HEXADECIMAL_NUMBER_LITERAL: {
                 // must at least be be one of 0xN | 0oN | 0bN
                 if (!Char[cs.next()]) {
-                    Errors.raiseInvalidNumber(cs, loc);
+                    Errors.Lexer.raiseInvalidNumber(cs, loc);
                 }
                 break;
             }
@@ -221,7 +224,30 @@ export default function lex(cs: CharacterStream) {
         const f = LexerDispatch[c];
         if (f) {
             const tk = f(cs);
-            xs.push(tk);
+            if (tk.type === TokenType.TK_ID) {
+                const p = xs.pop();
+                const pp = xs.pop();
+                if (p && pp && p.lexeme === "." && pp.type === TokenType.TK_ID) {
+                    pp.type = TokenType.TK_MULTI_ID;
+                    pp.xs.push(tk.lexeme);
+                    xs.push(pp);
+                }
+                else if (p && pp && p.lexeme === "." && pp.type === TokenType.TK_MULTI_ID) {
+                    pp.xs.push(tk.lexeme);
+                    xs.push(pp);
+                }
+                else if (p && pp) {
+                    xs.push(pp);
+                    xs.push(p);
+                    xs.push(tk);
+                }
+                else {
+                    xs.push(tk);
+                }
+            }
+            else {
+                xs.push(tk);
+            }
         }
         else {
             Errors.raiseDebug(`<${c}>`);

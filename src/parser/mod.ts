@@ -7,18 +7,10 @@
  */
 import * as P from "./program.ts";
 import * as A from "./ast.ts";
-import parse from "./parser.ts";
-
-interface Location {
-    line: number;
-    character: number;
-    index: number;
-    path: string;
-}
+import { parseFile } from "./modules.ts";
 
 export {
-    Location,
-    parse,
+    parseFile,
     P,
     A,
 };

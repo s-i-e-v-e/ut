@@ -5,35 +5,47 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {A} from "./mod.ts";
 
+import {
+    A,
+    P,
+} from "./mod.ts";
+import {Logger} from "../util/mod.ts";
+
+type Location = P.Location;
 export enum NodeType {
     ExprStmt,
     VarInitStmt,
     VarAssnStmt,
     ForStmt,
+    ReturnStmt,
 
+    StmtExpr,
+    VoidExpr,
+    CastExpr,
+    GroupExpr,
     BlockExpr,
-    IDExpr,
-    FunctionApplication,
-    IfExpr,
     StringLiteral,
     BooleanLiteral,
     NumberLiteral,
-    ArrayConstructor,
-    ReturnExpr,
+    IDExpr,
+    TypeInstance,
+    FunctionApplication,
+    IfExpr,
+    LocalReturnExpr,
     ArrayExpr,
     BinaryExpr,
     ReferenceExpr,
     DereferenceExpr,
-    CastExpr,
 }
 
-import {
-    Location,
-    P,
-} from "./mod.ts";
+export function node_str(n: NodeType) {
+    return NodeType[n];
+}
 
+export function node_print(n: NodeType) {
+    Logger.debug(node_str(n));
+}
 
 export interface AstNode {
     nodeType: NodeType,
@@ -55,7 +67,15 @@ export interface VarAssnStmt extends Stmt {
     rhs: Expr;
 }
 
-export interface ForStmt extends Stmt {
+export interface ReturnStmt extends Stmt {
+    expr: Expr;
+}
+
+export interface StmtExpr extends Expr {
+    stmt: Stmt;
+}
+
+export interface ForStmt extends Stmt, P.Tag {
     init?: VarInitStmt;
     condition?: Expr;
     update?: VarAssnStmt;
@@ -68,20 +88,25 @@ export interface Expr extends AstNode {
 
 export interface IDExpr extends Expr {
     id: string;
+    rest: string[];
 }
 
-export interface BlockExpr extends Expr {
-    level: number;
+export interface BlockExpr extends Expr, P.Tag {
+    parent?: BlockExpr;
     xs: Stmt[];
 }
 
 export interface ArrayExpr extends Expr {
-    id: string;
+    expr: IDExpr;
     args: Expr[];
 }
 
 export interface DereferenceExpr extends Expr {
     expr: IDExpr|DereferenceExpr;
+}
+
+export interface GroupExpr extends Expr {
+    expr: Expr;
 }
 
 export interface BinaryExpr extends Expr {
@@ -110,35 +135,31 @@ export interface ReferenceExpr extends Expr {
  *
  */
 export interface FunctionApplication extends Expr {
-    id: string;
+    expr: IDExpr;
+    typeParams: P.Type[];
     args: Expr[];
-}
-
-export interface ArrayConstructor extends Expr {
-    sizeExpr: Expr | undefined;
-    args: Expr[] | undefined;
+    mangledName?: string;
+    oldStruct?: P.StructDef;
 }
 
 export interface IfExpr extends Expr {
     condition: Expr;
     ifBranch: A.BlockExpr;
     elseBranch: A.BlockExpr;
+    isStmt: boolean;
 }
 
-export interface ReturnExpr extends Expr {
+export interface LocalReturnExpr extends Expr {
     expr: Expr;
 }
 
-export interface Literal extends Expr {}
-export interface StringLiteral extends Literal {
-    value: string,
+export interface Literal<T> extends Expr {
+    value: T;
 }
-export interface BooleanLiteral extends Literal {
-    value: boolean,
-}
-export interface NumberLiteral extends Literal {
-    value: BigInt,
-}
+
+export interface StringLiteral extends Literal<string> {}
+export interface BooleanLiteral extends Literal<boolean> {}
+export interface NumberLiteral extends Literal<bigint> {}
 
 export function buildExprStmt(re: Expr, loc?: Location): ExprStmt {
     return {
@@ -164,6 +185,14 @@ export function buildBinaryExpr(left: Expr, op: string, right: Expr): BinaryExpr
         op: op,
         right: right,
         loc: left.loc,
-        type: P.KnownTypes.NotInferred,
+        type: P.Types.Compiler.NotInferred,
+    };
+}
+
+export function buildVoidExpr(loc: Location) {
+    return {
+        nodeType: NodeType.VoidExpr,
+        type: P.Types.Compiler.Void,
+        loc: loc,
     };
 }

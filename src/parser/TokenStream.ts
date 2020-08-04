@@ -9,11 +9,20 @@ import {
     Token,
     TokenType,
 } from "./mod.internal.ts";
+import {
+    P,
+} from "./mod.ts";
 import { Errors } from "../util/mod.ts";
 
 export default class TokenStream {
     private index: number;
     public readonly length: number;
+    private readonly EOF: Token = {
+        loc: P.UnknownLoc,
+        type: TokenType.TK_INTERNAL,
+        lexeme: "",
+        xs: [],
+    };
 
     constructor(private readonly xs: Array<Token>) {
         this.index = 0;
@@ -36,11 +45,12 @@ export default class TokenStream {
             type: TokenType.TK_INTERNAL,
             loc: this.xs[start].loc,
             lexeme: xs.join(""),
+            xs: [],
         };
     }
 
-    eof() {
-        return this.index >= this.xs.length;
+    eof(n?: number) {
+        return this.index + (n || 0) >= this.xs.length;
     }
 
     loc() {
@@ -48,7 +58,7 @@ export default class TokenStream {
     }
 
     peek(n?: number) {
-        return this.xs[n ? this.index + n : this.index];
+        return this.eof(n) ? this.EOF : this.xs[n ? this.index + n : this.index];
     }
 
     next() {
@@ -99,26 +109,15 @@ export default class TokenStream {
         }
     }
 
-    nextMustBe(x: string | TokenType): Token {
-        let t;
+    nextMustBe(x: string | TokenType, msg?: string): Token {
+        const t = this.next();
+        let xx = x as string;
         if (typeof x === "string") {
-            t = this.next();
-            if (t.lexeme !== x as string) {
-                Errors.raiseExpectedButFound(`\`${x}\``, t);
-            }
+            if (t.lexeme !== xx) Errors.Parser.raiseExpectedButFound(msg || xx, t);
         }
         else {
-            const y = x as TokenType;
-            t = this.next();
-            if (t.type !== y) {
-                let exp;
-                switch (y) {
-                    case TokenType.TK_ID: exp = "Identifier"; break;
-                    case TokenType.TK_TYPE: exp = "Type"; break;
-                    default: return Errors.raiseDebug(JSON.stringify(t));
-                }
-                Errors.raiseExpectedButFound(exp, t);
-            }
+            let yy = x as TokenType;
+            if (t.type !== yy) Errors.Parser.raiseExpectedButFound(msg || TokenType[yy], t);
         }
         return t;
     }

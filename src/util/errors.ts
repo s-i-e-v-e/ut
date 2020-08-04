@@ -6,16 +6,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    Location,
     P,
+    A,
 } from "../parser/mod.ts";
 import {
     CharacterStream,
     Token,
 } from "../parser/mod.internal.ts";
-const toTypeString = P.toTypeString;
+const toTypeString = P.Types.toTypeString;
 type Type = P.Type;
 type Variable = P.Variable;
+type NodeType = A.NodeType;
+type Location = P.Location;
+const NodeTypeEnum = A.NodeType;
 
 export function buildLocation(loc: Location) {
     const path = loc.path.replaceAll(/\\/g, "/");
@@ -116,6 +119,12 @@ export default class Errors {
         }
     }
 
+    static DuplicateDef = class extends Errors.SemanticError {
+        constructor(msg: string) {
+            super(msg);
+        }
+    }
+
     static TypeMismatch = class extends Errors.SemanticError {
         constructor(msg: string) {
             super(msg);
@@ -140,98 +149,151 @@ export default class Errors {
         }
     }
 
-
-
-    static raiseInvalidNumber(cs: CharacterStream, loc: Location): never {
-        const lexeme = cs.lexeme(loc, cs.loc());
-        throw new this.InvalidNumber(buildErrorString(`Invalid number: ${lexeme}`, loc));
+    static VmError = class extends Errors.UtError {
+        constructor(msg: string) {
+            super(msg);
+        }
     }
 
-    static raiseInvalidDecimalNumber(cs: CharacterStream, loc: Location): never {
-        const lexeme = cs.lexeme(loc, cs.loc());
-        throw new this.InvalidNumber(buildErrorString(`Decimal numbers cannot have leading zeros: ${lexeme}`, loc));
-    }
+    static Lexer = class {
+        static raiseInvalidNumber(cs: CharacterStream, loc: Location): never {
+            const lexeme = cs.lexeme(loc, cs.loc());
+            throw new Errors.InvalidNumber(buildErrorString(`Invalid number: ${lexeme}`, loc));
+        }
 
-    static raiseUnbalancedComment(cs: CharacterStream, loc: Location): never {
-        const lexeme = cs.lexeme(loc, cs.loc());
-        throw new this.UnbalancedComment(buildErrorString(`Unbalanced comment: ${lexeme}`, loc));
-    }
+        static raiseInvalidDecimalNumber(cs: CharacterStream, loc: Location): never {
+            const lexeme = cs.lexeme(loc, cs.loc());
+            throw new Errors.InvalidNumber(buildErrorString(`Decimal numbers cannot have leading zeros: ${lexeme}`, loc));
+        }
 
-    static raiseUnterminatedString(cs: CharacterStream, loc: Location): never {
-        const lexeme = cs.lexeme(loc, cs.loc());
-        throw new this.UnterminatedString(buildErrorString(`Unterminated string: ${lexeme}`, loc));
-    }
+        static raiseUnbalancedComment(cs: CharacterStream, loc: Location): never {
+            const lexeme = cs.lexeme(loc, cs.loc());
+            throw new Errors.UnbalancedComment(buildErrorString(`Unbalanced comment: ${lexeme}`, loc));
+        }
+
+        static raiseUnterminatedString(cs: CharacterStream, loc: Location): never {
+            const lexeme = cs.lexeme(loc, cs.loc());
+            throw new Errors.UnterminatedString(buildErrorString(`Unterminated string: ${lexeme}`, loc));
+        }
+    };
+
+    static Parser = class {
+        static parserError(msg: string, t: Token): never {
+            throw new Errors.ParserError(buildErrorString(`${msg}: ${t.lexeme}`, t.loc));
+        }
+
+        static raiseExpectedButFound(exp: string, t_n: Token|A.AstNode): never {
+            const x = t_n as Token;
+            const y = t_n as A.AstNode;
+            throw new Errors.ExpectedButFound(buildErrorString(`Expected: ${exp}. Found: \`${x.lexeme ? x.lexeme : NodeTypeEnum[y.nodeType]}\``, t_n.loc));
+        }
+
+        static raiseArrayType(loc: Location): never {
+            throw new Errors.ArrayType(buildErrorString(`Array must have exactly one type parameter.`, loc));
+        }
+    };
+
+
+    static Checker = class {
+        static raiseDuplicateDef(id: string, loc: Location): never {
+            throw new Errors.ArrayInit(buildErrorString(`\`${id}\` already exists in current scope.`, loc));
+        }
+        static raiseArrayInitArgs(loc: Location): never {
+            throw new Errors.ArrayInit(buildErrorString(`Array initialization failure: argument list is empty`, loc));
+        }
+
+        static raiseUnknownType(t: Type|string, loc: Location): never {
+            const s = (t as Type).id ? toTypeString(t as Type) : t;
+            throw new Errors.UnknownType(buildErrorString(`Unknown type: ${s}`, loc));
+        }
+
+        static raiseTypeMismatch(ltype: Type, rtype: Type, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`Type mismatch: ${toTypeString(ltype)} != ${toTypeString(rtype)}`, loc));
+        }
+
+        static raiseMathTypeError(t: Type, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`Math ops only defined on Integer, not ${toTypeString(t)}.`, loc));
+        }
+
+        static raiseArrayIndexError(t: Type, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`Array index(es) must be Integer(s), not ${toTypeString(t)}.`, loc));
+        }
+
+        static raiseLogicalOperationError(t: Type, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`Logic ops only defined on Bool, not ${toTypeString(t)}.`, loc));
+        }
+
+        static raiseIfConditionError(t: Type, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`IF condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
+        }
+
+        static raiseForConditionError(t: Type, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`FOR condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
+        }
+
+        static raiseTypeError(msg: string, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(msg, loc));
+        }
+
+        static raiseUnknownIdentifier(id: string, loc: Location): never {
+            throw new Errors.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
+        }
+
+        static raiseUnknownFunction(id: string, loc: Location): never {
+            throw new Errors.UnknownIdentifier(buildErrorString(`Unknown function: ${id}`, loc));
+        }
+
+        static raiseImmutableVar(v: Variable, loc: Location): never {
+            throw new Errors.ImmutableVar(buildErrorString(`Cannot assign to immutable variable: ${v.id}`, loc));
+        }
+
+        static raiseFunctionParameterCountMismatch(id: string, loc: Location): never {
+            throw new Errors.FunctionParameterCountMismatch(buildErrorString(`Function parameter and arg counts differ: ${id}`, loc));
+        }
+
+        static raiseIfExprMustReturn(loc: Location): never {
+            throw new Errors.IfExprMustReturn(buildErrorString(`IF/ELSE expression must return a value.`, loc));
+        }
+
+        static unreachableCode(loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`Unreachable code after return.`, loc));
+        }
+
+        static error(msg: string, loc: Location): never {
+            throw new Errors.UnknownType(buildErrorString(msg, loc));
+        }
+    };
 
     static raiseEOF(): never {
         throw new this.EOF("EOF");
     }
 
-    static raiseDebug(msg?: string): never {
-        throw new this.Debug(msg || "DebugError");
+    static ASSERT(condition: boolean, msg?: string, loc?: Location): asserts condition {
+        const m = msg ? (loc ? buildErrorString(msg || "", loc!) : msg) : "";
+        if (!condition) throw new this.Debug(m);
     }
 
-    static raiseExpectedButFound(exp: string, t: Token): never {
-        throw new this.ExpectedButFound(buildErrorString(`Expected: ${exp}. Found: \`${t.lexeme}\``, t.loc));
+    static raiseDebug(msgOrNode?: string|NodeType): never {
+        const s = msgOrNode ? (typeof msgOrNode === "string" ? msgOrNode as string : NodeTypeEnum[msgOrNode as NodeType]) : "DebugError";
+        throw new this.Debug(s);
     }
 
-    static raiseArrayType(t: Token): never {
-        throw new this.ArrayType(buildErrorString(`Array must have exactly one type parameter: \`${t.lexeme}\``, t.loc));
+    static raiseVmError(msg: string) {
+        throw new this.VmError(msg);
     }
 
-    static raiseArrayInitArgs(t: Token) {
-        throw new this.ArrayInit(buildErrorString(`Array initialization failure: argument list is empty`, t.loc));
+    static breakIf(cond: boolean) {
+        Errors.debug(!cond);
     }
 
-    static raiseUnknownType(t: Type, loc: Location): never {
-        throw new this.UnknownType(buildErrorString(`Unknown type: ${toTypeString(t)}`, loc));
-    }
-
-    static raiseTypeMismatch(ltype: Type, rtype: Type, loc: Location): never {
-        throw new this.TypeMismatch(buildErrorString(`Type mismatch: ${toTypeString(ltype)} != ${toTypeString(rtype)}`, loc));
-    }
-
-    static raiseMathTypeError(t: Type, loc: Location): never {
-        throw new this.TypeMismatch(buildErrorString(`Math ops only defined on Integer, not ${toTypeString(t)}.`, loc));
-    }
-
-    static raiseArrayIndexError(t: Type, loc: Location): never {
-        throw new this.TypeMismatch(buildErrorString(`Array index(es) must be Integer(s), not ${toTypeString(t)}.`, loc));
-    }
-
-    static raiseLogicalOperationError(t: Type, loc: Location): never {
-        throw new this.TypeMismatch(buildErrorString(`Logic ops only defined on Bool, not ${toTypeString(t)}.`, loc));
-    }
-
-    static raiseIfConditionError(t: Type, loc: Location): never {
-        throw new this.TypeMismatch(buildErrorString(`IF condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
-    }
-
-    static raiseForConditionError(t: Type, loc: Location): never {
-        throw new this.TypeMismatch(buildErrorString(`FOR condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
-    }
-
-    static raiseUnknownIdentifier(id: string, loc: Location): never {
-        throw new this.UnknownIdentifier(buildErrorString(`Unknown identifier: ${id}`, loc));
-    }
-
-    static raiseImmutableVar(v: Variable, loc: Location) {
-        throw new this.ImmutableVar(buildErrorString(`Cannot assign to immutable variable: ${v.id}`, loc));
-    }
-
-    static raiseFunctionParameterCountMismatch(id: string, loc: Location) {
-        throw new this.FunctionParameterCountMismatch(buildErrorString(`Function parameter and arg counts differ: ${id}`, loc));
-    }
-
-    static raiseIfExprMustReturn(loc: Location) {
-        throw new this.IfExprMustReturn(buildErrorString(`IF/ELSE expression must return a value.`, loc));
-    }
-
-    static debug() {
-        try {
-            throw new Error();
-        }
-        catch (e) {
-            // swallow
+    static debug(cond?: boolean) {
+        if (cond === undefined || !cond) {
+            try {
+                throw new Error();
+            }
+            catch (e) {
+                // swallow
+            }
         }
     }
 }

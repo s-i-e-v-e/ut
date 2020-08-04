@@ -1,0 +1,37 @@
+import std
+import std.os
+
+struct Command(
+    id: String,
+    args: [String],
+)
+
+struct Config (
+    logLevel: Int64,
+    dump: Bool,
+)
+/*
+export enum LogLevel {
+    NONE,
+    INFO,
+    DEBUG0,
+    DEBUG1,
+    DEBUG2,
+}
+*/
+fn help() {
+    println("ut 0.1");
+    println("USAGE:");
+    println("   ut run <file>");
+    println("   ut help");
+}
+
+fn main(args: [String]) {
+    if (args.length == 0) {
+        help();
+    }
+    else {
+        println(args(0));
+    };
+}
+

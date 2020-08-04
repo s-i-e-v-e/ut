@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import run from "./runner.ts";
+import { run, Config,  }from "./runner.ts";
 import {
     Logger,
     LogLevel,
@@ -20,10 +20,6 @@ function help() {
     console.log("   ut help");
 }
 
-interface Config {
-    logLevel: LogLevel,
-}
-
 interface Command {
     id: string,
     args: string[],
@@ -32,15 +28,17 @@ interface Command {
 async function main(args: string[]) {
     const cfg: Config = {
         logLevel: LogLevel.NONE,
+        dump: false,
     };
 
     let cx: Command = {
         id: "",
         args: []
     };
-    for (let i = 0; i < args.length;) {
-        const cmd = args[i];
-        i += 1;
+
+    args = args.slice();
+    for (;args.length;) {
+        const cmd = args.shift();
 
         switch (cmd) {
             case "-v": {
@@ -48,7 +46,15 @@ async function main(args: string[]) {
                 break;
             }
             case "-vv": {
-                cfg.logLevel = LogLevel.DEBUG;
+                cfg.logLevel = LogLevel.DEBUG1;
+                break;
+            }
+            case "-vvv": {
+                cfg.logLevel = LogLevel.DEBUG2;
+                break;
+            }
+            case "-d": {
+                cfg.dump = true;
                 break;
             }
             case "help": {
@@ -59,12 +65,11 @@ async function main(args: string[]) {
                 break;
             }
             case "run": {
-                const a = args[i];
-                i += 1;
                 cx = {
                     id: cmd,
-                    args: [a],
+                    args: args,
                 };
+                args = [];
                 break;
             }
             default: {
@@ -82,7 +87,7 @@ async function main(args: string[]) {
             help();
             break;
         }
-        case "run": await run(cx.args[0]); break;
+        case "run": await run(cx.args, cfg); break;
         default: Errors.raiseDebug();
     }
 }

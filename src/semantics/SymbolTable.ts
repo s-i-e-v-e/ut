@@ -8,101 +8,232 @@
 import {
     Dictionary,
     Errors,
+    Logger,
 } from "../util/mod.ts";
 import {
     P,
+    A,
 } from "../parser/mod.ts";
+import {
+    TypeResolver,
+    GenericMap,
+} from "./mod.internal.ts";
+type Location = P.Location;
+
+interface AnalysisState {
+    ret?: A.ReturnStmt;
+}
 
 interface Namespaces {
-    functions: Dictionary<P.FunctionPrototype>;
-    structs: Dictionary<P.Struct>;
+    import: Dictionary<P.Import>;
     types: Dictionary<P.Type>;
+    typeDefinitions: Dictionary<P.TypeDecl>;
+    structs: GenericMap<P.StructDef>;
+    functions: GenericMap<P.FunctionPrototype>;
     vars: Dictionary<P.Variable>;
 }
 
-type Resolve<T> = (ns: Namespaces, id: string) => T;
+type Resolve<T> = (st: SymbolTable, id: string) => T;
 
 export default class SymbolTable {
+    public readonly resolver: TypeResolver;
     private readonly ns: Namespaces;
+    public readonly children: SymbolTable[];
+    public readonly as: AnalysisState = {
+        ret: undefined,
+    };
 
-    private constructor(private readonly parent?: SymbolTable) {
+    private constructor(public readonly name: string, public readonly parent?: SymbolTable) {
         this.ns = {
-            functions: {},
-            structs: {},
+            import: {},
             types: {},
+            typeDefinitions: {},
+            structs: {},
+            functions: {},
             vars: {},
         };
+        this.children = [];
+        this.resolver = new TypeResolver(this);
     }
 
-    private add<T>(name: string, ns: Dictionary<T>, x: T) {
-        if (ns[name]) Errors.raiseDebug(name);
+    private static add<T>(name: string, ns: Dictionary<T>, x: T) {
+        const q = x as any as P.Primitive;
+        Errors.ASSERT(!!q.loc);
+        if (!!ns[name]) Errors.Checker.raiseDuplicateDef(name, q.loc);
+        Errors.ASSERT(!ns[name], name);
         ns[name] = x;
     }
 
     private get<T>(id: string, resolve: Resolve<T>) {
-        let table: SymbolTable|undefined = this;
-        while (table) {
-            const x: T = resolve(table.ns, id);
-            if (x) return x;
-            table = table.parent || undefined;
+        const mod = this.getModule();
+        const t: SymbolTable = this;
+        let xs = mod.getModules();
+        xs = xs.filter(x => mod.ns.import[x.name]);
+        xs = [t].concat(...xs);
+
+        for (let x of xs) {
+            let table: SymbolTable|undefined = x;
+            while (table) {
+                const y: T = resolve(table, id);
+                if (y) return y;
+                table = table.parent;
+            }
         }
         return undefined;
     }
 
-    private exists<T>(id: string, resolve: Resolve<T>) {
+    private getModule() {
         let table: SymbolTable|undefined = this;
-        while (table) {
-            if (resolve(table.ns, id)) return true;
-            table = table.parent || undefined;
+        let old: SymbolTable|undefined = this;
+        while (table.parent) {
+            old = table;
+            table = table.parent;
         }
-        return false;
+        return old;
+    }
+
+    private getModules() {
+        let table: SymbolTable|undefined = this;
+        while (table.parent) {
+            table = table.parent;
+        }
+        return [table].concat(...table.children);
+    }
+
+    private exists<T>(id: string, resolve: Resolve<T>) {
+        return this.get(id, resolve) !== undefined;
+    }
+
+    typeMustExist(t: P.Type, loc?: Location) {
+        if (!this.typeExists(t)) return Errors.Checker.raiseUnknownType(t, loc || t.loc);
     }
 
     typeExists(t: P.Type) {
-        return this.exists(t.id, (ns, id) => ns.types[id]);
+        return this.exists(t.id, (st, id) => st.ns.types[id]);
     }
 
     varExists(id: string) {
-        return this.exists(id, (ns, id) => ns.vars[id]);
+        return this.exists(id, (st, id) => st.ns.vars[id]);
     }
 
-    addFunction(fp: P.FunctionPrototype) {
-        this.add(fp.id, this.ns.functions, fp);
+    addImport(im: P.Import) {
+        SymbolTable.add(im.id, this.ns.import, im);
     }
 
-    addStruct(s: P.Struct) {
-        this.add(s.type.id, this.ns.structs, s);
+    addFunction(x: P.FunctionPrototype) {
+        Logger.debug(`#fn:${x.mangledName}`);
+        if (!this.ns.functions[x.id]) {
+            this.ns.functions[x.id] = {};
+        }
+        Errors.ASSERT(this.ns.functions[x.id][x.mangledName] === undefined, x.mangledName);
+        this.ns.functions[x.id][x.mangledName] = x;
+    }
+
+    addStruct(x: P.StructDef) {
+        Logger.debug(`#st:${x.mangledName}`);
+        if (!this.ns.structs[x.id]) {
+            this.ns.structs[x.id] = {};
+        }
+        Errors.ASSERT(this.ns.structs[x.id][x.mangledName] === undefined, x.mangledName);
+        this.ns.structs[x.id][x.mangledName] = x;
     }
 
     addType(t: P.Type) {
-        this.add(t.id, this.ns.types, t);
+        SymbolTable.add(t.id, this.ns.types, t);
+    }
+
+    addTypeParameter(t: P.Type) {
+        this.addType(t);
+    }
+
+    addTypeDecl(t: P.TypeDecl) {
+        const type = P.Types.newType(t.id, t.loc, t.typeParams.map(y => P.Types.newType(y, t.loc)));
+        this.addType(type);
+        SymbolTable.add(t.id, this.ns.typeDefinitions, t);
     }
 
     addVar(v: P.Variable) {
-        this.add(v.id, this.ns.vars, v);
+        SymbolTable.add(v.id, this.ns.vars, v);
     }
 
-    getType(id: string) {
-        return this.get(id, (ns, id) => ns.types[id]);
+    getType(id: string): P.Type|undefined {
+        return this.getTypeAlias(id) || this.get(id, (st, id) => st.ns.types[id]);
     }
 
-    getVar(id: string) {
-        return this.get(id, (ns, id) => ns.vars[id]);
+    getTypeCons(id: string): P.Type|undefined {
+        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as P.TypeDef;
+        if (x && x.isDef) {
+            const y = this.getType(x.type.id) || x.type;
+            return this.getTypeCons(y.id) || y;
+        }
+        else {
+            return undefined;
+        }
     }
 
-    getFunction(id: string) {
-        return this.get(id, (ns, id) => ns.functions[id]);
+    private getTypeAlias(id: string): P.Type|undefined {
+        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as P.TypeAliasDef;
+        if (x && x.isAlias) {
+            return this.getType(x.type.id) || x.type;
+        }
+        else {
+            return undefined;
+        }
     }
 
-    getStruct(id: string) {
-        return this.get(id, (ns, id) => ns.structs[id]);
+    getVar(id: string): P.Variable|undefined {
+        return this.get(id, (st, id) => st.ns.vars[id]);
     }
 
-    newTable() {
-        return SymbolTable.build(this);
+    getAllFunctions(id: string): P.FunctionPrototype[]|undefined {
+        const  m = this.getModule();
+        return Object.keys(m.ns.functions[id]).map(k => m.ns.functions[id][k]);
     }
 
-    static build(parent?: SymbolTable) {
-        return new SymbolTable(parent);
+    getFunction(id: string, loc: Location, typeParams: P.Type[], argTypes: P.Type[]): P.FunctionPrototype|undefined {
+        return this.get(id, (st, id) => {
+            if (!st.ns.functions[id]) return undefined;
+            const mid = P.Types.mangleName(id, typeParams, argTypes, P.Types.Compiler.NotInferred);
+            if (st.ns.functions[id][mid]) return st.ns.functions[id][mid];
+            const x = st.resolver.resolveFunction(id, mid, typeParams, argTypes, loc, st.ns.functions);
+            if (x) {
+                Logger.debug(`adding: ${x.mangledName}`);
+                Errors.ASSERT(x.mangledName === mid, `[fn]${x.mangledName} != [use]${mid}`);
+                st.addFunction(x);
+            }
+            return x;
+        });
+    }
+
+    getStruct(id: string, loc?: Location, typeParams?: P.Type[], argTypes?: P.Type[]): P.StructDef|undefined {
+        return this.get(id, (st, id) => {
+            typeParams =  typeParams || [];
+            argTypes =  argTypes || [];
+            loc = loc || P.UnknownLoc;
+            if (!st.ns.structs[id]) return undefined;
+            const mid = P.Types.mangleName(id, typeParams, argTypes, P.Types.Compiler.NotInferred);
+            if (st.ns.structs[id][mid]) return st.ns.structs[id][mid];
+            const x = st.resolver.resolveFunction(id, mid, typeParams, argTypes, loc, st.ns.structs);
+            if (x) {
+                Logger.debug(`adding: ${x.mangledName}`);
+                Errors.ASSERT(x.mangledName === mid, `[st]${x.mangledName} != [use]${mid}`);
+                st.addStruct(x);
+                return x;
+            }
+            else {
+                return Object.keys(st.ns.structs[id]).map(k => st.ns.structs[id][k])[0];
+            }
+        });
+    }
+
+    newTable(name: string, tag?: P.Tag) {
+        const x = SymbolTable.build(name, this);
+        this.children.push(x);
+        if (tag) tag.tag = x;
+        return x;
+    }
+
+    static build(name: string, parent?: SymbolTable) {
+        return new SymbolTable(name, parent);
     }
 }

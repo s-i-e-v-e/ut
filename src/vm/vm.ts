@@ -15,7 +15,7 @@ import {
 } from "./mod.internal.ts";
 
 export default class Vm {
-    public static readonly SEGMENT_SIZE = 1024*4;
+    public static readonly SEGMENT_SIZE = 1024*32;
     private ip: bigint;
     private hp: bigint; // heap pointer
     private sp: bigint; // stack pointer
@@ -30,14 +30,16 @@ export default class Vm {
     };
     private readonly memory: Uint8Array;
     private readonly dv: DataView;
+    private readonly enc: TextEncoder;
     private readonly dec: TextDecoder;
 
     private constructor(private readonly imports: bigint) {
         this.memory = new Uint8Array(Vm.SEGMENT_SIZE*8);
         this.dv = new DataView(this.memory.buffer);
+        this.enc = new TextEncoder();
         this.dec = new TextDecoder();
         this.ip = 0n;
-        this.hp = BigInt(Vm.SEGMENT_SIZE*3);
+        this.hp = BigInt(Vm.SEGMENT_SIZE*4);
         this.sp = BigInt(this.memory.length - 8);
     }
 
@@ -49,6 +51,19 @@ export default class Vm {
         if (offset >= BigInt(this.memory.length)) {
          Errors.raiseDebug(`offset err: ${offset} >= ${this.memory.length}`);
         }
+    }
+
+    private mem_alloc(size: bigint) {
+        if (!size) Errors.raiseDebug();
+        const offset = this.hp;
+        this.check_offset(offset);
+        this.check_offset(offset + size - 1n);
+        this.hp += size;
+        return offset;
+    }
+
+    private mem_free(p: bigint) {
+
     }
 
     private read_u64_from_ptr(p: bigint) {
@@ -77,11 +92,26 @@ export default class Vm {
         }
     }
 
+    private write_str(x: string) {
+        const xs = this.enc.encode(x);
+        const offset = this.mem_alloc(BigInt(xs.byteLength + 8));
+        let ptr = Number(offset);
+
+        this.write_u64(BigInt(ptr), BigInt(xs.length));
+        ptr += 8;
+        for (let i = 0; i < xs.length; i += 1) {
+            this.dv.setUint8(ptr, xs[i]);
+            ptr += 1;
+        }
+        return offset;
+    }
+
     private read_str(offset: bigint) {
         let ip = offset;
 
         const len = this.read_u64(ip);
         ip += 8n;
+        this.check_offset(ip + len);
         const xs = [];
         for (let i = 0; i < len; i += 1) {+
             this.check_offset(ip);
@@ -120,7 +150,7 @@ export default class Vm {
         const rr = this.read_u8();
         const rd = (rr >>> 4) & 0x0F;
         const rs = rr & 0x0F;
-        if (ins) Logger.debug(`${ins} r${rd}, r${rs} // r${rd} ! ${this.registers[Number(rs)]}`);
+        if (ins) Logger.debug(`${ins} r${rd}, r${rs} // r${rd} ! ${this.hex(this.registers[Number(rs)])}`);
         return [rd, rs];
     }
 
@@ -148,11 +178,35 @@ export default class Vm {
         this.registers[Number(rd)] = flag ? 1n : 0n;
     }
 
-    exec(code: Uint8Array) {
+    hex(n: number|bigint) {
+        return `0x${Number(n).toString(16)}`;
+    }
+
+    hexRange(label: string, a: number|bigint, b: number|bigint) {
+        return `${label}\t\t${this.hex(a)}-${this.hex(b)}`;
+    }
+
+    exec(code: Uint8Array, args: string[]) {
         this.init(code);
+        Logger.debug2(this.hexRange("CODE     ", Vm.SEGMENT_SIZE * 0, Vm.SEGMENT_SIZE * 1));
+        Logger.debug2(this.hexRange("IMPORTS  ", Vm.SEGMENT_SIZE * 1, Vm.SEGMENT_SIZE * 2));
+        Logger.debug2(this.hexRange("IMMUTABLE", Vm.SEGMENT_SIZE * 2, Vm.SEGMENT_SIZE * 3));
+        Logger.debug2(this.hexRange("MUTABLE  ", Vm.SEGMENT_SIZE * 3, Vm.SEGMENT_SIZE * 4));
+        Logger.debug2(this.hexRange("HEAP     ", Vm.SEGMENT_SIZE * 4, this.memory.byteLength));
 
+        const offset = this.mem_alloc(BigInt((args.length * 8) + 8 + 8));
+        let ptr = offset;
+        this.write_u64(ptr, BigInt(args.length));
+        ptr += 8n;
+        this.write_u64(ptr, 8n);
+        ptr += 8n;
+        for (let i = 0; i < args.length; i += 1) {
+            const x = this.write_str(args[i]);
+            this.write_u64(ptr, x);
+            ptr += 8n;
+        }
+        this.registers[1] = offset;
         this.push(0n);
-
         while (true) {
             const ins = this.read_u8();
             switch (ins) {
@@ -223,7 +277,7 @@ export default class Vm {
                 case VmOperation.MOV_R_I: {
                     const [rd, x] = this.parse_r_i();
                     this.registers[Number(rd)] = x;
-                    Logger.debug(`MOV r${rd}, ${x}`);
+                    Logger.debug(`MOV r${rd}, 0x${Number(x).toString(16)}`);
                     break;
                 }
                 case VmOperation.MOV_R_RO: {
@@ -231,7 +285,7 @@ export default class Vm {
                     const offset = this.registers[rs];
                     const n = this.read_u64(offset);
                     this.registers[Number(rd)] = n;
-                    Logger.debug(`MOV r${rd}, [r${rs}] // ${n} = [${offset}]`);
+                    Logger.debug(`MOV r${rd}, [r${rs}] // 0x${Number(n).toString(16)} = [0x${Number(offset).toString(16)}]`);
                     break;
                 }
                 case VmOperation.MOV_RO_R: {
@@ -239,19 +293,19 @@ export default class Vm {
                     const offset = this.registers[rd];
                     const n = this.registers[Number(rs)];
                     this.write_u64(offset, n);
-                    Logger.debug(`MOV [r${rd}], r${rs} // [${offset}] = ${n}`);
+                    Logger.debug(`MOV [r${rd}], r${rs} // [0x${Number(offset).toString(16)}] = 0x${Number(n).toString(16)}`);
                     break;
                 }
                 case VmOperation.MOV_R_M: {
                     const [rd, offset] = this.parse_r_i();
                     this.registers[Number(rd)] = this.read_u64(offset);
-                    Logger.debug(`MOV r${rd}, [${offset}]`);
+                    Logger.debug(`MOV r${rd}, [0x${Number(offset).toString(16)}]`);
                     break;
                 }
                 case VmOperation.MOV_M_R: {
                     const [rs, offset] = this.parse_r_i();
                     this.write_u64(offset, this.registers[Number(rs)]);
-                    Logger.debug(`MOV [${offset}], r${rs}`);
+                    Logger.debug(`MOV [0x${Number(offset).toString(16)}], r${rs}`);
                     break;
                 }
                 case VmOperation.CMP_R_R: {
@@ -319,44 +373,53 @@ export default class Vm {
                 }
                 case VmOperation.PUSH: {
                     const rs = this.parse_r();
-                    Logger.debug(`PUSH r${rs}`);
+                    Logger.debug2(`PUSH r${rs}`);
                     this.push(this.registers[Number(rs)]);
                     break;
                 }
                 case VmOperation.POP: {
                     const rd = this.parse_r();
-                    Logger.debug(`POP r${rd}`);
+                    Logger.debug2(`POP r${rd}`);
                     this.registers[Number(rd)] = this.pop();
                     break;
                 }
                 case VmOperation.CALL: {
                     const offset = this.read_u64();
-                    Logger.debug(`CALL ${offset}`);
+                    Logger.debug(`CALL 0x${Number(offset).toString(16)}`);
                     if (offset >= this.imports) {
                         const fn = this.read_str(offset);
+                        const p0 = this.registers[1];
                         switch (fn) {
-                            case "sys-exit": {
-                                Deno.exit(Number(this.registers[0]));
+                            case "sys-exit($Int64)": {
+                                Deno.exit(Number(p0));
                                 break;
                             }
-                            case "sys-println": {
-                                const str = this.read_str(this.registers[0]);
-                                console.log(str);
+                            case "sys-println($String)": {
+                                const str = this.read_str(p0);
+                                console.log(`${str}`);
                                 break;
                             }
-                            case "sys-u64-println": {
-                                console.log(`${this.registers[0]}`);
+                            case "sys-println($Int64)": {
+                                console.log(`${p0}`);
                                 break;
                             }
-                            case "sys-bool-println": {
-                                console.log(`${this.registers[0] === 1n}`);
+                            case "sys-println($Bool)": {
+                                console.log(`${p0 === 1n}`);
                                 break;
                             }
-                            case "sys-ptr-println": {
-                                console.log(`ptr:${this.registers[0]}`);
+                            case "sys-new($Int64)": {
+                                this.registers[0] = this.mem_alloc(p0);
                                 break;
                             }
-                            default: Errors.raiseDebug(`Unknown foreign function: ${fn}`);
+                            case "sys-free($Int64)": {
+                                this.mem_free(p0);
+                                break;
+                            }
+                            case "sys-size($Pointer)": {
+                                this.registers[0] = this.read_u64(p0);
+                                break;
+                            }
+                            default: Errors.raiseVmError(`Unknown foreign function: ${fn}`);
                         }
                     }
                     else {

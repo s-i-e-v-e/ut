@@ -12,20 +12,33 @@ import {
 import {
     CharacterStream,
     lex,
-    parseModule,
-} from "../parser/mod.internal.ts";
-import { Errors } from "../util/mod.ts";
-import {A} from "../parser/mod.ts";
+    parse,
+    D,
+    Block, NodeType,
+} from "../parser/mod.ts";
+import {Errors, SourceFile} from "../driver/mod.ts";
 
-function parse(x: string) {
+function parseText(x: string) {
     const s = `fn main(){ return ${x}; }\n`;
-    const cs = CharacterStream.build(s, "<mem>");
-    const ts = lex(cs);
-    return (parseModule("<id>",ts, "<mem>").functions[0].body.xs[0] as A.ReturnStmt).expr;
+    const f: SourceFile = {
+        path: "<mem>",
+        fsPath: "<mem>",
+        contents: s,
+    };
+    const sc = Block.build(Block.Global);
+    const m = parse(sc,"<mem>", f);
+    const fn: D.FunctionDef =  m.listFunctions()[0];
+    Errors.ASSERT(fn !== undefined);
+    const be = fn.body[0] as D.BlockExpr;
+    console.log(fn);
+    Errors.ASSERT(be !== undefined);
+    const re = be.body[0] as D.ReturnExpr;
+    Errors.ASSERT(re.nodeType === NodeType.ReturnExpr);
+    return re.expr;
 }
 
 function parseBinary(x: string) {
-    const e = parse(x) as A.BinaryExpr;
+    const e = parseText(x) as D.BinaryExpr;
 
     const lhs = re(e.left);
     const rhs = re(e.right);
@@ -38,18 +51,18 @@ function parseBinary(x: string) {
 
 function re(e: any): string {
     switch (e.nodeType) {
-        case A.NodeType.BooleanLiteral:
-        case A.NodeType.NumberLiteral: {
-            const x = e as A.NumberLiteral;
+        case D.NodeType.BooleanLiteral:
+        case D.NodeType.NumberLiteral: {
+            const x = e as D.IntegerLiteral;
             return `${x.value}`;
         }
-        case A.NodeType.BinaryExpr: {
-            const x = e as A.BinaryExpr;
+        case D.NodeType.BinaryExpr: {
+            const x = e as D.BinaryExpr;
             const ll = re(x.left);
             const rr = re(x.right);
             return `${ll}${x.op}${rr}`;
         }
-        default: Errors.raiseDebug(A.NodeType[e.nodeType]);
+        default: Errors.notImplemented(D.node_str(e.nodeType));
     }
 }
 

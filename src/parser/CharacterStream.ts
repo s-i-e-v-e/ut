@@ -5,12 +5,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { TokenType } from "./mod.internal.ts";
-import { P } from "./mod.ts";
-import { Errors } from "../util/mod.ts";
-type Location = P.Location;
+import {Errors} from "../driver/mod.ts";
+import {Token, TokenType, Location} from "./mod.ts";
 
-export default class CharacterStream {
+export class CharacterStream {
     private old?: Location;
     private index: number;
     private line: number;
@@ -31,15 +29,14 @@ export default class CharacterStream {
     }
 
     next() {
-        if (this.eof()) Errors.raiseEOF();
+        if (this.eof()) Errors.eof();
         this.old = this.loc();
         let c = this.peek();
         this.index += 1;
         if (c === '\n') {
             this.line += 1;
             this.character = 1;
-        }
-        else {
+        } else {
             this.character += 1;
         }
         return c;
@@ -49,12 +46,12 @@ export default class CharacterStream {
         return this.data.substring(start.index, end.index);
     }
 
-    token(type: TokenType, start: Location) {
+    token(type: TokenType, start: Location): Token {
         const end = this.loc();
         return {
-            lexeme: this.lexeme(start, end),
-            type: type,
             loc: start,
+            type: type,
+            lexeme: this.lexeme(start, end),
             xs: [],
         };
     }
@@ -68,7 +65,7 @@ export default class CharacterStream {
         return this.peek();
     }
 
-    loc() : Location {
+    loc(): Location {
         return {
             line: this.line,
             character: this.character,

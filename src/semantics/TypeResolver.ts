@@ -5,20 +5,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {P} from "../parser/mod.ts";
-import {deep_clone, Dictionary, Errors, Logger} from "../util/mod.ts";
-import {GenericMap} from "./mod.internal.ts";
-import SymbolTable from "./SymbolTable.ts";
+import {Block} from "../parser/mod.ts";
+import {deep_clone, Dictionary, Errors, Logger} from "../driver/mod.ts";
 
 type Type = P.Type;
 type Location = P.Location;
 
 export default class TypeResolver {
-    constructor(private readonly st: SymbolTable) {}
-
-    typeNotInferred(t: Type) {
-        return t === P.Types.Compiler.NotInferred;
-    }
+    constructor(private readonly st: Block) {}
 
     rewriteType(t: P.Type, skipWord: boolean = false): P.Type {
         Errors.ASSERT(t !== undefined);
@@ -64,50 +58,7 @@ export default class TypeResolver {
         return y;
     }
 
-    isInteger(t: Type): boolean {
-        const x = this.rewriteType(t, true);
-        switch (x.typetype) {
-            case P.Types.Word:
-            case P.Types.UnsignedInt:
-            case P.Types.SignedInt:
-            {
-                return true;
-            }
-            default: {
-                return false;
-            }
-        }
-    }
 
-    isBoolean(xt: Type): boolean {
-        return xt.id === P.Types.Bool;
-    }
-
-    typesMatch(ot1: Type, ot2: Type, noTypeParams: boolean = false): boolean {
-        const filter = (xs: P.Type[]) => xs.filter(x => x.id.length > 1);
-        if (this.isInteger(ot1) && this.isInteger(ot2)) return true;
-
-        let t1 = this.st.getType(ot1.id);
-        let t2 = this.st.getType(ot2.id);
-
-        t1 = noTypeParams ? ((t1 && filter(t1.typeParams).length >= filter(ot1.typeParams).length) ? t1 : ot1) : t1 || ot1;
-        t2 = noTypeParams ? ((t2 && filter(t2.typeParams).length >= filter(ot2.typeParams).length) ? t2 : ot2) : t2 || ot2;
-
-        Errors.ASSERT(!!t1, ot1.id);
-        Errors.ASSERT(!!t2, ot2.id);
-
-        if (t1.id !== t2.id) return false;
-        if (t1.typeParams.length !== t2.typeParams.length) return false;
-
-        for (let i = 0; i < t1.typeParams.length; i += 1) {
-            if (!this.typesMatch(t1.typeParams[i], t2.typeParams[i], noTypeParams)) return false;
-        }
-        return true;
-    }
-
-    typesMustMatch(t1: Type, t2: Type, loc: Location) {
-        if (!this.typesMatch(t1, t2)) Errors.Checker.raiseTypeMismatch(t1, t2, loc);
-    }
 
     typeExists(t: Type, loc: Location): boolean {
         const g = t;

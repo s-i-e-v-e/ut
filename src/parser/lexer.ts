@@ -5,16 +5,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {
-    CharacterStream,
-    TokenType,
-    Token,
-    TokenStream,
-} from "./mod.internal.ts";
-import {
-    Errors,
-    Dictionary,
-} from "../util/mod.ts";
+import {Dictionary, Errors} from "../driver/mod.ts";
+import {Token, TokenType, TokenStream, Location, CharacterStream} from "./mod.ts";
 
 const Lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
 const Upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
@@ -24,7 +16,7 @@ const UniSym = ["(", ")", "{", "}", "[", "]", ":", ";", ",", "=", "#", "+", "-",
 type ReadToken = (cs: CharacterStream) => Token;
 
 function toMap(xs: string[]) {
-    const d : Dictionary<boolean> = {}
+    const d: Dictionary<boolean> = {}
     xs.forEach(x => d[x] = true);
     return d;
 }
@@ -39,7 +31,7 @@ const WhitespaceChar = toMap(Whitespace);
 const BooleanLiterals = toMap(["true", "false"]);
 
 const LexerDispatch = (() => {
-    const d : Dictionary<ReadToken> = {}
+    const d: Dictionary<ReadToken> = {}
     for (const x of Lower) {
         d[x] = readID;
     }
@@ -68,7 +60,8 @@ const LexerDispatch = (() => {
 
 function readWhitespace(cs: CharacterStream) {
     const loc = cs.loc();
-    while (!cs.eof() && WhitespaceChar[cs.next()]) {}
+    while (!cs.eof() && WhitespaceChar[cs.next()]) {
+    }
     if (!cs.eof()) cs.back();
     return cs.token(TokenType.TK_WHITESPACE, loc);
 }
@@ -79,39 +72,34 @@ function readComment(cs: CharacterStream) {
     try {
         const d2 = cs.next();
         if (d2 === "/") {
-            while (cs.next() !== "\n") {}
+            while (cs.next() !== "\n") {
+            }
             return cs.token(TokenType.TK_COMMENT, loc);
-        }
-        else if (d2 === "*") {
+        } else if (d2 === "*") {
             // parse till next matching */
-            for (;;) {
+            for (; ;) {
                 const c = cs.next();
                 if (c === "*") {
                     if (cs.next() === "/") {
                         return cs.token(TokenType.TK_COMMENT, loc);
-                    }
-                    else {
+                    } else {
                         cs.back();
                     }
-                }
-                else if (c === "/") {
+                } else if (c === "/") {
                     if (cs.peek() === "*") {
                         cs.back();
                         readComment(cs);
                     }
                 }
             }
-        }
-        else {
+        } else {
             cs.back();
             return cs.token(delimiter.codePointAt(0) as TokenType, loc);
         }
-    }
-    catch (e) {
+    } catch (e) {
         if (e instanceof Errors.EOF) {
             return Errors.Lexer.raiseUnbalancedComment(cs, loc);
-        }
-        else {
+        } else {
             throw e;
         }
     }
@@ -121,36 +109,37 @@ function readString(cs: CharacterStream) {
     const loc = cs.loc();
     const delimiter = cs.next();
     try {
-        while (cs.next() !== delimiter) {}
+        while (cs.next() !== delimiter) {
+        }
         return cs.token(TokenType.TK_STRING_LITERAL, loc);
-    }
-    catch (e) {
+    } catch (e) {
         if (e instanceof Errors.EOF) {
             return Errors.Lexer.raiseUnterminatedString(cs, loc);
-        }
-        else {
+        } else {
             throw e;
         }
     }
 }
 
-function readID(cs: CharacterStream) {
+function readID(cs: CharacterStream): Token {
     const loc = cs.loc();
-    while (IDChar[cs.next()]) {}
+    while (IDChar[cs.next()]) {
+    }
     cs.back();
     const x = cs.token(TokenType.TK_ID, loc);
     if (BooleanLiterals[x.lexeme]) x.type = TokenType.TK_BOOLEAN_LITERAL;
     return x;
 }
 
-function readType(cs: CharacterStream) {
+function readType(cs: CharacterStream): Token {
     const loc = cs.loc();
-    while (TypeChar[cs.next()]) {}
+    while (TypeChar[cs.next()]) {
+    }
     cs.back();
     return cs.token(TokenType.TK_TYPE, loc);
 }
 
-function readNumber(cs: CharacterStream) {
+function readNumber(cs: CharacterStream): Token {
     const loc = cs.loc();
 
     const mustBeSeparator = () => {
@@ -166,17 +155,24 @@ function readNumber(cs: CharacterStream) {
     if (cs.next() === "0") {
         const x = cs.next();
         switch (x) {
-            case "x": type = TokenType.TK_HEXADECIMAL_NUMBER_LITERAL; Char = HexDigits; break;
-            case "b": type = TokenType.TK_BINARY_NUMBER_LITERAL; Char = BinDigits; break;
-            case "o": type = TokenType.TK_OCTAL_NUMBER_LITERAL; Char = OctDigits; break;
+            case "x":
+                type = TokenType.TK_HEXADECIMAL_NUMBER_LITERAL;
+                Char = HexDigits;
+                break;
+            case "b":
+                type = TokenType.TK_BINARY_NUMBER_LITERAL;
+                Char = BinDigits;
+                break;
+            case "o":
+                type = TokenType.TK_OCTAL_NUMBER_LITERAL;
+                Char = OctDigits;
+                break;
             default: {
                 if (Char[x]) {
                     Errors.Lexer.raiseInvalidDecimalNumber(cs, loc);
-                }
-                else if (IDChar[x]) {
+                } else if (IDChar[x]) {
                     Errors.Lexer.raiseInvalidNumber(cs, loc);
-                }
-                else {
+                } else {
                     cs.back();
                 }
             }
@@ -196,12 +192,12 @@ function readNumber(cs: CharacterStream) {
                 // ignore
             }
         }
-    }
-    else {
+    } else {
         enableKilobyte = true;
     }
 
-    while (Char[cs.next()]) {}
+    while (Char[cs.next()]) {
+    }
     cs.back();
     if (enableKilobyte && cs.peek() === "K") {
         cs.next();
@@ -210,13 +206,13 @@ function readNumber(cs: CharacterStream) {
     return cs.token(type, loc);
 }
 
-function readSymbol(cs: CharacterStream) {
+function readSymbol(cs: CharacterStream): Token {
     const loc = cs.loc();
     const c = cs.next();
     return cs.token(c.codePointAt(0) as TokenType, loc);
 }
 
-export default function lex(cs: CharacterStream) {
+export function lex(cs: CharacterStream) {
     const xs = new Array<Token>();
 
     while (!cs.eof()) {
@@ -231,26 +227,21 @@ export default function lex(cs: CharacterStream) {
                     pp.type = TokenType.TK_MULTI_ID;
                     pp.xs.push(tk.lexeme);
                     xs.push(pp);
-                }
-                else if (p && pp && p.lexeme === "." && pp.type === TokenType.TK_MULTI_ID) {
+                } else if (p && pp && p.lexeme === "." && pp.type === TokenType.TK_MULTI_ID) {
                     pp.xs.push(tk.lexeme);
                     xs.push(pp);
-                }
-                else if (p && pp) {
+                } else if (p && pp) {
                     xs.push(pp);
                     xs.push(p);
                     xs.push(tk);
-                }
-                else {
+                } else {
                     xs.push(tk);
                 }
-            }
-            else {
+            } else {
                 xs.push(tk);
             }
-        }
-        else {
-            Errors.raiseDebug(`<${c}>`);
+        } else {
+            Errors.notImplemented(`<${c}>`);
         }
     }
     return TokenStream.build(xs);

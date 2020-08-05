@@ -13,8 +13,8 @@ import {
     CharacterStream,
     TokenType,
     lex,
-} from "../parser/mod.internal.ts";
-import { Errors } from "../util/mod.ts";
+} from "../parser/mod.ts";
+import { Errors } from "../driver/mod.ts";
 
 function buildCharacterStream(x: string) {
     return CharacterStream.build(x+"\n", "<mem>");

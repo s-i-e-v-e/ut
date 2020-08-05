@@ -1,0 +1,13 @@
+Each block has a scope attached to it
+{}BLOCK <-> Scope
+
+As does each def
+Module <-> Scope
+    Type <-> Scope
+    Struct <-> Scope
+    Function <-> Scope
+        FUNCTION-BODY -> is a block
+        FOR  -> is a block
+            FOR-BODY  -> is a block
+        IF  -> is a block
+        ELSE  -> is a block

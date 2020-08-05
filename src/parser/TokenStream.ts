@@ -6,19 +6,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
+    D,
     Token,
     TokenType,
-} from "./mod.internal.ts";
-import {
-    P,
 } from "./mod.ts";
-import { Errors } from "../util/mod.ts";
+import { Errors } from "../driver/mod.ts";
 
-export default class TokenStream {
+export class TokenStream {
     private index: number;
     public readonly length: number;
     private readonly EOF: Token = {
-        loc: P.UnknownLoc,
+        loc: D.UnknownLocation,
         type: TokenType.TK_INTERNAL,
         lexeme: "",
         xs: [],
@@ -61,8 +59,13 @@ export default class TokenStream {
         return this.eof(n) ? this.EOF : this.xs[n ? this.index + n : this.index];
     }
 
+    back() {
+        Errors.ASSERT(this.index > 0);
+        this.index -= 1;
+    }
+
     next() {
-        if (this.eof()) Errors.raiseEOF();
+        Errors.ASSERT(!this.eof());
         let x = this.peek();
         this.index += 1;
         return x;

@@ -5,13 +5,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { run, Config,  }from "./runner.ts";
 import {
+    Command,
+    Config,
     Logger,
-    LogLevel,
     OS,
     Errors,
-} from "./util/mod.ts";
+    run,
+} from "./mod.ts";
 
 function help() {
     console.log("ut 0.1");
@@ -20,15 +21,11 @@ function help() {
     console.log("   ut help");
 }
 
-interface Command {
-    id: string,
-    args: string[],
-}
-
-async function main(args: string[]) {
+function parseCommandlineArgs(args: string[]): [Command, Config] {
     const cfg: Config = {
-        logLevel: LogLevel.NONE,
+        logLevel: 0,
         dump: false,
+        base: ".",
     };
 
     let cx: Command = {
@@ -42,24 +39,30 @@ async function main(args: string[]) {
 
         switch (cmd) {
             case "-v": {
-                cfg.logLevel = LogLevel.INFO;
+                cfg.logLevel += 1;
                 break;
             }
             case "-vv": {
-                cfg.logLevel = LogLevel.DEBUG1;
+                cfg.logLevel += 2;
                 break;
             }
             case "-vvv": {
-                cfg.logLevel = LogLevel.DEBUG2;
+                cfg.logLevel += 3;
                 break;
             }
             case "-d": {
                 cfg.dump = true;
                 break;
             }
+            case "-b": {
+                cfg.base = args.shift() || "";
+                break;
+            }
+            case "-h":
+            case "--help":
             case "help": {
                 cx = {
-                    id: cmd,
+                    id: "help",
                     args: [],
                 };
                 break;
@@ -78,8 +81,13 @@ async function main(args: string[]) {
             }
         }
     }
+    return [cx, cfg];
+}
 
+async function main(args: string[]) {
+    let [cx, cfg] = parseCommandlineArgs(args);
     Logger.setLevel(cfg.logLevel);
+
     switch (cx.id) {
         case undefined:
         case "":
@@ -88,7 +96,7 @@ async function main(args: string[]) {
             break;
         }
         case "run": await run(cx.args, cfg); break;
-        default: Errors.raiseDebug();
+        default: Errors.notImplemented(cx.id);
     }
 }
 

@@ -155,7 +155,7 @@ function parseNumber(n: string, radix: number, loc: Location) {
     return {
         nodeType: NodeType.NumberLiteral,
         value: sum,
-        type: P.Types.Compiler.Word,
+        type: P.Types.Compiler.IntegerLiteral,
         loc: loc,
     };
 }
@@ -167,13 +167,13 @@ function parseLiteral(ts: TokenStream) {
         case TokenType.TK_STRING_LITERAL: return {
             nodeType: NodeType.StringLiteral,
             value: t.lexeme.substring(1, t.lexeme.length - 1),
-            type: P.Types.Compiler.String,
+            type: P.Types.Compiler.StringLiteral,
             loc: loc,
         };
         case TokenType.TK_BOOLEAN_LITERAL: return {
             nodeType: NodeType.BooleanLiteral,
             value: t.lexeme === "true",
-            type: P.Types.Compiler.Bool,
+            type: P.Types.Compiler.BoolLiteral,
             loc: loc,
         };
         case TokenType.TK_BINARY_NUMBER_LITERAL: return parseNumber(t.lexeme, 2, loc);

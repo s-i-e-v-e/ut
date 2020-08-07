@@ -75,6 +75,10 @@ export function object_entries<T>(x: T) {
     return Object.entries(x);
 }
 
+export function object_keys<T>(x: T) {
+    return Object.keys(x);
+}
+
 export function Int(n: number|bigint|string) {
     return BigInt(n);
 }

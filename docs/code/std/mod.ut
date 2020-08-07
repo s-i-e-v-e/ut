@@ -1,27 +1,18 @@
-struct UnsignedInt(#bits: Word)
+struct UnsignedInt(#bits: Compiler-Integer)
 // => type::UnsignedInt
 // => ctor::UnsignedInt(Word)
 
-struct SignedInt(#bits: Word)
+struct SignedInt(#bits: Compiler-Integer)
 // => type::SignedInt
 // => ctor::SignedInt(Word)
 
-struct Float(#bits: Word, #exp-bits: Word)
+struct Float(#bits: Compiler-Integer, #exp-bits: Compiler-Integer)
 // => type::Float
 // => ctor::Float(Word)
 
 struct Pointer()
 // => type::Pointer
 // => ctor::Pointer()
-
-struct Array[A](length: Word, stride: Word)
-// => type::Array[$A]
-foreign fn Array[A](xs: A*): Array[A]
-// => ctor::Array[$A](A*)
-
-struct String(length: Word)
-// => type::String
-// => ctor::String(Word)
 
 type Void = Pointer
 type Bool = UnsignedInt(8)
@@ -52,6 +43,15 @@ type Float32 = Float(32, 8)
 type Float64 = Float(64, 11)
 type Float80 = Float(80, 15)
 type Float128 = Float(128, 15)
+
+struct Array[A](length: Int64, stride: Int64)
+// => type::Array[$A]
+foreign fn Array[A](xs: A*): Array[A]
+// => ctor::Array[$A](A*)
+
+struct String(length: Int64)
+// => type::String
+// => ctor::String(Word)
 
 struct P1[A](a: A)
 struct P2[A, B](a: A, b: B)

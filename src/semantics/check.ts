@@ -57,7 +57,7 @@ function ifMustReturn(be: A.BlockExpr) {
 
 function checkTypes(st: SymbolTable, block: A.BlockExpr, le_or_type: Type|Expr, re: Expr, loc: Location) {
     const getType = (e: Expr) => {
-        return st.resolver.typeNotInferred(e.type) ? getExprType(st, block, e) : e.type;
+        return st.resolver.typeNotInferred(e.type) ? doExpr(st, block, e) : e.type;
     }
 
     const ltype = (le_or_type as Expr).nodeType ? getType(le_or_type as Expr) : le_or_type as Type;
@@ -118,7 +118,7 @@ function getStruct(st: SymbolTable, t: P.Type, loc: Location): P.FunctionPrototy
 }
 
 function setBlockType(st: SymbolTable, block: A.BlockExpr, expr: Expr) {
-    const ty = getExprType(st, block, expr);
+    const ty = doExpr(st, block, expr);
     if (st.resolver.typeNotInferred(block.type)) {
         block.type = ty;
     }
@@ -150,7 +150,7 @@ function doApplication(st: SymbolTable, block: A.BlockExpr, x: A.FunctionApplica
 
             // check arg types
             // get type of first arg
-            const et = getExprType(st, block, x.args[0]);
+            const et = doExpr(st, block, x.args[0]);
             x.args.forEach(y => st.resolver.typesMustMatch(et, y.type, y.loc))
 
             // can infer type from constructor args
@@ -190,11 +190,11 @@ function doApplication(st: SymbolTable, block: A.BlockExpr, x: A.FunctionApplica
     else {
         const y = x as A.ArrayExpr;
         y.nodeType = NodeType.ArrayExpr;
-        return getExprType(st, block, y);
+        return doExpr(st, block, y);
     }
 
     const argTypes = x.args.map(y => {
-        const t = getExprType(st, block, y);
+        const t = doExpr(st, block, y);
         t.loc = y.loc;
         return t;
     });
@@ -206,7 +206,7 @@ function doApplication(st: SymbolTable, block: A.BlockExpr, x: A.FunctionApplica
     return f.returns!;
 }
 
-function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
+function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     if (st.as.ret) Errors.Checker.unreachableCode(e.loc);
     let ty;
     switch (e.nodeType) {
@@ -241,8 +241,8 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         case NodeType.BinaryExpr: {
             const x = e as A.BinaryExpr;
 
-            const ta = getExprType(st, block, x.left);
-            const tb = getExprType(st, block, x.right);
+            const ta = doExpr(st, block, x.left);
+            const tb = doExpr(st, block, x.right);
             st.resolver.typesMustMatch(ta, tb, x.loc);
 
             switch (x.op) {
@@ -260,12 +260,12 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 case ">=":
                 case "<=": {
                     if (!st.resolver.isInteger(ta)) return Errors.Checker.raiseMathTypeError(ta, x.loc);
-                    ty = P.Types.Compiler.Bool;
+                    ty = P.Types.Compiler.BoolLiteral;
                     break;
                 }
                 case "==":
                 case "!=": {
-                    ty = P.Types.Compiler.Bool;
+                    ty = P.Types.Compiler.BoolLiteral;
                     break;
                 }
                 case "|":
@@ -284,12 +284,12 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.ArrayExpr: {
             const x = e as A.ArrayExpr;
-            const t = getExprType(st, block, x.expr);
+            const t = doExpr(st, block, x.expr);
             st.resolver.typesMustMatch(t, P.Types.Compiler.Array, x.loc);
             const at = getVar(st, x.expr.id, x.loc).type;
 
             x.args.forEach(a => {
-                const ty = getExprType(st, block, a);
+                const ty = doExpr(st, block, a);
                 if (!st.resolver.isInteger(ty)) return Errors.Checker.raiseArrayIndexError(a.type, a.loc);
             });
 
@@ -306,7 +306,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             if (!x.isStmt) ifMustReturn(x.ifBranch);
             if (!x.isStmt) ifMustReturn(x.elseBranch);
 
-            const t = getExprType(st, block, x.condition);
+            const t = doExpr(st, block, x.condition);
             if (!st.resolver.isBoolean(t)) return Errors.Checker.raiseIfConditionError(t, x.loc);
 
             const st1 = doBlock(st, "if-body", x.ifBranch);
@@ -324,7 +324,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.CastExpr: {
             const x = e as A.CastExpr;
-            const t = getExprType(st, block, x.expr);
+            const t = doExpr(st, block, x.expr);
             //todo: if (Types.typesMatch(st, t, x.type)) Errors.raiseTypeError("Unnecessary cast", x.loc);
             ty = x.type;
             break;
@@ -335,7 +335,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.ReferenceExpr: {
             const xx = e as A.ReferenceExpr;
-            const t = getExprType(st, block, xx.expr);
+            const t = doExpr(st, block, xx.expr);
             const y = xx.expr;
             switch (y.nodeType) {
                 case NodeType.IDExpr:
@@ -349,7 +349,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.DereferenceExpr: {
             const x = e as A.DereferenceExpr;
-            const t = getExprType(st, block, x.expr);
+            const t = doExpr(st, block, x.expr);
             if (t.typeParams.length) {
                 ty = t.typeParams[0];
             }
@@ -377,7 +377,7 @@ function getExprType(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         }
         case NodeType.GroupExpr: {
             const x = e as A.GroupExpr;
-            ty = getExprType(st, block, x.expr);
+            ty = doExpr(st, block, x.expr);
             break;
         }
         default: return Errors.raiseDebug(NodeType[e.nodeType]);
@@ -396,7 +396,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
             const x = s as A.VarInitStmt;
 
             // infer
-            const ty = getExprType(st, block, x.expr);
+            const ty = doExpr(st, block, x.expr);
             if (st.resolver.typeNotInferred(x.var.type)) {
                 x.var.type = ty;
             }
@@ -410,7 +410,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
             // infer
-            const ty = getExprType(st, block, x.lhs);
+            const ty = doExpr(st, block, x.lhs);
             const v = resolveVar(st, x.lhs);
 
             // check assignments to immutable vars
@@ -435,7 +435,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
                 const y = x.expr as A.IfExpr;
                 y.isStmt = true;
             }
-            getExprType(st, block, x.expr);
+            doExpr(st, block, x.expr);
             break;
         }
         case NodeType.ForStmt: {
@@ -444,7 +444,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
 
             if (x.init) doStmt(st, block, x.init);
             if (x.condition) {
-                const t = getExprType(st, block, x.condition);
+                const t = doExpr(st, block, x.condition);
                 if (!st.resolver.isBoolean(t)) return Errors.Checker.raiseForConditionError(t, x.loc);
             }
             if (x.update) doStmt(st, block, x.update);
@@ -606,7 +606,9 @@ class Check {
 export default function check(mods: P.Module[]) {
     const global = SymbolTable.build(P.Types.NativeModule);
 
-    global.addType(P.Types.Compiler.Word);
+    global.addType(P.Types.Compiler.IntegerLiteral);
+    global.addType(P.Types.Compiler.StringLiteral);
+    global.addType(P.Types.Compiler.BoolLiteral);
 
     const c = new Check(mods);
     for (const m of mods) {

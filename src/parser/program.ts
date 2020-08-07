@@ -107,21 +107,21 @@ export class Types {
     public static readonly NativeUint = Types.nativeUint(64n, "uint");
     public static readonly NativeFloat = Types.nativeFloat(80n, 15n, "float");
 
-    public static readonly Word = "Word";
     public static readonly Pointer = "Pointer";
     public static readonly SignedInt = "SignedInt";
     public static readonly UnsignedInt = "UnsignedInt";
     public static readonly Float = "Float";
     public static readonly Array = "Array";
     public static readonly Bool = "Bool";
+    public static readonly String = "String";
 
     public static readonly Compiler = {
-        Word: Types.newType(Types.Word),
+        IntegerLiteral: Types.newType("Compiler-Integer"),
         Array: Types.newType(Types.Array),
-        Bool: Types.newType(Types.Bool),
+        BoolLiteral: Types.newType("Compiler-Bool"),
         NotInferred: Types.newType("NotInferred"),
         Void: Types.newType("Void"),
-        String: Types.newType("String"),
+        StringLiteral: Types.newType("String"),
     };
 
     public static readonly NativeLoc = {

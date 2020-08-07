@@ -50,9 +50,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
             break;
         }
         case NodeType.IDExpr: {
-            const x = e as A.IDExpr;
-            const v = st.getVar(x.id)!;
-            v.type = st.resolver.rewriteType(v.type);
+            // note: skip. primary var already handled during var-init
             break;
         }
         case NodeType.BinaryExpr: {

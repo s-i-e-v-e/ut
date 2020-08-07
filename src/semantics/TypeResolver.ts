@@ -28,7 +28,7 @@ export default class TypeResolver {
 
         const xs = y.id.split("^");
         switch (y.typetype) {
-            case P.Types.Word: {
+            case P.Types.Compiler.IntegerLiteral.id: {
                 if (!skipWord) {
                     y.id = P.Types.buildTypeID(P.Types.UnsignedInt, [64n]);
                     y.typetype = P.Types.UnsignedInt;
@@ -67,7 +67,7 @@ export default class TypeResolver {
     isInteger(t: Type): boolean {
         const x = this.rewriteType(t, true);
         switch (x.typetype) {
-            case P.Types.Word:
+            case P.Types.Compiler.IntegerLiteral.id:
             case P.Types.UnsignedInt:
             case P.Types.SignedInt:
             {
@@ -80,12 +80,18 @@ export default class TypeResolver {
     }
 
     isBoolean(xt: Type): boolean {
-        return xt.id === P.Types.Bool;
+        return xt.id === P.Types.Bool || xt.id === P.Types.Compiler.BoolLiteral.id;
+    }
+
+    isString(xt: Type): boolean {
+        return xt.id === P.Types.String || xt.id === P.Types.Compiler.StringLiteral.id;
     }
 
     typesMatch(ot1: Type, ot2: Type, noTypeParams: boolean = false): boolean {
         const filter = (xs: P.Type[]) => xs.filter(x => x.id.length > 1);
         if (this.isInteger(ot1) && this.isInteger(ot2)) return true;
+        if (this.isBoolean(ot1) && this.isBoolean(ot2)) return true;
+        if (this.isString(ot1) && this.isString(ot2)) return true;
 
         let t1 = this.st.getType(ot1.id);
         let t2 = this.st.getType(ot2.id);

@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {P} from "../parser/mod.ts";
-import {deep_clone, Dictionary, Errors, Logger} from "../util/mod.ts";
+import {clone, Dictionary, Errors, Int, Logger} from "../util/mod.ts";
 import {GenericMap} from "./mod.internal.ts";
 import SymbolTable from "./SymbolTable.ts";
 
@@ -37,17 +37,17 @@ export default class TypeResolver {
                 break;
             }
             case P.Types.SignedInt: {
-                y.native = xs[1] ? P.Types.nativeInt(BigInt(xs[1]), xs[0]) : P.Types.NativeInt;
+                y.native = xs[1] ? P.Types.nativeInt(Int(xs[1]), xs[0]) : P.Types.NativeInt;
                 break;
             }
             case P.Types.UnsignedInt: {
-                y.native = xs[1] ? P.Types.nativeUint(BigInt(xs[1]), xs[0]) : P.Types.NativeUint;
+                y.native = xs[1] ? P.Types.nativeUint(Int(xs[1]), xs[0]) : P.Types.NativeUint;
                 break;
             }
             case P.Types.Float: {
                 if (xs[1]) {
                     const ys = xs[1].split("|");
-                    y.native = P.Types.nativeFloat(BigInt(ys[0]), BigInt(ys[1]), xs[0]);
+                    y.native = P.Types.nativeFloat(Int(ys[0]), Int(ys[1]), xs[0]);
                 }
                 y.native = P.Types.NativeFloat;
                 break;
@@ -159,7 +159,7 @@ export default class TypeResolver {
                 }
                 const y = P.Types.mangleName(id, [], ys, returns);
                 if (mid === y) {
-                    const ff: P.FunctionPrototype = deep_clone(f) as P.FunctionPrototype;
+                    const ff: P.FunctionPrototype = clone(f) as P.FunctionPrototype;
                     ff.typeParams = [];
                     ff.takes = ys;
                     ff.returns = returns;
@@ -238,7 +238,7 @@ export default class TypeResolver {
                     const argTypes = this.mapGenericTypes(map, pt.typeParams, typeParams);
                     const ys = this.mapTypes(map, argTypes, pt.takes, typeParams);
 
-                    const ppt = deep_clone(pt) as P.Type;
+                    const ppt = clone(pt) as P.Type;
                     ppt.takes = ys;
                     ppt.typeParams = [];
 

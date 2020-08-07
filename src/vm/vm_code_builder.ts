@@ -7,7 +7,7 @@
  */
 import {
     Dictionary,
-    Errors,
+    Errors, Int, int,
     Logger,
 } from "../util/mod.ts";
 
@@ -48,8 +48,8 @@ export class ByteBuffer {
         return this.dv.getUint8(offs);
     }
 
-    private check_offset(offset: bigint|number) {
-        if (offset >= BigInt(this.dv.byteLength)) {
+    private check_offset(offset: int|number) {
+        if (offset >= Int(this.dv.byteLength)) {
             Errors.raiseDebug(`offset err: ${offset} >=${this.dv.byteLength}`);
         }
     }
@@ -72,15 +72,15 @@ export class ByteBuffer {
         return 1;
     }
 
-    write_u64(x: bigint|number) {
+    write_u64(x: int|number) {
         const n = this.write_u64_at(x, this._offset);
         this._offset += 8;
         return n;
     }
 
-    write_u64_at(x: bigint|number, offset: number) {
+    write_u64_at(x: int|number, offset: number) {
         this.check_offset(offset);
-        this.dv.setBigUint64(offset, BigInt(x));
+        this.dv.setBigUint64(offset, Int(x));
         return 8;
     }
 
@@ -119,11 +119,11 @@ export class VmCodeBuilder {
     private readonly imports: ByteBuffer;
     private readonly labels: Dictionary<number>;
     private readonly reloc: Array<Reloc>;
-    public readonly importsOffset: bigint;
+    public readonly importsOffset: int;
     private readonly internedStrings: Dictionary<number>;
 
     private constructor() {
-        this.importsOffset = BigInt(VmCodeBuilder.IMPORTS_BASE);
+        this.importsOffset = Int(VmCodeBuilder.IMPORTS_BASE);
         this.cs = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.imports = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
         this.rds = ByteBuffer.build(VmCodeBuilder.SEGMENT_SIZE);
@@ -214,7 +214,7 @@ export class VmCodeBuilder {
         Logger.debug(`MOV ${rd}, ${rs}`);
     }
 
-    mov_r_i(rd: string, n: bigint) {
+    mov_r_i(rd: string, n: int) {
         checkRegister(rd);
         this.do_ins(VmOperation.MOV_R_I);
         const a = registers[rd];
@@ -226,7 +226,7 @@ export class VmCodeBuilder {
     mov_r_str(rd: string, x: string) {
         checkRegister(rd);
         const offset = this.putStr(x);
-        this.mov_r_i(rd, BigInt(offset));
+        this.mov_r_i(rd, Int(offset));
     }
 
     mov_m_r(offset: number, rs: string) {

@@ -8,7 +8,9 @@
 
 import {
     Errors,
-    Logger
+    Logger,
+    int,
+    Int,
 } from "../util/mod.ts";
 import {
     VmOperation
@@ -16,9 +18,9 @@ import {
 
 export default class Vm {
     public static readonly SEGMENT_SIZE = 1024*32;
-    private ip: bigint;
-    private hp: bigint; // heap pointer
-    private sp: bigint; // stack pointer
+    private ip: int;
+    private hp: int; // heap pointer
+    private sp: int; // stack pointer
     private readonly registers = [
         0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n,
         0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n,
@@ -33,27 +35,27 @@ export default class Vm {
     private readonly enc: TextEncoder;
     private readonly dec: TextDecoder;
 
-    private constructor(private readonly imports: bigint) {
+    private constructor(private readonly imports: int) {
         this.memory = new Uint8Array(Vm.SEGMENT_SIZE*8);
         this.dv = new DataView(this.memory.buffer);
         this.enc = new TextEncoder();
         this.dec = new TextDecoder();
         this.ip = 0n;
-        this.hp = BigInt(Vm.SEGMENT_SIZE*4);
-        this.sp = BigInt(this.memory.length - 8);
+        this.hp = Int(Vm.SEGMENT_SIZE*4);
+        this.sp = Int(this.memory.length - 8);
     }
 
-    static build(imports: bigint) {
+    static build(imports: int) {
         return new Vm(imports);
     }
 
-    private check_offset(offset: bigint) {
-        if (offset >= BigInt(this.memory.length)) {
+    private check_offset(offset: int) {
+        if (offset >= Int(this.memory.length)) {
          Errors.raiseDebug(`offset err: ${offset} >= ${this.memory.length}`);
         }
     }
 
-    private mem_alloc(size: bigint) {
+    private mem_alloc(size: int) {
         if (!size) Errors.raiseDebug();
         const offset = this.hp;
         this.check_offset(offset);
@@ -62,14 +64,14 @@ export default class Vm {
         return offset;
     }
 
-    private mem_free(p: bigint) {
+    private mem_free(p: int) {
 
     }
 
-    private read_u64_from_ptr(p: bigint) {
+    private read_u64_from_ptr(p: int) {
         this.check_offset(p);
-        const upper = BigInt(this.dv.getUint32(Number(p)));
-        const lower = BigInt(this.dv.getUint32(Number(p + 4n)));
+        const upper = Int(this.dv.getUint32(Number(p)));
+        const lower = Int(this.dv.getUint32(Number(p + 4n)));
 
         return (upper * (2n ** 32n)) + lower;
     }
@@ -81,7 +83,7 @@ export default class Vm {
         return x;
     }
 
-    private read_u64(offset?: bigint) {
+    private read_u64(offset?: int) {
         if (offset) {
             return this.read_u64_from_ptr(offset);
         }
@@ -94,10 +96,10 @@ export default class Vm {
 
     private write_str(x: string) {
         const xs = this.enc.encode(x);
-        const offset = this.mem_alloc(BigInt(xs.byteLength + 8));
+        const offset = this.mem_alloc(Int(xs.byteLength + 8));
         let ptr = Number(offset);
 
-        this.write_u64(BigInt(ptr), BigInt(xs.length));
+        this.write_u64(Int(ptr), Int(xs.length));
         ptr += 8;
         for (let i = 0; i < xs.length; i += 1) {
             this.dv.setUint8(ptr, xs[i]);
@@ -106,7 +108,7 @@ export default class Vm {
         return offset;
     }
 
-    private read_str(offset: bigint) {
+    private read_str(offset: int) {
         let ip = offset;
 
         const len = this.read_u64(ip);
@@ -123,12 +125,12 @@ export default class Vm {
         return this.dec.decode(new Uint8Array(xs));
     }
 
-    private write_u64(offset: bigint, x: bigint) {
+    private write_u64(offset: int, x: int) {
         this.check_offset(offset);
-        this.dv.setBigUint64(Number(offset), BigInt(x));
+        this.dv.setBigUint64(Number(offset), x);
     }
 
-    private push(n: bigint) {
+    private push(n: int) {
         this.dv.setBigUint64(Number(this.sp), n);
         this.sp -= 8n;
     }
@@ -158,31 +160,31 @@ export default class Vm {
         const rr = this.read_u8();
         const r = (rr >>> 4) & 0x0F;
         const x = this.read_u64();
-        return [BigInt(r), x];
+        return [Int(r), x];
     }
 
     private parse_r() {
         const rr = this.read_u8();
         const r = (rr >>> 4) & 0x0F;
-        return BigInt(r);
+        return Int(r);
     }
 
-    private updateFlags(rd: bigint|number, isReg: boolean = true) {
+    private updateFlags(rd: int|number, isReg: boolean = true) {
         const v = isReg ? this.registers[Number(rd)] : rd;
         this.FLAGS.ZF = v === 0n ? 1n : 0n;
         this.FLAGS.SF = v < 0n ? 1n : 0n;
         this.FLAGS.OF = 0n;
     }
 
-    private set(rd: bigint|number, flag: boolean) {
+    private set(rd: int|number, flag: boolean) {
         this.registers[Number(rd)] = flag ? 1n : 0n;
     }
 
-    hex(n: number|bigint) {
+    hex(n: number|int) {
         return `0x${Number(n).toString(16)}`;
     }
 
-    hexRange(label: string, a: number|bigint, b: number|bigint) {
+    hexRange(label: string, a: number|int, b: number|int) {
         return `${label}\t\t${this.hex(a)}-${this.hex(b)}`;
     }
 
@@ -194,9 +196,9 @@ export default class Vm {
         Logger.debug2(this.hexRange("MUTABLE  ", Vm.SEGMENT_SIZE * 3, Vm.SEGMENT_SIZE * 4));
         Logger.debug2(this.hexRange("HEAP     ", Vm.SEGMENT_SIZE * 4, this.memory.byteLength));
 
-        const offset = this.mem_alloc(BigInt((args.length * 8) + 8 + 8));
+        const offset = this.mem_alloc(Int((args.length * 8) + 8 + 8));
         let ptr = offset;
-        this.write_u64(ptr, BigInt(args.length));
+        this.write_u64(ptr, Int(args.length));
         ptr += 8n;
         this.write_u64(ptr, 8n);
         ptr += 8n;

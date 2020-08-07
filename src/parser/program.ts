@@ -9,6 +9,7 @@
 import {
     A
 } from "./mod.ts";
+import {int} from "../util/mod.ts";
 
 export interface Tag {
     tag?: any;
@@ -187,7 +188,7 @@ export class Types {
         };
     }
 
-    public static nativeInt (bits: bigint, id: string): NativeWord {
+    public static nativeInt (bits: int, id: string): NativeWord {
         return {
             loc: Types.NativeLoc,
             id: Types.buildTypeID(id, [bits]),
@@ -196,7 +197,7 @@ export class Types {
         };
     }
 
-    public static nativeUint(bits: bigint, id: string): NativeWord {
+    public static nativeUint(bits: int, id: string): NativeWord {
         return {
             loc: Types.NativeLoc,
             id: Types.buildTypeID(id, [bits]),
@@ -205,7 +206,7 @@ export class Types {
         };
     }
 
-    public static nativeFloat(bits: bigint, exponent: bigint, id: string): NativeFloat {
+    public static nativeFloat(bits: int, exponent: int, id: string): NativeFloat {
         return {
             loc: Types.NativeLoc,
             id: Types.buildTypeID(id, [bits, exponent]),

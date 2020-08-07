@@ -11,7 +11,7 @@ import {
 import {VmCodeBuilder} from "../vm/vm_code_builder.ts";
 import {
     Dictionary,
-    Errors,
+    Errors, int,
     Logger,
 } from "../util/mod.ts";
 import {registers} from "../vm/mod.ts";
@@ -35,7 +35,7 @@ export class Store {
         public readonly ss: StructState,
     ) {}
 
-    write_imm(n: bigint) {
+    write_imm(n: int) {
         this.b.mov_r_i(this.reg, n);
     }
 

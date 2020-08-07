@@ -10,18 +10,19 @@ import { check, rewrite } from "./semantics/mod.ts";
 import {
     Logger,
     Errors,
-    LogLevel,
     OS,
 } from "./util/mod.ts";
 import { vm_gen_code } from "./codegen/mod.ts";
 import { Vm } from "./vm/mod.ts";
 
 export interface Config {
-    logLevel: LogLevel,
+    logLevel: number,
     dump: boolean,
+    base: string,
 }
 
-function process(mods: P.Module[], args: string[], c: Config) {
+async function runFile(path: string, args: string[], c: Config) {
+    const mods = await parseFile(c.base, path);
     const global = check(mods);
     rewrite(global, mods);
     const vme = vm_gen_code(mods);
@@ -35,12 +36,11 @@ function process(mods: P.Module[], args: string[], c: Config) {
 export async function run(args: string[], c: Config) {
     try {
         const path = args.shift() || "";
-        const mods = await parseFile(path);
-        process(mods, args, c);
+        await runFile(path, args, c);
     }
     catch (e) {
         if (e instanceof Errors.UtError) {
-            if (c.logLevel > LogLevel.INFO) {
+            if (c.logLevel) {
                 throw e;
             }
             else {

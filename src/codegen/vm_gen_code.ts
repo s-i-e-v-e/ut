@@ -14,8 +14,8 @@ import {
     VmCodeBuilder
 } from "../vm/mod.ts";
 import {
-    Errors,
-    Logger,
+    Errors, Int,
+    Logger, object_entries,
 } from "../util/mod.ts";
 import {
     Allocator, newStructState,
@@ -119,7 +119,7 @@ function doApplication(ac: Allocator, store: Store, block: A.BlockExpr, x: A.Fun
         }
         tmp.free();
 
-        store.write_imm(BigInt(offset));
+        store.write_imm(Int(offset));
     }
     else {
         // push used regs to stack
@@ -262,7 +262,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             }
             tmp.free();
 
-            store.write_imm(BigInt(offset));
+            store.write_imm(Int(offset));
             break;
         }
         case NodeType.DereferenceExpr: {
@@ -391,7 +391,7 @@ function bindTypeInfo(ac: Allocator, store: Store, block: A.BlockExpr, v: P.Vari
     //Errors.ASSERT(v.type.native.bits !== 0, `${v.id}:${v.type.id}`, v.loc);
     const ss = newStructState();
     computeStructInfo(ss, block, v, v.id);
-    for (const [k, i] of Object.entries(ss.map)) {
+    for (const [k, i] of object_entries(ss.map)) {
         const vx = ss.xs[i]
         Logger.debug2(`${v.id}.${k} = ${vx.offset}:${vx.size}`);
     }

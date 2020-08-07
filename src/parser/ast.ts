@@ -10,7 +10,7 @@ import {
     A,
     P,
 } from "./mod.ts";
-import {Logger} from "../util/mod.ts";
+import {int, Logger} from "../util/mod.ts";
 
 type Location = P.Location;
 export enum NodeType {
@@ -159,7 +159,7 @@ export interface Literal<T> extends Expr {
 
 export interface StringLiteral extends Literal<string> {}
 export interface BooleanLiteral extends Literal<boolean> {}
-export interface NumberLiteral extends Literal<bigint> {}
+export interface NumberLiteral extends Literal<int> {}
 
 export function buildExprStmt(re: Expr, loc?: Location): ExprStmt {
     return {

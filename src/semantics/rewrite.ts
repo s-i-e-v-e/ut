@@ -29,11 +29,11 @@ function isValueStructExpr(st: SymbolTable, a: A.Expr) {
 }
 
 function copyValueStruct(st: SymbolTable, a: A.Expr, m: P.Variable): [P.Variable[], A.Expr[]]  {
-    const is = clone(st.getStruct(a.type.id)!);
+    const is = clone(st.getStruct(a.type.id)!) as P.StructDef;
     const ide = a as A.IDExpr;
     const as: A.Expr[] = [];
     is.params.forEach(y => {
-        const q = clone(ide);
+        const q = clone(ide) as A.IDExpr;
         q.rest = [y.id];
         q.type = y.type;
         as.push(q);
@@ -79,7 +79,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
                 x.oldStruct = x.oldStruct ? x.oldStruct : st.getStruct(x.type.id)!;
                 const xs: P.Variable[] = [];
                 const as: Expr[] = [];
-                const s = clone(x.oldStruct);
+                const s = clone(x.oldStruct) as P.StructDef;
                 for (let i = 0; i < x.args.length; i+= 1) {
                     const a = x.args[i];
                     const m = s.params[i];

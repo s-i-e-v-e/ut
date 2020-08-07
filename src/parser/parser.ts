@@ -19,7 +19,7 @@ import {
     Errors,
     Logger,
     Dictionary,
-    SourceFile, deep_clone,
+    SourceFile, clone, Int,
 } from "../util/mod.ts";
 
 type Location = P.Location;
@@ -146,12 +146,12 @@ function parseNumber(n: string, radix: number, loc: Location) {
     const isKilo = n.endsWith("K");
     n = isKilo ? n.substring(0, n.length - 1) : n;
 
-    let sum = BigInt(0);
+    let sum = Int(0);
     for (let i = 0; i < n.length; i += 1) {
         const d = n.charAt(n.length - i - 1);
-        sum += BigInt(NumGrid[d] * (radix ** i));
+        sum += Int(NumGrid[d] * (radix ** i));
     }
-    sum = isKilo ? sum * BigInt(1024) : sum;
+    sum = isKilo ? sum * Int(1024) : sum;
     return {
         nodeType: NodeType.NumberLiteral,
         value: sum,
@@ -674,7 +674,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): P.Module
     // add type instantiation function
     structs.forEach(x => {
         if (!(xs.filter(y => y.id === x.id).length || ys.filter(y => y.id === x.id).length)) {
-            const f = deep_clone(x) as P.FunctionPrototype;
+            const f = clone(x) as P.FunctionPrototype;
             f.returns = x;
             xs.push(f);
         }

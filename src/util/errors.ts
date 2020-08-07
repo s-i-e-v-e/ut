@@ -278,6 +278,10 @@ export default class Errors {
         throw new this.Debug(s);
     }
 
+    static notImplemented(msg?: string): never {
+        throw new Error(msg || "notImplemented");
+    }
+
     static raiseVmError(msg: string) {
         throw new this.VmError(msg);
     }

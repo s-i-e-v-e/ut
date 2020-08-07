@@ -19,9 +19,9 @@ async function parseModule(modules: Dictionary<P.Module>, id: string, base: stri
     for (const im of m.imports) {
         if (!modules[im.id]) {
             const mid = im.id.replaceAll(/\./g, "/");
-            const ad = `${base}${mid}`;
-            const a1 = `${base}${mid}/mod.ut`;
-            const a2 = `${base}${mid}.ut`;
+            const ad = `${base}/${mid}`;
+            const a1 = `${base}/${mid}/mod.ut`;
+            const a2 = `${base}/${mid}.ut`;
             await parseModule(modules, im.id, base, OS.isDir(ad) ? a1 : a2);
         }
     }
@@ -34,13 +34,13 @@ function getFileName(path: string) {
     return path.substring(a, b);
 }
 
-async function parseFile(path: string) {
+async function parseFile(base: string, path: string) {
     const modules: Dictionary<P.Module> = {};
     const nms = parseNative();
 
     path = path.replaceAll(/\\/g, "/");
     const id = getFileName(path);
-    const base = path.substring(0, path.indexOf("/")+1);
+    base = base || path.substring(0, path.indexOf("/")+1);
     await parseModule(modules, id, base, path);
 
     const mods = [];

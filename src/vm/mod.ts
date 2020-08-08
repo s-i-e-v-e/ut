@@ -7,7 +7,6 @@
  */
 import {
     VmCodeBuilder,
-    ByteBuffer,
 } from "./vm_code_builder.ts";
 import Vm from "./vm.ts";
 import {Dictionary} from "../util/mod.ts";
@@ -33,6 +32,5 @@ export const registers: Dictionary<number> = {
 
 export {
     VmCodeBuilder,
-    ByteBuffer,
     Vm,
 }

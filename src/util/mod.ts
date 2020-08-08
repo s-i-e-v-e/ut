@@ -10,6 +10,7 @@ import {
 } from "./logger.ts";
 import Errors from "./errors.ts";
 import { OS } from "./os.ts";
+import ByteBuffer from "./ByteBuffer.ts";
 
 export interface Dictionary<T> {
     [index: string]: T;
@@ -89,4 +90,5 @@ export {
     Logger,
     Errors,
     OS,
+    ByteBuffer,
 };

@@ -9,8 +9,8 @@ import {
     Dictionary,
     Errors, Int, int,
     Logger,
+    ByteBuffer,
 } from "../util/mod.ts";
-
 import {
     VmOperation,
 } from "./mod.internal.ts";
@@ -18,84 +18,6 @@ import {
     registers,
 } from "./mod.ts";
 import Vm from "./vm.ts";
-
-export class ByteBuffer {
-    private readonly enc: TextEncoder;
-    private readonly xs: Uint8Array;
-    private readonly dv: DataView;
-    private _offset: number;
-
-    private constructor(size: number) {
-        this.enc = new TextEncoder();
-        this.xs = new Uint8Array(size);
-        this.dv = new DataView(this.xs.buffer);
-        this._offset = 0;
-    }
-
-    static build(size: number) {
-        return new ByteBuffer(size);
-    }
-
-    set_offset(offs: number)  {
-        this._offset = offs;
-    }
-
-    offset() {
-        return this._offset;
-    }
-
-    get_u8(offs: number) {
-        return this.dv.getUint8(offs);
-    }
-
-    private check_offset(offset: int|number) {
-        if (offset >= Int(this.dv.byteLength)) {
-            Errors.raiseDebug(`offset err: ${offset} >=${this.dv.byteLength}`);
-        }
-    }
-
-    write_str(x: string) {
-        const xs = this.enc.encode(x);
-        this.write_u64(xs.length);
-        for (let i = 0; i < xs.length; i += 1) {
-            this.dv.setUint8(this._offset, xs[i]);
-            this._offset += 1;
-        }
-        return xs.length;
-    }
-
-    write_u8(x: number) {
-        if (x > 255) Errors.raiseDebug();
-        this.check_offset(this._offset);
-        this.dv.setUint8(this._offset, x);
-        this._offset += 1;
-        return 1;
-    }
-
-    write_u64(x: int|number) {
-        const n = this.write_u64_at(x, this._offset);
-        this._offset += 8;
-        return n;
-    }
-
-    write_u64_at(x: int|number, offset: number) {
-        this.check_offset(offset);
-        this.dv.setBigUint64(offset, Int(x));
-        return 8;
-    }
-
-    write(xs: Uint8Array) {
-        for (let i = 0; i < xs.length; i += 1) {
-            this.check_offset(this._offset);
-            this.dv.setUint8(this._offset, xs[i]);
-            this._offset += 1;
-        }
-    }
-
-    asBytes() {
-        return this.xs;
-    }
-}
 
 interface Reloc {
     offset: number;
@@ -229,38 +151,49 @@ export class VmCodeBuilder {
         this.mov_r_i(rd, Int(offset));
     }
 
-    mov_m_r(offset: number, rs: string) {
+    private getOp(op: VmOperation, sizeInBytes: number) {
+        switch (sizeInBytes) {
+            case 1: op += 0; break;
+            case 2: op += 1; break;
+            case 4: op += 2; break;
+            case 8: op += 3; break;
+            default: Errors.notImplemented(`size: ${sizeInBytes}`);
+        }
+        return op;
+    }
+
+    mov_m_r(offset: number, rs: string, sizeInBytes: number) {
         checkRegister(rs);
-        this.do_ins(VmOperation.MOV_M_R);
+        this.do_ins(this.getOp(VmOperation.MOV_M1_R, sizeInBytes));
         const a = registers[rs];
         this.cs.write_u8(a << 4 | 0);
         this.cs.write_u64(offset);
         Logger.debug(`MOV [${offset}], ${rs}`);
     }
 
-    mov_r_m(rd: string, offset: number) {
+    mov_r_m(rd: string, offset: number, sizeInBytes: number) {
         checkRegister(rd);
-        this.do_ins(VmOperation.MOV_R_M);
+        this.do_ins(this.getOp(VmOperation.MOV_R_M1, sizeInBytes));
         const a = registers[rd];
         this.cs.write_u8(a << 4 | 0);
         this.cs.write_u64(offset);
         Logger.debug(`MOV ${rd}, [${offset}]`);
     }
 
-    mov_r_ro(rd: string, rs: string) {
+    mov_r_ro(rd: string, rs: string, sizeInBytes: number) {
         checkRegister(rd);
         checkRegister(rs);
-        this.do_ins(VmOperation.MOV_R_RO);
+        this.do_ins(this.getOp(VmOperation.MOV_R_RO_1, sizeInBytes));
         const a = registers[rd];
         const b = registers[rs];
         this.cs.write_u8(a << 4 | b);
         Logger.debug(`MOV ${rd}, [${rs}]`);
     }
 
-    mov_ro_r(rd: string, rs: string) {
+    mov_ro_r(rd: string, rs: string, sizeInBytes: number) {
         checkRegister(rd);
         checkRegister(rs);
-        this.do_ins(VmOperation.MOV_RO_R);
+        this.do_ins(this.getOp(VmOperation.MOV_RO_R_1, sizeInBytes));
         const a = registers[rd];
         const b = registers[rs];
         this.cs.write_u8(a << 4 | b);

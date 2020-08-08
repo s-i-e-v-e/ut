@@ -68,19 +68,52 @@ export default class Vm {
 
     }
 
-    private read_u64_from_ptr(p: int) {
+    private read_u8_from_ptr(p: int) {
         this.check_offset(p);
-        const upper = Int(this.dv.getUint32(Number(p)));
-        const lower = Int(this.dv.getUint32(Number(p + 4n)));
-
-        return (upper * (2n ** 32n)) + lower;
+        return this.dv.getUint8(Number(p));
     }
 
-    private read_u8() {
-        this.check_offset(this.ip);
-        const x = this.dv.getUint8(Number(this.ip));
-        this.ip += 1n;
-        return x;
+    private read_u8(offset?: int) {
+        if (offset) {
+            return this.read_u8_from_ptr(offset);
+        }
+        else {
+            const x = this.read_u8_from_ptr(this.ip);
+            this.ip += 1n;
+            return x;
+        }
+    }
+
+    private read_u16(offset?: int) {
+        if (offset) {
+            return this.read_u16_from_ptr(offset);
+        }
+        else {
+            const x = this.read_u16_from_ptr(this.ip);
+            this.ip += 2n;
+            return x;
+        }
+    }
+
+    private read_u16_from_ptr(p: int) {
+        this.check_offset(p);
+        return this.dv.getUint16(Number(p));
+    }
+
+    private read_u32(offset?: int) {
+        if (offset) {
+            return this.read_u32_from_ptr(offset);
+        }
+        else {
+            const x = this.read_u32_from_ptr(this.ip);
+            this.ip += 4n;
+            return x;
+        }
+    }
+
+    private read_u32_from_ptr(p: int) {
+        this.check_offset(p);
+        return this.dv.getUint32(Number(p));
     }
 
     private read_u64(offset?: int) {
@@ -92,6 +125,14 @@ export default class Vm {
             this.ip += 8n;
             return x;
         }
+    }
+
+    private read_u64_from_ptr(p: int) {
+        this.check_offset(p);
+        const upper = Int(this.dv.getUint32(Number(p)));
+        const lower = Int(this.dv.getUint32(Number(p + 4n)));
+
+        return (upper * (2n ** 32n)) + lower;
     }
 
     private write_str(x: string) {
@@ -125,6 +166,21 @@ export default class Vm {
         return this.dec.decode(new Uint8Array(xs));
     }
 
+    private write_u8(offset: int, x: int) {
+        this.check_offset(offset);
+        this.dv.setUint8(Number(offset), Number(x));
+    }
+
+    private write_u16(offset: int, x: int) {
+        this.check_offset(offset);
+        this.dv.setUint16(Number(offset), Number(x));
+    }
+
+    private write_u32(offset: int, x: int) {
+        this.check_offset(offset);
+        this.dv.setUint32(Number(offset), Number(x));
+    }
+
     private write_u64(offset: int, x: int) {
         this.check_offset(offset);
         this.dv.setBigUint64(Number(offset), x);
@@ -138,6 +194,28 @@ export default class Vm {
     private pop() {
         this.sp += 8n;
         return this.read_u64_from_ptr(this.sp);
+    }
+
+    private read_from_offset(ins: number, offset: int) {
+        Errors.debug();
+        switch (ins) {
+            case 0: return Int(this.read_u8(offset));
+            case 1: return Int(this.read_u16(offset));
+            case 2: return Int(this.read_u32(offset));
+            case 3: return this.read_u64(offset);
+            default: Errors.notImplemented();
+        }
+    }
+
+    private write_to_offset(ins: number, offset: int, v: int) {
+        Errors.debug();
+        switch (ins) {
+            case 0: this.write_u8(offset, v); break;
+            case 1: this.write_u16(offset, v); break;
+            case 2: this.write_u32(offset, v); break;
+            case 3: this.write_u64(offset, v); break;
+            default: Errors.notImplemented();
+        }
     }
 
     private init(code: Uint8Array) {
@@ -282,31 +360,43 @@ export default class Vm {
                     Logger.debug(`MOV r${rd}, 0x${Number(x).toString(16)}`);
                     break;
                 }
-                case VmOperation.MOV_R_RO: {
+                case VmOperation.MOV_R_RO_1:
+                case VmOperation.MOV_R_RO_2:
+                case VmOperation.MOV_R_RO_4:
+                case VmOperation.MOV_R_RO_8: {
                     const [rd, rs] = this.parse_r_r();
                     const offset = this.registers[rs];
-                    const n = this.read_u64(offset);
+                    const n = this.read_from_offset(ins - VmOperation.MOV_R_RO_1, offset);
                     this.registers[Number(rd)] = n;
                     Logger.debug(`MOV r${rd}, [r${rs}] // 0x${Number(n).toString(16)} = [0x${Number(offset).toString(16)}]`);
                     break;
                 }
-                case VmOperation.MOV_RO_R: {
+                case VmOperation.MOV_RO_R_1:
+                case VmOperation.MOV_RO_R_2:
+                case VmOperation.MOV_RO_R_4:
+                case VmOperation.MOV_RO_R_8: {
                     const [rd, rs] = this.parse_r_r();
                     const offset = this.registers[rd];
                     const n = this.registers[Number(rs)];
-                    this.write_u64(offset, n);
+                    this.write_to_offset(ins - VmOperation.MOV_RO_R_1, offset, n);
                     Logger.debug(`MOV [r${rd}], r${rs} // [0x${Number(offset).toString(16)}] = 0x${Number(n).toString(16)}`);
                     break;
                 }
-                case VmOperation.MOV_R_M: {
+                case VmOperation.MOV_R_M1:
+                case VmOperation.MOV_R_M2:
+                case VmOperation.MOV_R_M4:
+                case VmOperation.MOV_R_M8: {
                     const [rd, offset] = this.parse_r_i();
-                    this.registers[Number(rd)] = this.read_u64(offset);
+                    this.registers[Number(rd)] = this.read_from_offset(ins - VmOperation.MOV_R_M1, offset);
                     Logger.debug(`MOV r${rd}, [0x${Number(offset).toString(16)}]`);
                     break;
                 }
-                case VmOperation.MOV_M_R: {
+                case VmOperation.MOV_M1_R:
+                case VmOperation.MOV_M2_R:
+                case VmOperation.MOV_M4_R:
+                case VmOperation.MOV_M8_R: {
                     const [rs, offset] = this.parse_r_i();
-                    this.write_u64(offset, this.registers[Number(rs)]);
+                    this.write_to_offset(ins - VmOperation.MOV_M1_R, offset, this.registers[Number(rs)]);
                     Logger.debug(`MOV [0x${Number(offset).toString(16)}], r${rs}`);
                     break;
                 }
@@ -386,7 +476,6 @@ export default class Vm {
                     break;
                 }
                 case VmOperation.BITWISE_NOT: {
-                    Errors.debug();
                     const rs = this.parse_r();
                     Logger.debug2(`NOT r${rs}`);
                     this.registers[Number(rs)] = (~this.registers[Number(rs)]) & 0xffff_ffff_ffff_ffffn;

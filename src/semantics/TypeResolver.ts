@@ -55,6 +55,10 @@ export default class TypeResolver {
             case P.Types.Array: {
                 break;
             }
+            case P.Types.Compiler.BoolLiteral.id: {
+                y.native = P.Types.NativeBool;
+                break;
+            }
             default: {
                 y.native = P.Types.NativePointer;
                 Logger.debug2(`rewrite:: ${y.id} ... ${y.typetype} ... ${y.native.id} ... ${y.id} ...`);

@@ -285,9 +285,15 @@ fn array-8() {
 fn print(x: Person) {
     println(x.name);
     println(x.age);
+    println(x.hasRegisteredContact);
 }
 
-struct Person(name: String, age: Int64)
+fn print(x: Contact) {
+    println(x.city);
+    println(x.country);
+}
+
+struct Person(name: String, hasRegisteredContact: Bool, age: Int64)
 struct Contact(city: String, country: String)
 fn person() {
     title("person()");
@@ -295,11 +301,13 @@ fn person() {
     let ca = Contact("London", "UK");
     let cb = Contact("Santiago", "Chile");
 
-    let a = Person("Alice", 25);
-    let b = Person("Bob", 92);
+    let a = Person("Alice", true, 25);
+    let b = Person("Bob", false, 92);
 
     print(a);
+    print(ca);
     print(b);
+    print(cb);
 
     var m = b;
     m.age -= 23;

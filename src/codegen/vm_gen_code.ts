@@ -10,12 +10,12 @@ import {
     A,
 } from "../parser/mod.ts";
 import {
-    ByteBuffer,
     VmCodeBuilder
 } from "../vm/mod.ts";
 import {
     Errors, Int,
     Logger, object_entries,
+    ByteBuffer,
 } from "../util/mod.ts";
 import {
     Allocator, newStructState,
@@ -26,10 +26,10 @@ const NodeType = A.NodeType;
 type Expr = A.Expr;
 type Stmt = A.Stmt;
 
-function derefer(store: Store, r: Store) {
+function derefer(store: Store, r: Store, sizeInBytes: number) {
     if (store.isWrite) {
         if (store.isValue) {
-            store.write_from_mem(r);
+            store.write_from_mem(r, sizeInBytes);
         }
         else {
             store.write_reg(r);
@@ -38,7 +38,7 @@ function derefer(store: Store, r: Store) {
     else {
         if (store.isRHS) {
             if (store.isValue) {
-                r.write_from_mem(store);
+                r.write_from_mem(store, sizeInBytes);
             }
             else {
                 r.write_reg(store);
@@ -46,7 +46,7 @@ function derefer(store: Store, r: Store) {
         }
         else {
             if (store.isValue) {
-                r.write_to_mem(store);
+                r.write_to_mem(store, sizeInBytes);
             }
             else {
                 r.write_reg(store);
@@ -95,7 +95,7 @@ function doApplication(ac: Allocator, store: Store, block: A.BlockExpr, x: A.Fun
         const ty = block.tag.getType(x.type.typeParams[0]) || x.type.typeParams[0];
         const args = x.args!;
         const n = args.length;
-        const entrySizeInBytes = 8;//ty.native.bits/8;
+        const entrySizeInBytes = ty.native.bits/8;
         const bufferSize = entrySizeInBytes*args.length;
 
         const bb = ByteBuffer.build(8 + 8 + bufferSize);
@@ -114,7 +114,7 @@ function doApplication(ac: Allocator, store: Store, block: A.BlockExpr, x: A.Fun
         let hp = offset + 8 + 8;
         for (let i = 0; i < args.length; i += 1) {
             emitExpr(ac, tmp, block, args[i]);
-            ac.b.mov_m_r(hp, tmp.reg);
+            ac.b.mov_m_r(hp, tmp.reg, entrySizeInBytes);
             hp += 8;
         }
         tmp.free();
@@ -257,7 +257,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             let hp = offset;
             for (let i = 0; i < x.args.length; i += 1) {
                 emitExpr(ac, tmp, block, x.args[i]);
-                ac.b.mov_m_r(hp, tmp.reg);
+                ac.b.mov_m_r(hp, tmp.reg, ss.xs[i].size);
                 hp += ss.xs[i].size;
             }
             tmp.free();
@@ -270,7 +270,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
 
             const r = ac.tmp();
             emitExpr(ac, r, block, x.expr);
-            derefer(store, r);
+            derefer(store, r, 0xDEAD - 0xDEAD + 8); //todo: size in bytes = ???
             r.free();
             break;
         }
@@ -295,7 +295,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
 
                 tmp.write_reg(mv);  // tmp = mv
                 ac.b.add_r_i(tmp.reg, sm.offset);
-                derefer(store, tmp);
+                derefer(store, tmp, sm.size);
 
                 tmp.free();
             }
@@ -315,7 +315,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             const tmp = ac.tmp();
             ac.b.mov_r_r(tmp.reg, base.reg);
             ac.b.add_r_i(tmp.reg, 8);
-            ac.b.mov_r_ro(tmp.reg, tmp.reg);
+            ac.b.mov_r_ro(tmp.reg, tmp.reg, 8);
             ac.b.mul_r_r(tmp.reg, index.reg);
 
             // tmp = tmp + base + 8 + 8
@@ -323,7 +323,8 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             ac.b.add_r_r(tmp.reg, base.reg);
 
             // update
-            derefer(store, tmp);
+            console.log(x.type.mangledName);
+            derefer(store, tmp, 0xDEAD - 0xDEAD + 8); // todo: array entries are 8 bytes each
 
             index.free();
             tmp.free();

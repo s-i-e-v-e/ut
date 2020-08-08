@@ -47,12 +47,12 @@ export class Store {
         this.b.mov_r_r(this.reg, s.reg);
     }
 
-    write_from_mem(s: Store) {
-        this.b.mov_r_ro(this.reg, s.reg);
+    write_from_mem(s: Store, sizeInBytes: number) {
+        this.b.mov_r_ro(this.reg, s.reg, sizeInBytes);
     }
 
-    write_to_mem(s: Store) {
-        this.b.mov_ro_r(this.reg, s.reg);
+    write_to_mem(s: Store, sizeInBytes: number) {
+        this.b.mov_ro_r(this.reg, s.reg, sizeInBytes);
     }
 
     free() {

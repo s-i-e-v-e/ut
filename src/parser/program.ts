@@ -103,6 +103,7 @@ export class Types {
     public static readonly NativeModule = "<native>";
     public static readonly NativeNone = Types.nativeInt(0n, "");
     public static readonly NativePointer = Types.nativePointer("ptr");
+    public static readonly NativeBool = Types.nativeUint(8n,"bool");
     public static readonly NativeInt = Types.nativeInt(64n, "int");
     public static readonly NativeUint = Types.nativeUint(64n, "uint");
     public static readonly NativeFloat = Types.nativeFloat(80n, 15n, "float");

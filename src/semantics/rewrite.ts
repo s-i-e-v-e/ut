@@ -18,7 +18,6 @@ import {
     Errors,
     Logger,
 } from "../util/mod.ts";
-import {buildBlockExpr} from "../parser/parser.ts";
 
 type Stmt = A.Stmt;
 type Expr = A.Expr;
@@ -147,6 +146,14 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
             doExpr(st, block, x.expr);
             break;
         }
+        case NodeType.NegationExpr: {
+            const x = e as A.NegationExpr;
+            if (st.resolver.isBoolean(x.type)) {
+                e.nodeType = NodeType.NotExpr;
+            }
+            doExpr(st, block, x.expr);
+            break;
+        }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
     e.type = st.resolver.rewriteType(e.type);
@@ -241,7 +248,7 @@ function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {
 }
 
 function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
-    const block = buildBlockExpr(fp.loc);
+    const block = A.buildBlockExpr(fp.loc);
     fp.params.forEach(p => rewriteVar(st, block, p));
 }
 

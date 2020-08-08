@@ -380,6 +380,14 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             ty = doExpr(st, block, x.expr);
             break;
         }
+        case NodeType.NegationExpr: {
+            const x = e as A.NegationExpr;
+            ty = doExpr(st, block, x.expr);
+            if (!st.resolver.isInteger(ty) && !st.resolver.isBoolean(ty)) {
+                return Errors.Checker.raiseNegationOperationError(ty, x.loc);
+            }
+            break;
+        }
         default: return Errors.raiseDebug(NodeType[e.nodeType]);
     }
     st.typeMustExist(ty, e.loc);

@@ -229,6 +229,17 @@ function parseFunctionApplication(ts: TokenStream, block: A.BlockExpr, e: A.IDEx
     };
 }
 
+function parseNegationExpr(ts: TokenStream, block: A.BlockExpr): A.ReferenceExpr {
+    const loc = ts.loc();
+    ts.nextMustBe("!");
+    return {
+        nodeType: NodeType.NegationExpr,
+        expr: parseExpr(ts, block),
+        loc: loc,
+        type: P.Types.Compiler.NotInferred,
+    };
+}
+
 function parseCastExpr(ts: TokenStream, e: Expr): A.CastExpr {
     return {
         nodeType: NodeType.CastExpr,
@@ -356,6 +367,9 @@ function parseExpr(ts: TokenStream, block: A.BlockExpr, le?: Expr, rbp: number =
             case "&": {
                 return parseReferenceExpr(ts, block);
             }
+            case "!": {
+                return parseNegationExpr(ts, block);
+            }
             case "*": {
                 return parseDereferenceExpr(ts);
             }
@@ -468,7 +482,7 @@ function parseReturnStmt(ts: TokenStream, block: A.BlockExpr, loc: Location): A.
 function parseBlockExpr(ts: TokenStream, block?: A.BlockExpr): A.BlockExpr {
     const loc = ts.loc();
     ts.nextMustBe("{");
-    block = buildBlockExpr(loc, block);
+    block = A.buildBlockExpr(loc, block);
     const xs = block.xs;
 
     while (!ts.nextIs("}")) {
@@ -555,16 +569,6 @@ function parseFunctionPrototype(ts: TokenStream): P.FunctionPrototype {
     return P.Types.newFunctionType(id, loc, typeParams.map(x => P.Types.newType(x)), returns, params);
 }
 
-export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr  {
-    return {
-        nodeType: NodeType.BlockExpr,
-        type: P.Types.Compiler.NotInferred,
-        loc: loc,
-        xs: new Array<any>(),
-        parent: parent,
-    };
-}
-
 function parseFunction(ts: TokenStream): P.FunctionDef {
     const f = parseFunctionPrototype(ts) as P.FunctionDef;
     f.body = parseBlockExpr(ts);
@@ -619,7 +623,7 @@ function parseTypeDecl(ts: TokenStream): P.TypeDecl {
     const type = parseType(ts);
     if (ts.consumeIfNextIs("(")) {
         // is type def
-        const block = buildBlockExpr(loc);
+        const block = A.buildBlockExpr(loc);
         const args = parseExprList(ts, block);
         ts.nextMustBe(")");
         return {

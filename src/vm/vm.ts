@@ -385,6 +385,19 @@ export default class Vm {
                     this.registers[Number(rd)] = this.pop();
                     break;
                 }
+                case VmOperation.BITWISE_NOT: {
+                    Errors.debug();
+                    const rs = this.parse_r();
+                    Logger.debug2(`NOT r${rs}`);
+                    this.registers[Number(rs)] = (~this.registers[Number(rs)]) & 0xffff_ffff_ffff_ffffn;
+                    break;
+                }
+                case VmOperation.LOGICAL_NOT: {
+                    const rs = this.parse_r();
+                    Logger.debug2(`NOT r${rs}`);
+                    this.registers[Number(rs)] = this.registers[Number(rs)] ? 0n : 1n;
+                    break;
+                }
                 case VmOperation.CALL: {
                     const offset = this.read_u64();
                     Logger.debug(`CALL 0x${Number(offset).toString(16)}`);

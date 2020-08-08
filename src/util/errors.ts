@@ -223,6 +223,10 @@ export default class Errors {
             throw new Errors.TypeMismatch(buildErrorString(`Logic ops only defined on Bool, not ${toTypeString(t)}.`, loc));
         }
 
+        static raiseNegationOperationError(t: Type, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`Negation op only defined on Integer/Bool, not ${toTypeString(t)}.`, loc));
+        }
+
         static raiseIfConditionError(t: Type, loc: Location): never {
             throw new Errors.TypeMismatch(buildErrorString(`IF condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
         }

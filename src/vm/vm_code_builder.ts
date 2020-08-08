@@ -420,9 +420,15 @@ export class VmCodeBuilder {
         Logger.debug(`OR ${rd}, ${rs}`);
     }
 
-    not(rd: string) {
+    logical_not(rd: string) {
         checkRegister(rd);
-        this.write_r(rd, VmOperation.NOT);
+        this.write_r(rd, VmOperation.LOGICAL_NOT);
+        Logger.debug(`NOT ${rd}`);
+    }
+
+    bitwise_not(rd: string) {
+        checkRegister(rd);
+        this.write_r(rd, VmOperation.BITWISE_NOT);
         Logger.debug(`NOT ${rd}`);
     }
 

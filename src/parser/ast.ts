@@ -37,6 +37,8 @@ export enum NodeType {
     BinaryExpr,
     ReferenceExpr,
     DereferenceExpr,
+    NegationExpr,
+    NotExpr,
 }
 
 export function node_str(n: NodeType) {
@@ -124,6 +126,14 @@ export interface ReferenceExpr extends Expr {
     expr: Expr;
 }
 
+export interface NegationExpr extends Expr {
+    expr: Expr;
+}
+
+export interface NotExpr extends Expr {
+    expr: Expr;
+}
+
 /**
  * note: As function application can return an lvalue, it can
  * be treated as an lvalue. But this can only be decided after
@@ -194,5 +204,15 @@ export function buildVoidExpr(loc: Location) {
         nodeType: NodeType.VoidExpr,
         type: P.Types.Compiler.Void,
         loc: loc,
+    };
+}
+
+export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr  {
+    return {
+        nodeType: NodeType.BlockExpr,
+        type: P.Types.Compiler.NotInferred,
+        loc: loc,
+        xs: new Array<any>(),
+        parent: parent,
     };
 }

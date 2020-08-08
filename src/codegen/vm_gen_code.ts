@@ -383,6 +383,18 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
             emitExpr(ac, store, block, x.expr);
             break;
         }
+        case NodeType.NegationExpr: {
+            const x = e as A.NegationExpr;
+            emitExpr(ac, store, block, x.expr);
+            ac.b.bitwise_not(store.reg);
+            break;
+        }
+        case NodeType.NotExpr: {
+            const x = e as A.NegationExpr;
+            emitExpr(ac, store, block, x.expr);
+            ac.b.logical_not(store.reg);
+            break;
+        }
         default: Errors.raiseDebug(NodeType[e.nodeType]);
     }
 }

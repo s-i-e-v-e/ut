@@ -10,7 +10,7 @@ fn concat(this: String, that: String) {
     let na = this.size();
     let nb = that.size();
     let n = na + nb;
-    let p = new(na + nb);
+    let p = new(na + nb + 8);
 
     // set size
     var ps = p : Pointer[Int64];

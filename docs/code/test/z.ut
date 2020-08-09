@@ -1,0 +1,21 @@
+import std
+import std.os
+/*
+fn array() {
+    let a = "Hello";
+    let b = "World!";
+
+    let xs = Array(100, 200);
+    let ys = Array(&a, &b);
+
+    println(&a);
+    println(&b);
+    println(xs(0));
+    println(ys(1));
+}*/
+
+fn main() {
+    let a = P1(100);
+    println(a.a);
+    //let b = a.a;
+}

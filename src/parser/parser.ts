@@ -451,15 +451,16 @@ function parseVarAssignment(ts: TokenStream, block: A.BlockExpr, x?: Expr): A.Va
 
 function parseForStmt(ts: TokenStream, block: A.BlockExpr): A.ForStmt {
     const loc = ts.loc();
+    const forBlock = A.buildBlockExpr(loc, block);
     ts.nextMustBe("for");
     ts.nextMustBe("(");
-    const init = ts.consumeIfNextIs(";") ? undefined : parseVarInit(ts, block, true);
+    const init = ts.consumeIfNextIs(";") ? undefined : parseVarInit(ts, forBlock, true);
     if (init) ts.nextMustBe(";");
-    const condition = ts.consumeIfNextIs(";") ? undefined : parseExpr(ts, block);
+    const condition = ts.consumeIfNextIs(";") ? undefined : parseExpr(ts, forBlock);
     if (condition) ts.nextMustBe(";");
-    const update = ts.nextIs(")") ? undefined : parseVarAssignment(ts, block);
+    const update = ts.nextIs(")") ? undefined : parseVarAssignment(ts, forBlock);
     ts.nextMustBe(")");
-    const body = parseBlockExpr(ts, block);
+    const body = parseBlockExpr(ts, forBlock);
 
     return {
         nodeType: NodeType.ForStmt,
@@ -468,6 +469,7 @@ function parseForStmt(ts: TokenStream, block: A.BlockExpr): A.ForStmt {
         update: update,
         body: body,
         loc: loc,
+        forBlock: forBlock,
     };
 }
 

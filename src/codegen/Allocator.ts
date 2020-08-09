@@ -11,7 +11,7 @@ import {
 import {VmCodeBuilder} from "../vm/vm_code_builder.ts";
 import {
     Dictionary,
-    Errors, int,
+    Errors, int, Int,
     Logger,
 } from "../util/mod.ts";
 import {registers} from "../vm/mod.ts";
@@ -23,16 +23,12 @@ import {
 type Free = (id: string) => void;
 
 export class Store {
-    public isWrite = true;
-    public isValue = true;
-    public isRHS = false;
-
     constructor(
         public readonly b: VmCodeBuilder,
         public readonly v: P.Variable,
         public readonly reg: string,
         private readonly f: Free,
-        public readonly ss: StructState,
+        public ss: StructState,
     ) {}
 
     write_imm(n: int) {
@@ -112,13 +108,15 @@ export class Allocator {
     }
 
     get(id: string) {
+        Errors.ASSERT(id !== undefined);
         let table: Allocator|undefined = this;
         while (table) {
             const x = table.map[id];
             if (x) return x;
             table = table.parent || undefined;
         }
-        Errors.raiseDebug();
+        Errors.ASSERT(table !== undefined, id);
+        Errors.raiseDebug(id);
     }
 
     tmp() {

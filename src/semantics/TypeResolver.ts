@@ -22,7 +22,7 @@ export default class TypeResolver {
 
     rewriteType(t: P.Type): P.Type {
         Errors.ASSERT(t !== undefined);
-        return  this.st.getType(t.id) || t;
+        return this.st.getType(t.id) || t;
     }
 
     isBits(t: Type): boolean {

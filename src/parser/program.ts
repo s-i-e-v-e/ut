@@ -128,12 +128,20 @@ export class Types {
     public static readonly FloatTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("f"));
     public static readonly BitTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("b") && x.id !== Types.Language.bool.id);
 
+    public static checkType(t: Type): boolean {
+        if (t.id.length == 1) return false;
+        return t.typeParams.map(x => Types.checkType(x)).filter(x => x).length === t.typeParams.length;
+    }
+
     public static nativeSizeInBits(t: Type) {
+        if (t.id === this.Array) return 64;
+        if (t.id === this.Pointer) return 64;
+
         const map: Dictionary<Type> = this.Language;
         const x = map[t.id];
-        if (!x) return 64;
+        if (!x) return undefined;
+        if (x.id === this.Language.String.id) return undefined;
         if (x.id === this.Language.bool.id) return 8;
-        if (x.id === this.Language.String.id) return 64;
         if (x.id === this.Language.ptr.id) return 64;
         return Number(x.id.substring(1));
     }

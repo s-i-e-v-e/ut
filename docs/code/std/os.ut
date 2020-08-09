@@ -3,7 +3,7 @@ foreign fn sys-new(size: Int64): Pointer[Uint8]
 foreign fn sys-free(p: Pointer[Uint8]): Void
 foreign fn sys-size(xs: Pointer): Int64
 foreign fn sys-println(x: Int64): Void
-foreign fn sys-println(x: String): Void
+foreign fn sys-println(x: Pointer[String]): Void
 foreign fn sys-println(x: Bool): Void
 foreign fn sys-exit(x: Int64): Void
 
@@ -27,7 +27,7 @@ fn println(x: Int64) {
     sys-println(x);
 }
 
-fn println(x: String) {
+fn println(x: Pointer[String]) {
     sys-println(x);
 }
 

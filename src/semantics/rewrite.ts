@@ -11,10 +11,8 @@ import {
 } from "../parser/mod.ts";
 import {
     SymbolTable,
-    resolveVar,
 } from "./mod.internal.ts";
 import {
-    clone,
     Errors,
     Logger,
 } from "../util/mod.ts";
@@ -22,24 +20,6 @@ import {
 type Stmt = A.Stmt;
 type Expr = A.Expr;
 const NodeType = A.NodeType;
-
-function isValueStructExpr(st: SymbolTable, a: A.Expr) {
-    return a.nodeType === NodeType.IDExpr && st.getStruct(a.type.id);
-}
-
-function copyValueStruct(st: SymbolTable, a: A.Expr, m: P.Variable): [P.Variable[], A.Expr[]]  {
-    const is = clone(st.getStruct(a.type.id)!) as P.StructDef;
-    const ide = a as A.IDExpr;
-    const as: A.Expr[] = [];
-    is.params.forEach(y => {
-        const q = clone(ide) as A.IDExpr;
-        q.rest = [y.id];
-        q.type = y.type;
-        as.push(q);
-    })
-    is.params.forEach(y => `${m.id}.${y.id}`);
-    return [is.params, as];
-}
 
 function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
     switch (e.nodeType) {
@@ -66,43 +46,11 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         case NodeType.ArrayExpr: {
             const x = e as A.ArrayExpr;
             doExpr(st, block, x.expr);
-            x.args.forEach(a => doExpr(st, block, a));
+            doExpr(st, block, x.arg);
             break;
         }
         case NodeType.TypeInstance: {
             const x = e as A.FunctionApplication;
-
-            const fold = (x: A.FunctionApplication): [P.StructDef, P.Variable[], A.Expr[]] => {
-                x.oldStruct = x.oldStruct ? x.oldStruct : st.getStruct(x.type.id)!;
-                const xs: P.Variable[] = [];
-                const as: Expr[] = [];
-                const s = clone(x.oldStruct) as P.StructDef;
-                for (let i = 0; i < x.args.length; i+= 1) {
-                    const a = x.args[i];
-                    const m = s.params[i];
-                    if (a.nodeType === NodeType.TypeInstance) {
-                        // fold members into this
-                        const [ss, xxs, aas] = fold(a as A.FunctionApplication);
-                        xxs.forEach(y => `${m.id}.${y.id}`);
-
-                        as.push(...aas);
-                        xs.push(...xxs);
-                    }
-                    else if (isValueStructExpr(st, a)) {
-                        const [xxs, aas] = copyValueStruct(st, a, m);
-                        as.push(...aas);
-                        xs.push(...xxs);
-                    }
-                    else {
-                        as.push(a);
-                        xs.push(m);
-                    }
-                }
-                return [s, xs, as];
-            };
-            const [q, xs, as] = fold(x);
-            q.params = xs;
-            x.args = as;
             x.args.forEach(y => doExpr(st, block, y));
             break;
         }
@@ -127,8 +75,8 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
             break;
         }
         case NodeType.ReferenceExpr: {
-            const xx = e as A.ReferenceExpr;
-            doExpr(st, block, xx.expr);
+            const x = e as A.ReferenceExpr;
+            doExpr(st, block, x.expr);
             break;
         }
         case NodeType.DereferenceExpr: {
@@ -160,12 +108,10 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
 }
 
 function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: P.Variable) {
-    const s = st.getStruct(v.type.id);
-    if (s)  {
-        s.params.forEach((a: P.Variable) => rewriteVar(st, block, a));
-    }
+    const s = st.getConcreteStruct(v.type.id, v.type.mangledName);
+    if (s) s.params.forEach((a: P.Variable) => rewriteVar(st, block, a));
     v.type = st.resolver.rewriteType(v.type);
-    Errors.ASSERT(P.Types.nativeSizeInBits(v.type) !== 0, v.id);
+    //Errors.ASSERT(P.Types.nativeSizeInBits(v.type) !== undefined, `Size needs to be known at compile-time: ${v.id}`, v.loc);
 }
 
 function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
@@ -180,27 +126,6 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
             doExpr(st, block, x.lhs);
-            if (isValueStructExpr(st, x.rhs)) {
-                const v = resolveVar(st, x.lhs);
-                const [xxs, aas] = copyValueStruct(st, x.rhs, v);
-
-                const xs: Stmt[] = [];
-                // convert into block stmt
-                aas.forEach((a, i) => {
-                    const z = clone(x) as A.VarAssnStmt;
-                    const y = xxs[i];
-                    z.lhs = {
-                        loc: x.loc,
-                        nodeType: NodeType.IDExpr,
-                        type: y.type,
-                        id: v.id,
-                        rest: [y.id],
-                    } as A.IDExpr;
-                    z.rhs = a;
-                    xs.push(z);
-                });
-                if (!xs.length) return xs;
-            }
             break;
         }
         case NodeType.ReturnStmt: {
@@ -223,11 +148,12 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         }
         case NodeType.ForStmt: {
             const x = s as A.ForStmt;
-            st = x.tag;
+            st = x.forBlock.tag;
 
-            if (x.init) doStmt(st, block, x.init);
-            if (x.update) doStmt(st, block, x.update);
+            if (x.init) doStmt(st, x.forBlock, x.init);
+            if (x.condition) doExpr(st, x.forBlock, x.condition);
             doBlock(x.body.tag, x.body);
+            if (x.update) doStmt(st, x.forBlock, x.update);
             break;
         }
         default: Errors.raiseDebug(NodeType[s.nodeType]);
@@ -243,34 +169,24 @@ function doBlock(st: SymbolTable, block: A.BlockExpr) {
     return st;
 }
 
-function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {
-    fp.returns = st.resolver.rewriteType(fp.returns!);
-}
-
-function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
-    const block = A.buildBlockExpr(fp.loc);
-    fp.params.forEach(p => rewriteVar(st, block, p));
-}
-
 function doFunction(st: SymbolTable, f: P.FunctionDef) {
     st = f.tag;
-    doFunctionPrototype(st, f);
+    const block = A.buildBlockExpr(f.loc);
+    f.params.forEach(p => rewriteVar(st, block, p));
     doBlock(st, f.body);
+    f.returns = st.resolver.rewriteType(f.returns!);
 }
 
 function doForeignFunction(st: SymbolTable, f: P.ForeignFunctionDef) {
     st = f.tag;
-    doFunctionPrototype(st, f);
+    const block = A.buildBlockExpr(f.loc);
+    f.params.forEach(p => rewriteVar(st, block, p));
+    f.returns = st.resolver.rewriteType(f.returns!);
 }
 
-function doStruct(st: SymbolTable, s: P.StructDef) {
+function doStruct(st: SymbolTable, s: P.StructDef) {}
 
-}
-
-function doTypeDef(st: SymbolTable, t: P.TypeDef) {
-    const x = t as P.TypeDef;
-
-}
+function doTypeDef(st: SymbolTable, t: P.TypeDef) {}
 
 function doModule(st: SymbolTable, m: P.Module) {
     Logger.info(`Type rewriting: ${m.path}`);
@@ -290,15 +206,6 @@ function doModule(st: SymbolTable, m: P.Module) {
 
     for (const x of m.functions) {
         doFunction(st, x);
-    }
-
-    // check return types
-    for (const x of m.foreignFunctions) {
-        doFunctionReturnType(st, x);
-    }
-
-    for (const x of m.functions) {
-        doFunctionReturnType(st, x);
     }
 }
 

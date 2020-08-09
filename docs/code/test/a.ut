@@ -60,7 +60,7 @@ fn array-for() {
     for (var i = 0; i < 5; i += 1) {
         println(i);
         if (i % 2 == 0) {
-            sys-println("divisible by 2");
+            println("divisible by 2");
         }
         else {};
     };
@@ -127,10 +127,10 @@ fn if-ret(a: Int64) {
         "/ by 2";
     }
     else {
-       sys-println("ret: not / by 2");
+       println("ret: not / by 2");
        return;
     };
-    sys-println(msg);
+    println(msg);
 }
 
 fn ptr-ref() {

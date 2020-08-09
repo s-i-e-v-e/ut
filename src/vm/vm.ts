@@ -232,10 +232,11 @@ export default class Vm {
         return [rd, rs];
     }
 
-    private parse_r_i() {
+    private parse_r_i(ins?: string) {
         const rr = this.read_u8();
         const r = (rr >>> 4) & 0x0F;
         const x = this.read_u64();
+        if (ins) Logger.debug(`${ins} r${r}, ${this.hex(x)}`);
         return [Int(r), x];
     }
 
@@ -257,7 +258,9 @@ export default class Vm {
     }
 
     hex(n: number|int) {
-        return `0x${Number(n).toString(16)}`;
+        let a = Number(n).toString(16);
+        a = a.length % 2 ? "0"+a: a;
+        return `0x${a}`;
     }
 
     hexRange(label: string, a: number|int, b: number|int) {
@@ -284,6 +287,7 @@ export default class Vm {
             ptr += 8n;
         }
         this.registers[1] = offset;
+        this.printRegisters();
         this.push(0n);
         while (true) {
             const ins = this.read_u8();
@@ -295,9 +299,8 @@ export default class Vm {
                     break;
                 }
                 case VmOperation.ADD_R_I: {
-                    const [rd, x] = this.parse_r_i();
+                    const [rd, x] = this.parse_r_i("ADD");
                     this.registers[Number(rd)] += x;
-                    Logger.debug(`ADD r${rd}, ${x}`);
                     this.updateFlags(rd);
                     break;
                 }
@@ -308,9 +311,8 @@ export default class Vm {
                     break;
                 }
                 case VmOperation.SUB_R_I: {
-                    const [rd, x] = this.parse_r_i();
+                    const [rd, x] = this.parse_r_i("SUB");
                     this.registers[Number(rd)] -= x;
-                    Logger.debug(`SUB r${rd}, ${x}`);
                     this.updateFlags(rd);
                     break;
                 }
@@ -320,9 +322,8 @@ export default class Vm {
                     break;
                 }
                 case VmOperation.MUL_R_I: {
-                    const [rd, x] = this.parse_r_i();
+                    const [rd, x] = this.parse_r_i("MUL");
                     this.registers[Number(rd)] *= x;
-                    Logger.debug(`MUL r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.DIV_R_R: {
@@ -331,9 +332,8 @@ export default class Vm {
                     break;
                 }
                 case VmOperation.DIV_R_I: {
-                    const [rd, x] = this.parse_r_i();
+                    const [rd, x] = this.parse_r_i("DIV");
                     this.registers[Number(rd)] /= x;
-                    Logger.debug(`DIV r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.MOD_R_R: {
@@ -342,9 +342,8 @@ export default class Vm {
                     break;
                 }
                 case VmOperation.MOD_R_I: {
-                    const [rd, x] = this.parse_r_i();
+                    const [rd, x] = this.parse_r_i("MOD");
                     this.registers[Number(rd)] %= x;
-                    Logger.debug(`MOD r${rd}, ${x}`);
                     break;
                 }
                 case VmOperation.MOV_R_R: {
@@ -353,9 +352,8 @@ export default class Vm {
                     break;
                 }
                 case VmOperation.MOV_R_I: {
-                    const [rd, x] = this.parse_r_i();
+                    const [rd, x] = this.parse_r_i("MOV");
                     this.registers[Number(rd)] = x;
-                    Logger.debug(`MOV r${rd}, 0x${Number(x).toString(16)}`);
                     break;
                 }
                 case VmOperation.MOV_R_RO_1:
@@ -406,10 +404,9 @@ export default class Vm {
                     break;
                 }
                 case VmOperation.CMP_R_I: {
-                    const [rs, x] = this.parse_r_i();
+                    const [rs, x] = this.parse_r_i("CMP");
                     const v = this.registers[Number(rs)] - x;
                     this.updateFlags(v, false);
-                    Logger.debug(`CMP r${rs}, ${x}`);
                     Logger.debug(`ZF: ${this.FLAGS.ZF}`);
                     break;
                 }
@@ -423,6 +420,22 @@ export default class Vm {
                     const [rd, rs] = this.parse_r_r("OR");
                     this.registers[Number(rd)] = this.registers[Number(rd)] | this.registers[rs];
                     this.updateFlags(rd);
+                    break;
+                }
+                case VmOperation.MOVS_R_R_R: {
+                    const [rd, rs] = this.parse_r_r();
+                    Logger.debug(`MOVS r${rd}, r${rs} // ${this.hex(this.registers[Number(rd)])} ! ${this.hex(this.registers[Number(rs)])}`);
+                    const r0 = 0;
+                    this.push(this.registers[rd]);
+                    this.push(this.registers[rs]);
+                    for (let i = 0n; i < this.registers[r0]; i += 1n) {
+                        const x = this.read_u8(this.registers[rs])
+                        this.write_u8(this.registers[rd], Int(x));
+                        this.registers[rd] += 1n;
+                        this.registers[rs] += 1n;
+                    }
+                    this.registers[rs] = this.pop();
+                    this.registers[rd] = this.pop();
                     break;
                 }
                 case VmOperation.SET_E: {
@@ -488,6 +501,7 @@ export default class Vm {
                 case VmOperation.CALL: {
                     const offset = this.read_u64();
                     Logger.debug(`CALL 0x${Number(offset).toString(16)}`);
+                    this.printRegisters();
                     if (offset >= this.imports) {
                         const fn = this.read_str(offset);
                         const p0 = this.registers[1];
@@ -496,7 +510,7 @@ export default class Vm {
                                 Deno.exit(Number(p0));
                                 break;
                             }
-                            case "sys-println($String)": {
+                            case "sys-println($Pointer[$String])": {
                                 const str = this.read_str(p0);
                                 console.log(`${str}`);
                                 break;
@@ -561,8 +575,22 @@ export default class Vm {
                     }
                     break;
                 }
+                case VmOperation.MALLOC_R_R: {
+                    const [rd, r_size] = this.parse_r_r();
+                    this.registers[rd] = this.mem_alloc(this.registers[r_size]);
+                    Logger.debug(`MOV r${rd}, ${this.hex(this.registers[rd])} // MALLOC(${this.hex(this.registers[r_size])})`);
+                    break;
+                }
                 default: Errors.raiseDebug(""+ins);
             }
         }
+    }
+
+    printRegisters() {
+        console.group();
+        this.registers.forEach((v, i) => {
+            if (v !== 0n) Logger.debug(`r${i} = 0x${this.hex(v)}`);
+        });
+        console.groupEnd();
     }
 }

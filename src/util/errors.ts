@@ -277,9 +277,10 @@ export default class Errors {
         if (!condition) throw new this.Debug(m);
     }
 
-    static raiseDebug(msgOrNode?: string|NodeType): never {
+    static raiseDebug(msgOrNode?: string|NodeType, loc?: Location): never {
         const s = msgOrNode ? (typeof msgOrNode === "string" ? msgOrNode as string : NodeTypeEnum[msgOrNode as NodeType]) : "DebugError";
-        throw new this.Debug(s);
+        const ss = loc ? buildErrorString(s || "", loc!) : s;
+        throw new this.Debug(ss);
     }
 
     static notImplemented(msg?: string): never {

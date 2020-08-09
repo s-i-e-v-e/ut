@@ -99,7 +99,13 @@ export class VmCodeBuilder {
         this.cs.write_u8(op);
     }
 
-    heapStore(xs: Uint8Array) {
+    staticHeapAlloc(size: number) {
+        const offs = this.ds.offset();
+        this.ds.set_offset(offs + size);
+        return VmCodeBuilder.DS_BASE+offs;
+    }
+
+    staticHeapStore(xs: Uint8Array) {
         const offs = this.ds.offset();
         this.ds.write(xs);
         return VmCodeBuilder.DS_BASE+offs;
@@ -401,6 +407,26 @@ export class VmCodeBuilder {
         Logger.debug(`SETGE ${rd}`);
     }
 
+    copy(rd: string, rs: string, r_size: string) {
+        checkRegister(rd);
+        checkRegister(rs);
+        checkRegister(r_size);
+        Logger.debug2(`copy: ${rd} <- ${rs} (size-reg: ${r_size})`);
+        Errors.ASSERT(rd !== "r0");
+        Errors.ASSERT(rs !== "r0");
+        Errors.ASSERT(r_size === "r0");
+
+        this.write_r_r(rd, rs, VmOperation.MOVS_R_R_R);
+        Logger.debug(`MOVS ${rd}, ${rs}`);
+    }
+
+    dynamic_mem_alloc(rd: string, r_size: string) {
+        checkRegister(rd);
+        checkRegister(r_size);
+        this.write_r_r(rd, r_size, VmOperation.MALLOC_R_R);
+        Logger.debug(`${rd} = MALLOC(${r_size})`);
+    }
+
     asBytes() {
         this.padding();
 
@@ -409,6 +435,8 @@ export class VmCodeBuilder {
             const offset = this.labels[r.id];
             const dest = r.offset;
             Logger.debug(`reloc::${r.id}:${offset} @ ${dest}`)
+            Errors.ASSERT(offset !== undefined, r.id);
+            Errors.ASSERT(offset !== dest, r.id);
             this.cs.write_u64_at(offset, dest);
         }
 

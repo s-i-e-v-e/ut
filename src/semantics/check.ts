@@ -15,7 +15,8 @@ import {
 import {
     Dictionary,
     Errors,
-    Logger, object_entries, object_values,
+    Logger,
+    object_values,
 } from "../util/mod.ts";
 
 type Location = P.Location;
@@ -149,6 +150,7 @@ function doApplication(st: SymbolTable, block: A.BlockExpr, x: A.FunctionApplica
             if (!x.args.length) Errors.Checker.raiseArrayInitArgs(x.loc);
 
             // check arg types
+            x.args.forEach(y => doExpr(st, block, y));
             // get type of first arg
             const et = doExpr(st, block, x.args[0]);
             x.args.forEach(y => st.resolver.typesMustMatch(et, y.type, y.loc))
@@ -188,8 +190,15 @@ function doApplication(st: SymbolTable, block: A.BlockExpr, x: A.FunctionApplica
         typeParams = x.typeParams;
     }
     else {
-        const y = x as A.ArrayExpr;
+        const y = x as any as A.ArrayExpr;
         y.nodeType = NodeType.ArrayExpr;
+        y.arg = x.args[0]
+        y.type = P.Types.Compiler.NotInferred;
+        delete x.typeParams;
+        delete x.args;
+        delete x.mangledName;
+        delete x.oldStruct;
+
         return doExpr(st, block, y);
     }
 
@@ -297,7 +306,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             st.resolver.typesMustMatch(t, P.Types.Compiler.Array, x.loc);
             const at = getVar(st, x.expr.id, x.loc).type;
 
-            x.args.forEach(a => {
+            [x.arg].forEach(a => {
                 const ty = doExpr(st, block, a);
                 if (!st.resolver.isInteger(ty)) return Errors.Checker.raiseArrayIndexError(a.type, a.loc);
             });
@@ -422,6 +431,15 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
             st.typeMustExist(x.var.type);
             st.addVar(x.var);
             checkTypes(st, block, x.var.type, x.expr, x.loc);
+            try {
+                const qst = getStruct(st, x.var.type, x.var.loc);
+                if (qst) {
+                    x.var.type.mangledName = qst.mangledName;
+                }
+            }
+            catch (e) {
+                // swallow
+            }
             break;
         }
         case NodeType.VarAssnStmt: {
@@ -458,13 +476,14 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         case NodeType.ForStmt: {
             const x = s as A.ForStmt;
             st = st.newTable("for", x);
+            x.forBlock.tag = st;
 
-            if (x.init) doStmt(st, block, x.init);
+            if (x.init) doStmt(st, x.forBlock, x.init);
             if (x.condition) {
-                const t = doExpr(st, block, x.condition);
+                const t = doExpr(st, x.forBlock, x.condition);
                 if (!st.resolver.isBoolean(t)) return Errors.Checker.raiseForConditionError(t, x.loc);
             }
-            if (x.update) doStmt(st, block, x.update);
+            if (x.update) doStmt(st, x.forBlock, x.update);
             doBlock(st,"for-body", x.body);
             break;
         }

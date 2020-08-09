@@ -116,6 +116,10 @@ export default class SymbolTable {
         return this.exists(id, (st, id) => st.ns.vars[id]);
     }
 
+    isStruct(t: P.Type) {
+        return this.getStruct(t.id) !== undefined;
+    }
+
     addImport(im: P.Import) {
         SymbolTable.add(im.id, this.ns.import, im);
     }
@@ -191,6 +195,14 @@ export default class SymbolTable {
                 st.addFunction(x);
             }
             return x;
+        });
+    }
+
+    getConcreteStruct(id: string, mid: string): P.StructDef|undefined {
+        return this.get(id, (st, id) => {
+            if (!st.ns.structs[id]) return undefined;
+            if (st.ns.structs[id][mid]) return st.ns.structs[id][mid];
+            return undefined;
         });
     }
 

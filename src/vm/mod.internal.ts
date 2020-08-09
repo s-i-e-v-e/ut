@@ -35,6 +35,8 @@ export enum VmOperation {
     MOV_RO_R_2,
     MOV_RO_R_4,
     MOV_RO_R_8,
+    MOVS_R_R_R,
+    MALLOC_R_R,
     CMP_R_R,
     CMP_R_I,
     AND_R_R,

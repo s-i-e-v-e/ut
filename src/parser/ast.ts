@@ -82,6 +82,7 @@ export interface ForStmt extends Stmt, P.Tag {
     condition?: Expr;
     update?: VarAssnStmt;
     body: A.BlockExpr;
+    forBlock: A.BlockExpr;
 }
 
 export interface Expr extends AstNode {
@@ -100,7 +101,7 @@ export interface BlockExpr extends Expr, P.Tag {
 
 export interface ArrayExpr extends Expr {
     expr: IDExpr;
-    args: Expr[];
+    arg: Expr;
 }
 
 export interface DereferenceExpr extends Expr {

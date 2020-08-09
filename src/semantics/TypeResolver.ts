@@ -25,20 +25,25 @@ export default class TypeResolver {
         return  this.st.getType(t.id) || t;
     }
 
+    isBits(t: Type): boolean {
+        t = this.rewriteType(t);
+        return !!P.Types.BitTypes.filter(x => x.id === t.id).length;
+    }
+
     isInteger(t: Type): boolean {
-        const x = this.rewriteType(t);
-        switch (x.id) {
+        t = this.rewriteType(t);
+        switch (t.id) {
             case P.Types.Compiler.IntegerLiteral.id: {
                 return true;
             }
             default: {
-                return false;
+                return !!P.Types.IntegerTypes.filter(x => x.id === t.id).length;
             }
         }
     }
 
     isBoolean(t: Type): boolean {
-        return t.id === P.Types.Language.Bool.id || t.id === P.Types.Compiler.BoolLiteral.id;
+        return t.id === P.Types.Language.bool.id || t.id === P.Types.Compiler.BoolLiteral.id;
     }
 
     isString(t: Type): boolean {

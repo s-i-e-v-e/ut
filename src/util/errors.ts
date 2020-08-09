@@ -224,7 +224,7 @@ export default class Errors {
         }
 
         static raiseNegationOperationError(t: Type, loc: Location): never {
-            throw new Errors.TypeMismatch(buildErrorString(`Negation op only defined on Integer/Bool, not ${toTypeString(t)}.`, loc));
+            throw new Errors.TypeMismatch(buildErrorString(`Negation op only defined on Bits/Bool, not ${toTypeString(t)}.`, loc));
         }
 
         static raiseIfConditionError(t: Type, loc: Location): never {

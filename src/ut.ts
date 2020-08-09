@@ -84,7 +84,7 @@ function parseCommandlineArgs(args: string[]): [Command, Config] {
     return [cx, cfg];
 }
 
-async function main(args: string[]) {
+export async function main(args: string[]) {
     let [cx, cfg] = parseCommandlineArgs(args);
     Logger.setLevel(cfg.logLevel);
 

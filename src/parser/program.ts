@@ -97,7 +97,7 @@ export class Types {
         StringLiteral: Types.newType("StringLiteral"),
     };
 
-    public static readonly Language: Dictionary<Type> = {
+    public static readonly Language = {
         ptr: Types.newType("ptr", Types.NativeLoc),
         b8: Types.newType("b8", Types.NativeLoc),
         b16: Types.newType("b16", Types.NativeLoc),
@@ -120,18 +120,21 @@ export class Types {
         f64: Types.newType("f64", Types.NativeLoc), // 64_11
         f80: Types.newType("f80", Types.NativeLoc), // 80_15
         f128: Types.newType("f128", Types.NativeLoc), // 128_15
-        Bool: Types.newType("Bool"),
-        String: Types.newType("String"),
+        bool: Types.newType("bool"),
+        String: Types.newType("String"), // struct String
     };
 
     public static readonly IntegerTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("i") || x.id.startsWith("u"));
     public static readonly FloatTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("f"));
+    public static readonly BitTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("b") && x.id !== Types.Language.bool.id);
 
     public static nativeSizeInBits(t: Type) {
-        const x = this.Language[t.id];
+        const map: Dictionary<Type> = this.Language;
+        const x = map[t.id];
         if (!x) return 64;
-        if (x.id === this.Language.Bool.id) return 1;
-        if (x.id === this.Language.String.id) return 8;
+        if (x.id === this.Language.bool.id) return 8;
+        if (x.id === this.Language.String.id) return 64;
+        if (x.id === this.Language.ptr.id) return 64;
         return Number(x.id.substring(1));
     }
 
@@ -171,10 +174,6 @@ export class Types {
             params: params,
             mangledName: Types.mangleName(id, typeParams, takes),
         };
-    }
-
-    public static buildTypeID (id: string, xs: any[]) {
-        return `${id}^${xs.map(x => x).join("|")}`
     }
 
     public static toTypeString(t: Type, xs?: Array<string>) {

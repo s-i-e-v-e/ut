@@ -211,7 +211,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     let ty;
     switch (e.nodeType) {
         case NodeType.BooleanLiteral: {
-            e.type = P.Types.Language.Bool;
+            e.type = P.Types.Language.bool;
             ty = e.type;
             break;
         }
@@ -269,12 +269,12 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 case ">=":
                 case "<=": {
                     if (!st.resolver.isInteger(ta)) return Errors.Checker.raiseMathTypeError(ta, x.loc);
-                    ty = P.Types.Compiler.BoolLiteral;
+                    ty = P.Types.Language.bool;
                     break;
                 }
                 case "==":
                 case "!=": {
-                    ty = P.Types.Compiler.BoolLiteral;
+                    ty = P.Types.Language.bool;
                     break;
                 }
                 case "|":
@@ -392,7 +392,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         case NodeType.NegationExpr: {
             const x = e as A.NegationExpr;
             ty = doExpr(st, block, x.expr);
-            if (!st.resolver.isInteger(ty) && !st.resolver.isBoolean(ty)) {
+            if (!st.resolver.isBits(ty) && !st.resolver.isBoolean(ty)) {
                 return Errors.Checker.raiseNegationOperationError(ty, x.loc);
             }
             break;

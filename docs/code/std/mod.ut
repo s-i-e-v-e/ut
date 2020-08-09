@@ -1,12 +1,13 @@
-type Void = #native ptr
+type Pointer = #native ptr
+type Void = Pointer
 
-type Bool = #native u8
+type Bool = #native bool
 
-type Bits8 = #native u8
-type Bits16 = #native u16
-type Bits32 = #native u32
-type Bits64 = #native u64
-type Bits128 = #native u128
+type Bits8 = #native b8
+type Bits16 = #native b16
+type Bits32 = #native b32
+type Bits64 = #native b64
+type Bits128 = #native b128
 
 type Uint8 = #native u8
 type Uint16 = #native u16

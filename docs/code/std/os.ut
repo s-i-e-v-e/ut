@@ -19,6 +19,10 @@ fn free(p: Pointer[Uint8]) {
     sys-free(p);
 }
 
+fn println(x: Bits64) {
+    sys-println(x: Int64);
+}
+
 fn println(x: Int64) {
     sys-println(x);
 }

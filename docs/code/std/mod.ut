@@ -1,48 +1,31 @@
-struct UnsignedInt(#bits: Compiler-Integer)
-// => type::UnsignedInt
-// => ctor::UnsignedInt(Word)
+type Void = #native ptr
 
-struct SignedInt(#bits: Compiler-Integer)
-// => type::SignedInt
-// => ctor::SignedInt(Word)
+type Bool = #native u8
 
-struct Float(#bits: Compiler-Integer, #exp-bits: Compiler-Integer)
-// => type::Float
-// => ctor::Float(Word)
+type Bits8 = #native u8
+type Bits16 = #native u16
+type Bits32 = #native u32
+type Bits64 = #native u64
+type Bits128 = #native u128
 
-struct Pointer()
-// => type::Pointer
-// => ctor::Pointer()
+type Uint8 = #native u8
+type Uint16 = #native u16
+type Uint32 = #native u32
+type Uint64 = #native u64
+type Uint128 = #native u128
 
-type Void = Pointer
-type Bool = UnsignedInt(8)
+type Int8 = #native i8
+type Int16 = #native u16
+type Int32 = #native i32
+type Int64 = #native i64
+type Int128 = #native i128
 
-type Bits8 = UnsignedInt(8)
-type Uint8 = UnsignedInt(8)
-type Int8 = SignedInt(8)
-
-type Bits16 = UnsignedInt(16)
-type Uint16 = UnsignedInt(16)
-type Int16 = SignedInt(16)
-
-type Bits32 = UnsignedInt(32)
-type Uint32 = UnsignedInt(32)
-type Int32 = SignedInt(32)
-
-type Bits64 = UnsignedInt(64)
-type Uint64 = UnsignedInt(64)
-type Int64 = SignedInt(64)
-
-type Bits128 = UnsignedInt(128)
-type Uint128 = UnsignedInt(128)
-type Int128 = SignedInt(128)
-
-type Float8 = Float(8, 2)
-type Float16 = Float(16, 5)
-type Float32 = Float(32, 8)
-type Float64 = Float(64, 11)
-type Float80 = Float(80, 15)
-type Float128 = Float(128, 15)
+type Float8 = #native f8
+type Float16 = #native f16
+type Float32 = #native f32
+type Float64 = #native f64
+type Float80 = #native f80
+type Float128 = #native f128
 
 struct Array[A](length: Int64, stride: Int64)
 // => type::Array[$A]

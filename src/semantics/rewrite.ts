@@ -165,7 +165,7 @@ function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: P.Variable) {
         s.params.forEach((a: P.Variable) => rewriteVar(st, block, a));
     }
     v.type = st.resolver.rewriteType(v.type);
-    //Errors.ASSERT(v.type.native.bits !== 0, v.id);
+    Errors.ASSERT(P.Types.nativeSizeInBits(v.type) !== 0, v.id);
 }
 
 function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
@@ -267,28 +267,16 @@ function doStruct(st: SymbolTable, s: P.StructDef) {
 
 }
 
-function doTypeDeclaration(st: SymbolTable, t: P.TypeDef) {
+function doTypeDef(st: SymbolTable, t: P.TypeDef) {
+    const x = t as P.TypeDef;
 
-}
-
-function doTypeDecl(st: SymbolTable, t: P.TypeDecl) {
-    if ((t as P.TypeAliasDef).isAlias) {
-        const x = t as P.TypeAliasDef;
-    }
-    else if ((t as P.TypeDef).isDef) {
-        const x = t as P.TypeDef;
-        doTypeDeclaration(st, x);
-    }
-    else {
-        Errors.raiseDebug();
-    }
 }
 
 function doModule(st: SymbolTable, m: P.Module) {
     Logger.info(`Type rewriting: ${m.path}`);
 
     m.structs.forEach(x => doStruct(st, x));
-    m.types.forEach(x => doTypeDecl(st, x));
+    m.types.forEach(x => doTypeDef(st, x));
 
     for (const x of m.foreignFunctions) {
         doForeignFunction(st, x);

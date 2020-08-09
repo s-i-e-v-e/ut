@@ -27,7 +27,7 @@ interface AnalysisState {
 interface Namespaces {
     import: Dictionary<P.Import>;
     types: Dictionary<P.Type>;
-    typeDefinitions: Dictionary<P.TypeDecl>;
+    typeDefinitions: Dictionary<P.TypeDef>;
     structs: GenericMap<P.StructDef>;
     functions: GenericMap<P.FunctionPrototype>;
     vars: Dictionary<P.Variable>;
@@ -146,8 +146,8 @@ export default class SymbolTable {
         this.addType(t);
     }
 
-    addTypeDecl(t: P.TypeDecl) {
-        const type = P.Types.newType(t.id, t.loc, t.typeParams.map(y => P.Types.newType(y, t.loc)));
+    addTypeDef(t: P.TypeDef) {
+        const type = P.Types.newType(t.id, t.loc);
         this.addType(type);
         SymbolTable.add(t.id, this.ns.typeDefinitions, t);
     }
@@ -160,20 +160,9 @@ export default class SymbolTable {
         return this.getTypeAlias(id) || this.get(id, (st, id) => st.ns.types[id]);
     }
 
-    getTypeCons(id: string): P.Type|undefined {
-        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as P.TypeDef;
-        if (x && x.isDef) {
-            const y = this.getType(x.type.id) || x.type;
-            return this.getTypeCons(y.id) || y;
-        }
-        else {
-            return undefined;
-        }
-    }
-
     private getTypeAlias(id: string): P.Type|undefined {
-        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as P.TypeAliasDef;
-        if (x && x.isAlias) {
+        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as P.TypeDef;
+        if (x) {
             return this.getType(x.type.id) || x.type;
         }
         else {

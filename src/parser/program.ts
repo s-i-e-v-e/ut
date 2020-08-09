@@ -9,7 +9,7 @@
 import {
     A
 } from "./mod.ts";
-import {int} from "../util/mod.ts";
+import {Dictionary, int, object_values} from "../util/mod.ts";
 
 export interface Tag {
     tag?: any;
@@ -32,8 +32,6 @@ export interface Type extends Primitive {
     takes: Type[],
     returns: Type|undefined,
     mangledName: string;
-    typetype: string
-    native: NativeType;
 }
 
 export interface FunctionType extends Type {
@@ -43,7 +41,7 @@ export interface StructType extends FunctionType {}
 
 export interface Module extends Primitive {
     path: string,
-    types: TypeDecl[],
+    types: TypeDef[],
     structs: StructDef[],
     foreignFunctions: ForeignFunctionDef[],
     functions: FunctionDef[],
@@ -59,30 +57,8 @@ export interface FunctionDef extends FunctionPrototype {
     body: A.BlockExpr;
 }
 
-export interface NativeType extends Primitive {
-    typetype: string;
-    bits: number;
-}
-
-export interface NativePointer extends NativeType {}
-
-export interface NativeWord extends NativeType {}
-
-export interface NativeFloat extends NativeType {
-    exponent: number;
-}
-
-export interface TypeDecl extends Primitive {
-    typeParams: string[];
+export interface TypeDef extends Primitive {
     type: Type;
-}
-export interface TypeAliasDef extends TypeDecl {
-    isAlias: boolean,
-}
-
-export interface TypeDef extends TypeDecl {
-    isDef: boolean,
-    args: A.Literal<any>[];
 }
 
 export interface Variable extends Primitive {
@@ -101,29 +77,9 @@ export const UnknownLoc = {
 
 export class Types {
     public static readonly NativeModule = "<native>";
-    public static readonly NativeNone = Types.nativeInt(0n, "");
-    public static readonly NativePointer = Types.nativePointer("ptr");
-    public static readonly NativeBool = Types.nativeUint(8n,"bool");
-    public static readonly NativeInt = Types.nativeInt(64n, "int");
-    public static readonly NativeUint = Types.nativeUint(64n, "uint");
-    public static readonly NativeFloat = Types.nativeFloat(80n, 15n, "float");
 
     public static readonly Pointer = "Pointer";
-    public static readonly SignedInt = "SignedInt";
-    public static readonly UnsignedInt = "UnsignedInt";
-    public static readonly Float = "Float";
     public static readonly Array = "Array";
-    public static readonly Bool = "Bool";
-    public static readonly String = "String";
-
-    public static readonly Compiler = {
-        IntegerLiteral: Types.newType("Compiler-Integer"),
-        Array: Types.newType(Types.Array),
-        BoolLiteral: Types.newType("Compiler-Bool"),
-        NotInferred: Types.newType("NotInferred"),
-        Void: Types.newType("Void"),
-        StringLiteral: Types.newType("String"),
-    };
 
     public static readonly NativeLoc = {
         index: 0,
@@ -131,6 +87,53 @@ export class Types {
         character: 1,
         path: Types.NativeModule,
     };
+
+    public static readonly Compiler = {
+        IntegerLiteral: Types.newType("IntegerLiteral"),
+        Array: Types.newType(Types.Array),
+        BoolLiteral: Types.newType("BoolLiteral"),
+        NotInferred: Types.newType("NotInferred"),
+        Void: Types.newType("Void"),
+        StringLiteral: Types.newType("StringLiteral"),
+    };
+
+    public static readonly Language: Dictionary<Type> = {
+        ptr: Types.newType("ptr", Types.NativeLoc),
+        b8: Types.newType("b8", Types.NativeLoc),
+        b16: Types.newType("b16", Types.NativeLoc),
+        b32: Types.newType("b32", Types.NativeLoc),
+        b64: Types.newType("b64", Types.NativeLoc),
+        b128: Types.newType("b128", Types.NativeLoc),
+        u8: Types.newType("u8", Types.NativeLoc),
+        u16: Types.newType("u16", Types.NativeLoc),
+        u32: Types.newType("u32", Types.NativeLoc),
+        u64: Types.newType("u64", Types.NativeLoc),
+        u128: Types.newType("u128", Types.NativeLoc),
+        i8: Types.newType("i8", Types.NativeLoc),
+        i16: Types.newType("i16", Types.NativeLoc),
+        i32: Types.newType("i32", Types.NativeLoc),
+        i64: Types.newType("i64", Types.NativeLoc),
+        i128: Types.newType("i128", Types.NativeLoc),
+        f8: Types.newType("f8", Types.NativeLoc), // 8_2
+        f16: Types.newType("f16", Types.NativeLoc), // 16_5
+        f32: Types.newType("f32", Types.NativeLoc), // 32_8
+        f64: Types.newType("f64", Types.NativeLoc), // 64_11
+        f80: Types.newType("f80", Types.NativeLoc), // 80_15
+        f128: Types.newType("f128", Types.NativeLoc), // 128_15
+        Bool: Types.newType("Bool"),
+        String: Types.newType("String"),
+    };
+
+    public static readonly IntegerTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("i") || x.id.startsWith("u"));
+    public static readonly FloatTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("f"));
+
+    public static nativeSizeInBits(t: Type) {
+        const x = this.Language[t.id];
+        if (!x) return 64;
+        if (x.id === this.Language.Bool.id) return 1;
+        if (x.id === this.Language.String.id) return 8;
+        return Number(x.id.substring(1));
+    }
 
     public static newType(id: string, loc?: Location, typeParams?: Type[]): Type {
         typeParams = typeParams || [];
@@ -141,8 +144,6 @@ export class Types {
             takes: [],
             returns: undefined,
             mangledName: Types.mangleName(id, typeParams, []),
-            typetype: id,
-            native: Types.NativeNone,
         };
     }
 
@@ -156,8 +157,6 @@ export class Types {
             returns: returns,
             params: params,
             mangledName: Types.mangleName(id, typeParams, takes, returns),
-            typetype: id,
-            native: Types.NativeNone,
         };
     }
 
@@ -171,50 +170,11 @@ export class Types {
             returns: Types.Compiler.Void,
             params: params,
             mangledName: Types.mangleName(id, typeParams, takes),
-            typetype: id,
-            native: Types.NativeNone,
         };
     }
 
     public static buildTypeID (id: string, xs: any[]) {
         return `${id}^${xs.map(x => x).join("|")}`
-    }
-
-    public static nativePointer (id: string): NativePointer {
-        return {
-            loc: Types.NativeLoc,
-            id: Types.buildTypeID(id, [64]),
-            typetype: id,
-            bits: Number(64),
-        };
-    }
-
-    public static nativeInt (bits: int, id: string): NativeWord {
-        return {
-            loc: Types.NativeLoc,
-            id: Types.buildTypeID(id, [bits]),
-            typetype: id,
-            bits: Number(bits),
-        };
-    }
-
-    public static nativeUint(bits: int, id: string): NativeWord {
-        return {
-            loc: Types.NativeLoc,
-            id: Types.buildTypeID(id, [bits]),
-            typetype: id,
-            bits: Number(bits),
-        };
-    }
-
-    public static nativeFloat(bits: int, exponent: int, id: string): NativeFloat {
-        return {
-            loc: Types.NativeLoc,
-            id: Types.buildTypeID(id, [bits, exponent]),
-            typetype: id,
-            bits: Number(bits),
-            exponent: Number(bits),
-        };
     }
 
     public static toTypeString(t: Type, xs?: Array<string>) {

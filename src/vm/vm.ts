@@ -197,7 +197,6 @@ export default class Vm {
     }
 
     private read_from_offset(ins: number, offset: int) {
-        Errors.debug();
         switch (ins) {
             case 0: return Int(this.read_u8(offset));
             case 1: return Int(this.read_u16(offset));
@@ -208,7 +207,6 @@ export default class Vm {
     }
 
     private write_to_offset(ins: number, offset: int, v: int) {
-        Errors.debug();
         switch (ins) {
             case 0: this.write_u8(offset, v); break;
             case 1: this.write_u16(offset, v); break;

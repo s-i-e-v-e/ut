@@ -20,61 +20,15 @@ export default class TypeResolver {
         return t === P.Types.Compiler.NotInferred;
     }
 
-    rewriteType(t: P.Type, skipWord: boolean = false): P.Type {
+    rewriteType(t: P.Type): P.Type {
         Errors.ASSERT(t !== undefined);
-        const x0 = this.st.getTypeCons(t.id);
-        const x1 = x0 || this.st.getType(t.id)!;
-        const y = x1 ? (this.st.getTypeCons(x1.id) || x1) : (x0 ? x0 : t);
-
-        const xs = y.id.split("^");
-        switch (y.typetype) {
-            case P.Types.Compiler.IntegerLiteral.id: {
-                if (!skipWord) {
-                    y.id = P.Types.buildTypeID(P.Types.UnsignedInt, [64n]);
-                    y.typetype = P.Types.UnsignedInt;
-                }
-                y.native = P.Types.NativeUint;
-                break;
-            }
-            case P.Types.SignedInt: {
-                y.native = xs[1] ? P.Types.nativeInt(Int(xs[1]), xs[0]) : P.Types.NativeInt;
-                break;
-            }
-            case P.Types.UnsignedInt: {
-                y.native = xs[1] ? P.Types.nativeUint(Int(xs[1]), xs[0]) : P.Types.NativeUint;
-                break;
-            }
-            case P.Types.Float: {
-                if (xs[1]) {
-                    const ys = xs[1].split("|");
-                    y.native = P.Types.nativeFloat(Int(ys[0]), Int(ys[1]), xs[0]);
-                }
-                y.native = P.Types.NativeFloat;
-                break;
-            }
-            case P.Types.Array: {
-                break;
-            }
-            case P.Types.Compiler.BoolLiteral.id: {
-                y.native = P.Types.NativeBool;
-                break;
-            }
-            default: {
-                y.native = P.Types.NativePointer;
-                Logger.debug2(`rewrite:: ${y.id} ... ${y.typetype} ... ${y.native.id} ... ${y.id} ...`);
-                break;
-            }
-        }
-        return y;
+        return  this.st.getType(t.id) || t;
     }
 
     isInteger(t: Type): boolean {
-        const x = this.rewriteType(t, true);
-        switch (x.typetype) {
-            case P.Types.Compiler.IntegerLiteral.id:
-            case P.Types.UnsignedInt:
-            case P.Types.SignedInt:
-            {
+        const x = this.rewriteType(t);
+        switch (x.id) {
+            case P.Types.Compiler.IntegerLiteral.id: {
                 return true;
             }
             default: {
@@ -83,12 +37,12 @@ export default class TypeResolver {
         }
     }
 
-    isBoolean(xt: Type): boolean {
-        return xt.id === P.Types.Bool || xt.id === P.Types.Compiler.BoolLiteral.id;
+    isBoolean(t: Type): boolean {
+        return t.id === P.Types.Language.Bool.id || t.id === P.Types.Compiler.BoolLiteral.id;
     }
 
-    isString(xt: Type): boolean {
-        return xt.id === P.Types.String || xt.id === P.Types.Compiler.StringLiteral.id;
+    isString(t: Type): boolean {
+        return t.id === P.Types.Language.String.id || t.id === P.Types.Compiler.StringLiteral.id;
     }
 
     typesMatch(ot1: Type, ot2: Type, noTypeParams: boolean = false): boolean {

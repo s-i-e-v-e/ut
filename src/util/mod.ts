@@ -68,7 +68,7 @@ export function toHexString(xs: Uint8Array) {
     return ys.join("");
 }
 
-export function object_values(x: any) {
+export function object_values<T>(x: any): T[] {
     return Object.values(x);
 }
 

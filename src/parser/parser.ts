@@ -111,7 +111,7 @@ function parseType(ts: TokenStream, e?: A.IDExpr): P.Type {
 
     const loc = ts.loc();
     const idx = ts.getIndex();
-    const id =  e ? e.id : (ts.nextIs("[") ? "Array" : parseTypeID(ts));
+    const id =  e ? e.id : (ts.nextIs("[") ? P.Types.Array : parseTypeID(ts));
     return P.Types.newType(id, loc, parseTypeParameters(ts));
 }
 
@@ -614,37 +614,25 @@ function parseLiteralExprList(ts: TokenStream, block: A.BlockExpr) {
     return xs;
 }
 
-function parseTypeDecl(ts: TokenStream): P.TypeDecl {
+function parseTypeDef(ts: TokenStream): P.TypeDef {
     const loc = ts.loc();
     ts.nextMustBe("type");
     const id = parseTypeDeclID(ts);
-    const typeParams = parseTypeDeclParameters(ts);
     ts.nextMustBe("=");
-    const type = parseType(ts);
-    if (ts.consumeIfNextIs("(")) {
-        // is type def
-        const block = A.buildBlockExpr(loc);
-        const args = parseExprList(ts, block);
-        ts.nextMustBe(")");
-        return {
-            loc: loc,
-            id: id,
-            typeParams: typeParams,
-            type: type,
-            args: args,
-            isDef: true,
-        } as P.TypeDef;
+    let type;
+    if (ts.consumeIfNextIs("#")) {
+        if (!ts.consumeIfNextIs("native")) Errors.Parser.raiseExpectedButFound("native type", ts.peek());
+        const ide = parseIDExpr(ts);
+        type = P.Types.newType(ide.id, ide.loc);
     }
     else {
-        // is type alias
-        return {
-            loc: loc,
-            id: id,
-            typeParams: typeParams,
-            type: type,
-            isAlias: true,
-        } as P.TypeAliasDef;
+        type = parseType(ts);
     }
+    return {
+        loc: loc,
+        id: id,
+        type: type,
+    };
 }
 
 export function parseModule(id: string, ts: TokenStream, path: string): P.Module {
@@ -653,7 +641,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): P.Module
     const xs = new Array<P.ForeignFunctionDef>();
     const ys = new Array<P.FunctionDef>();
     const imports = new Array<P.Import>();
-    const types = new Array<P.TypeDecl>();
+    const types = new Array<P.TypeDef>();
     while (!ts.eof()) {
         if (ts.nextIs("struct")) {
             structs.push(parseStruct(ts));
@@ -668,7 +656,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): P.Module
             imports.push(parseImport(ts));
         }
         else if (ts.nextIs("type")) {
-            types.push(parseTypeDecl(ts));
+            types.push(parseTypeDef(ts));
         }
         else {
             Errors.Parser.raiseExpectedButFound("one of: struct|foreign|fn|type|import", ts.peek());
@@ -712,47 +700,4 @@ function _parseNative(x: string, name: string) {
 export function parseNative() {
     const native = _parseNative("", P.Types.NativeModule);
     return [native];
-    //return [Native0, Native1].map((x, i) => _parseNative(x, i));
 }
-
-const Native0 =
-`struct UnsignedInt(#bits: Word)
-struct SignedInt(#bits: Word)
-struct Float(#bits: Word, #exp-bits: Word)
-struct Array[A](#a: A*)`;
-
-const Native1 =
-`type Int64 = SignedInt(64) // Needs to be defined first as number literals are Int64
-
-type Bool = UnsignedInt(8)
-
-type Bits8 = UnsignedInt(8)
-type Uint8 = UnsignedInt(8)
-type Int8 = SignedInt(8)
-
-type Bits16 = UnsignedInt(16)
-type Uint16 = UnsignedInt(16)
-type Int16 = SignedInt(16)
-
-type Bits32 = UnsignedInt(32)
-type Uint32 = UnsignedInt(32)
-type Int32 = SignedInt(32)
-
-type Bits64 = UnsignedInt(64)
-type Uint64 = UnsignedInt(64)
-
-type Bits128 = UnsignedInt(128)
-type Uint128 = UnsignedInt(128)
-type Int128 = SignedInt(128)
-
-type Float8 = Float(8, 2)
-type Float16 = Float(16, 5)
-type Float32 = Float(32, 8)
-type Float64 = Float(64, 11)
-type Float80 = Float(80, 15)
-type Float128 = Float(128, 15)
-
-type Pointer = UnsignedInt(64)
-type String = Pointer
-type Void = UnsignedInt(64)
-`;

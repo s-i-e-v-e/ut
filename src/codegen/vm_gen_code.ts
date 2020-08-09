@@ -57,7 +57,7 @@ function derefer(store: Store, r: Store, sizeInBytes: number) {
 
 function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, id: string) {
     const update = (v: P.Variable, id: string) => {
-        const n = v.type.native.bits/8;
+        const n = P.Types.nativeSizeInBits(v.type)/8;
         Errors.ASSERT(n !== 0, id, v.loc);
         const x = {
             offset: ss.offset,
@@ -74,12 +74,12 @@ function computeStructInfo(ss: StructState, block: A.BlockExpr, v: P.Variable, i
         update(v, id);
     }
     else {
-        Logger.debug2(`@ => ${s.id}:${s.id}::${s.typetype}`);
+        Logger.debug2(`@ => ${s.id}:${s.id}`);
         for (let i = 0; i < s.params.length; i += 1) {
             const m = s.params[i];
             const mid = `${id}.${m.id}`;
-            Logger.debug2(`#${mid}:${m.type.id}::${m.type.typetype}`);
-            if (m.type.native.bits !== 0) {
+            Logger.debug2(`#${mid}:${m.type.id}`);
+            if (P.Types.nativeSizeInBits(m.type) !== 0) {
                 update(m, mid);
             }
             else {
@@ -95,7 +95,7 @@ function doApplication(ac: Allocator, store: Store, block: A.BlockExpr, x: A.Fun
         const ty = block.tag.getType(x.type.typeParams[0]) || x.type.typeParams[0];
         const args = x.args!;
         const n = args.length;
-        const entrySizeInBytes = ty.native.bits/8;
+        const entrySizeInBytes = P.Types.nativeSizeInBits(ty)/8;
         const bufferSize = entrySizeInBytes*args.length;
 
         const bb = ByteBuffer.build(8 + 8 + bufferSize);
@@ -401,7 +401,7 @@ function emitExpr(ac: Allocator, store: Store, block: A.BlockExpr, e: Expr) {
 }
 
 function bindTypeInfo(ac: Allocator, store: Store, block: A.BlockExpr, v: P.Variable) {
-    //Errors.ASSERT(v.type.native.bits !== 0, `${v.id}:${v.type.id}`, v.loc);
+    Errors.ASSERT(P.Types.nativeSizeInBits(v.type) !== 0, `${v.id}:${v.type.id}`, v.loc);
     const ss = newStructState();
     computeStructInfo(ss, block, v, v.id);
     for (const [k, i] of object_entries(ss.map)) {

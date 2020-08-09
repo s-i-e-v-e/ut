@@ -15,7 +15,7 @@ import {
 import {
     Dictionary,
     Errors,
-    Logger,
+    Logger, object_entries, object_values,
 } from "../util/mod.ts";
 
 type Location = P.Location;
@@ -210,9 +210,18 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
     if (st.as.ret) Errors.Checker.unreachableCode(e.loc);
     let ty;
     switch (e.nodeType) {
-        case NodeType.BooleanLiteral:
-        case NodeType.StringLiteral:
+        case NodeType.BooleanLiteral: {
+            e.type = P.Types.Language.Bool;
+            ty = e.type;
+            break;
+        }
+        case NodeType.StringLiteral: {
+            e.type = P.Types.Language.String;
+            ty = e.type;
+            break;
+        }
         case NodeType.NumberLiteral: {
+            e.type = P.Types.Language.u64;
             ty = e.type;
             break;
         }
@@ -498,47 +507,15 @@ function doForeignFunction(st: SymbolTable, f: P.ForeignFunctionDef) {
     doFunctionPrototype(st, f);
 }
 
-function doTypes(st: SymbolTable, xs: P.TypeDecl[], ys: P.StructDef[]) {
-    const doTypeDecl = (t: P.TypeDecl) => {
-        st.addTypeDecl(t);
-        if ((t as P.TypeAliasDef).isAlias) {
-            const x = t as P.TypeAliasDef;
-            st.typeMustExist(x.type);
-        }
-        else if ((t as P.TypeDef).isDef) {
-            const x = t as P.TypeDef;
-            st.typeMustExist(x.type);
-            doTypeDef(x);
-        }
-        else {
-            Errors.raiseDebug(t.type.id);
-        }
-    };
-
+function doTypes(st: SymbolTable, types: P.TypeDef[], structs: P.StructDef[]) {
     const doTypeDef = (t: P.TypeDef) => {
+        st.addTypeDef(t);
+        st.typeMustExist(t.type);
+
         // get struct
         let s = st.getStruct(t.type.id);
         if (!s) {
-            s = ys.filter(y => y.id === t.type.id)[0];
-            if (!s) Errors.Checker.raiseUnknownType(t.type, t.loc);
-            //doStruct(s);
-        }
-        Errors.ASSERT(s.params.length == t.args.length, s.id);
-
-        for (let i = 0; i < s.params.length; i += 1) {
-            const p = s.params[i];
-            const a = t.args[i];
-            st.resolver.typesMustMatch(p.type, a.type, a.loc);
-        }
-
-        switch (t.type.typetype) {
-            case P.Types.SignedInt:
-            case P.Types.UnsignedInt:
-            case P.Types.Float: {
-                t.type.id = `${t.type.typetype}^${t.args.map(x => x.value).join("|")}`;
-                break;
-            }
-            default: Errors.raiseDebug(t.type.typetype);
+            if (!st.getType(t.type.id)) Errors.Checker.raiseUnknownType(t.type, t.loc);
         }
     };
 
@@ -551,9 +528,9 @@ function doTypes(st: SymbolTable, xs: P.TypeDecl[], ys: P.StructDef[]) {
         st = old;
     };
 
-    ys.forEach(x => st.addType(x));
-    xs.forEach(x => doTypeDecl(x));
-    ys.forEach(x => doStruct(x));
+    structs.forEach(x => st.addType(x));
+    types.forEach(x => doTypeDef(x));
+    structs.forEach(x => doStruct(x));
 }
 
 function doModule(m: P.Module) {
@@ -617,6 +594,7 @@ export default function check(mods: P.Module[]) {
     global.addType(P.Types.Compiler.IntegerLiteral);
     global.addType(P.Types.Compiler.StringLiteral);
     global.addType(P.Types.Compiler.BoolLiteral);
+    object_values<P.Type>(P.Types.Language).forEach(x => global.addType(x));
 
     const c = new Check(mods);
     for (const m of mods) {

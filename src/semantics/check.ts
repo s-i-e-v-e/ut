@@ -591,9 +591,6 @@ class Check {
 export default function check(mods: P.Module[]) {
     const global = SymbolTable.build(P.Types.NativeModule);
 
-    global.addType(P.Types.Compiler.IntegerLiteral);
-    global.addType(P.Types.Compiler.StringLiteral);
-    global.addType(P.Types.Compiler.BoolLiteral);
     object_values<P.Type>(P.Types.Language).forEach(x => global.addType(x));
 
     const c = new Check(mods);

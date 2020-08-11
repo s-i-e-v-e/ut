@@ -1,32 +1,32 @@
-type Pointer = #native ptr
+type Pointer = ptr
 type Void = Pointer
 
-type Bool = #native bool
+type Bool = bool
 
-type Bits8 = #native b8
-type Bits16 = #native b16
-type Bits32 = #native b32
-type Bits64 = #native b64
-type Bits128 = #native b128
+type Bits8 = b8
+type Bits16 = b16
+type Bits32 = b32
+type Bits64 = b64
+type Bits128 = b128
 
-type Uint8 = #native u8
-type Uint16 = #native u16
-type Uint32 = #native u32
-type Uint64 = #native u64
-type Uint128 = #native u128
+type Uint8 = u8
+type Uint16 = u16
+type Uint32 = u32
+type Uint64 = u64
+type Uint128 = u128
 
-type Int8 = #native i8
-type Int16 = #native u16
-type Int32 = #native i32
-type Int64 = #native i64
-type Int128 = #native i128
+type Int8 = i8
+type Int16 = u16
+type Int32 = i32
+type Int64 = i64
+type Int128 = i128
 
-type Float8 = #native f8
-type Float16 = #native f16
-type Float32 = #native f32
-type Float64 = #native f64
-type Float80 = #native f80
-type Float128 = #native f128
+type Float8 = f8
+type Float16 = f16
+type Float32 = f32
+type Float64 = f64
+type Float80 = f80
+type Float128 = f128
 
 struct Array[A](length: Int64, stride: Int64)
 // => type::Array[$A]

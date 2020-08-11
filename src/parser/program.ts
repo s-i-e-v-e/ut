@@ -89,12 +89,9 @@ export class Types {
     };
 
     public static readonly Compiler = {
-        IntegerLiteral: Types.newType("IntegerLiteral"),
         Array: Types.newType(Types.Array),
-        BoolLiteral: Types.newType("BoolLiteral"),
         NotInferred: Types.newType("NotInferred"),
         Void: Types.newType("Void"),
-        StringLiteral: Types.newType("StringLiteral"),
     };
 
     public static readonly Language = {
@@ -123,6 +120,8 @@ export class Types {
         bool: Types.newType("bool"),
         String: Types.newType("String"), // struct String
     };
+
+    public static readonly LanguageMap: Dictionary<Type> = Types.Language;
 
     public static readonly IntegerTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("i") || x.id.startsWith("u"));
     public static readonly FloatTypes = object_values<Type>(Types.Language).filter(x => x.id.startsWith("f"));

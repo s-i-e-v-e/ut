@@ -32,22 +32,15 @@ export default class TypeResolver {
 
     isInteger(t: Type): boolean {
         t = this.rewriteType(t);
-        switch (t.id) {
-            case P.Types.Compiler.IntegerLiteral.id: {
-                return true;
-            }
-            default: {
-                return !!P.Types.IntegerTypes.filter(x => x.id === t.id).length;
-            }
-        }
+        return !!P.Types.IntegerTypes.filter(x => x.id === t.id).length;
     }
 
     isBoolean(t: Type): boolean {
-        return t.id === P.Types.Language.bool.id || t.id === P.Types.Compiler.BoolLiteral.id;
+        return t.id === P.Types.Language.bool.id;
     }
 
     isString(t: Type): boolean {
-        return t.id === P.Types.Language.String.id || t.id === P.Types.Compiler.StringLiteral.id;
+        return t.id === P.Types.Language.String.id;
     }
 
     typesMatch(ot1: Type, ot2: Type, noTypeParams: boolean = false): boolean {

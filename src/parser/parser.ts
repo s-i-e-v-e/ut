@@ -155,7 +155,7 @@ function parseNumber(n: string, radix: number, loc: Location) {
     return {
         nodeType: NodeType.NumberLiteral,
         value: sum,
-        type: P.Types.Compiler.IntegerLiteral,
+        type: P.Types.Language.u64,
         loc: loc,
     };
 }
@@ -167,13 +167,13 @@ function parseLiteral(ts: TokenStream) {
         case TokenType.TK_STRING_LITERAL: return {
             nodeType: NodeType.StringLiteral,
             value: t.lexeme.substring(1, t.lexeme.length - 1),
-            type: P.Types.Compiler.StringLiteral,
+            type: P.Types.Language.String,
             loc: loc,
         };
         case TokenType.TK_BOOLEAN_LITERAL: return {
             nodeType: NodeType.BooleanLiteral,
             value: t.lexeme === "true",
-            type: P.Types.Compiler.BoolLiteral,
+            type: P.Types.Language.bool,
             loc: loc,
         };
         case TokenType.TK_BINARY_NUMBER_LITERAL: return parseNumber(t.lexeme, 2, loc);
@@ -620,8 +620,7 @@ function parseTypeDef(ts: TokenStream): P.TypeDef {
     const id = parseTypeDeclID(ts);
     ts.nextMustBe("=");
     let type;
-    if (ts.consumeIfNextIs("#")) {
-        if (!ts.consumeIfNextIs("native")) Errors.Parser.raiseExpectedButFound("native type", ts.peek());
+    if (P.Types.LanguageMap[ts.peek().lexeme]) {
         const ide = parseIDExpr(ts);
         type = P.Types.newType(ide.id, ide.loc);
     }

@@ -78,9 +78,6 @@ export const UnknownLoc = {
 export class Types {
     public static readonly NativeModule = "<native>";
 
-    public static readonly Pointer = "Pointer";
-    public static readonly Array = "Array";
-
     public static readonly NativeLoc = {
         index: 0,
         line: 1,
@@ -89,12 +86,12 @@ export class Types {
     };
 
     public static readonly Compiler = {
-        Array: Types.newType(Types.Array),
+        Array: Types.newType("Array"),
         NotInferred: Types.newType("NotInferred"),
-        Void: Types.newType("Void"),
     };
 
     public static readonly Language = {
+        void: Types.newType("void", Types.NativeLoc),
         ptr: Types.newType("ptr", Types.NativeLoc),
         b8: Types.newType("b8", Types.NativeLoc),
         b16: Types.newType("b16", Types.NativeLoc),
@@ -118,7 +115,7 @@ export class Types {
         f80: Types.newType("f80", Types.NativeLoc), // 80_15
         f128: Types.newType("f128", Types.NativeLoc), // 128_15
         bool: Types.newType("bool"),
-        String: Types.newType("String"), // struct String
+        string: Types.newType("String"), // struct String
     };
 
     public static readonly LanguageMap: Dictionary<Type> = Types.Language;
@@ -132,7 +129,7 @@ export class Types {
         const x = map[t.id];
         if (!x) return 64;
         if (x.id === this.Language.bool.id) return 8;
-        if (x.id === this.Language.String.id) return 64;
+        if (x.id === this.Language.string.id) return 64;
         if (x.id === this.Language.ptr.id) return 64;
         return Number(x.id.substring(1));
     }
@@ -169,7 +166,7 @@ export class Types {
             id: id,
             typeParams: typeParams,
             takes: takes,
-            returns: Types.Compiler.Void,
+            returns: Types.Language.void,
             params: params,
             mangledName: Types.mangleName(id, typeParams, takes),
         };

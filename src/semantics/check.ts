@@ -142,7 +142,7 @@ function doApplication(st: SymbolTable, block: A.BlockExpr, x: A.FunctionApplica
         if (!s) {
             // regular function
         }
-        else if (s.id === P.Types.Array) {
+        else if (s.id === P.Types.Compiler.Array.id) {
             // todo: should ideally be handled by getFunction
             // todo: hold till vararg is implemented correctly
             // is array constructor
@@ -216,7 +216,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             break;
         }
         case NodeType.StringLiteral: {
-            e.type = P.Types.Language.String;
+            e.type = P.Types.Language.string;
             ty = e.type;
             break;
         }
@@ -327,7 +327,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                 st.resolver.typesMustMatch(x.ifBranch.type, x.elseBranch.type, x.loc);
             }
 
-            x.type = st.resolver.typeNotInferred(x.ifBranch.type) ? P.Types.Compiler.Void: x.ifBranch.type;
+            x.type = st.resolver.typeNotInferred(x.ifBranch.type) ? P.Types.Language.void: x.ifBranch.type;
             ty = x.type;
             break;
         }
@@ -349,7 +349,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             switch (y.nodeType) {
                 case NodeType.IDExpr:
                 case NodeType.ArrayExpr: {
-                    ty = P.Types.newType(P.Types.Pointer, y.loc, [t]);
+                    ty = P.Types.newType(P.Types.Language.ptr.id, y.loc, [t]);
                     break;
                 }
                 default: return Errors.Checker.raiseTypeError(`Can only acquire reference to lvalues.`, e.loc);
@@ -373,14 +373,14 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
             if (x.xs.length) {
                 const y = x.xs[x.xs.length -1] as A.ExprStmt;
                 if (y.nodeType === NodeType.ExprStmt) {
-                    ty = P.Types.Compiler.Void;
+                    ty = P.Types.Language.void;
                 }
                 else {
                     ty = y.expr.type;
                 }
             }
             else {
-                ty = P.Types.Compiler.Void;
+                ty = P.Types.Language.void;
             }
             break;
         }
@@ -497,17 +497,19 @@ function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
 }
 
 function doFunction(st: SymbolTable, f: P.FunctionDef) {
-    if (f.id == "main") f.body.type = P.Types.Compiler.Void;
+    if (f.id == "main") f.body.type = P.Types.Language.void;
     st = st.newTable(`fn:${f.id}`, f);
     doFunctionPrototype(st, f);
     doBlock(st, "fn-body", f.body);
-    f.returns = f.body.type;
-    if (st.resolver.typeNotInferred(f.returns)) f.returns = P.Types.Compiler.Void;
+    if (st.resolver.typeNotInferred(f.body.type)) f.body.type = P.Types.Language.void;
+    f.returns = !f.returns || st.resolver.typeNotInferred(f.returns) ? f.body.type : f.returns;
+    Errors.debug();
+    st.resolver.typesMustMatch(f.returns, f.body.type, f.returns.loc);
 }
 
 function doForeignFunction(st: SymbolTable, f: P.ForeignFunctionDef) {
     if (st.resolver.typeNotInferred(f.returns!)) {
-        f.returns = P.Types.Compiler.Void;
+        f.returns = P.Types.Language.void;
     }
     st = st.newTable(`ffn:${f.id}`, f);
     doFunctionPrototype(st, f);

@@ -40,7 +40,7 @@ export default class TypeResolver {
     }
 
     isString(t: Type): boolean {
-        return t.id === P.Types.Language.String.id;
+        return t.id === P.Types.Language.string.id;
     }
 
     typesMatch(ot1: Type, ot2: Type, noTypeParams: boolean = false): boolean {

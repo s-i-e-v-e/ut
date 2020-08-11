@@ -10,15 +10,7 @@ struct Config (
     logLevel: Int64,
     dump: Bool,
 )
-/*
-export enum LogLevel {
-    NONE,
-    INFO,
-    DEBUG0,
-    DEBUG1,
-    DEBUG2,
-}
-*/
+
 fn help() {
     println("ut 0.1");
     println("USAGE:");

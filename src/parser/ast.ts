@@ -202,7 +202,7 @@ export function buildBinaryExpr(left: Expr, op: string, right: Expr): BinaryExpr
 export function buildVoidExpr(loc: Location) {
     return {
         nodeType: NodeType.VoidExpr,
-        type: P.Types.Compiler.Void,
+        type: P.Types.Language.void,
         loc: loc,
     };
 }

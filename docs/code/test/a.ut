@@ -180,7 +180,7 @@ fn conditions() {
     println(c);
 }
 
-fn unsafe(): Void {
+fn unsafe(): void {
     title("unsafe()");
     let xs = Array(55, 66, 77, 88);
     for (var i = 0; i < xs.length; i += 1) {

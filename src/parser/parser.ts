@@ -74,6 +74,7 @@ function parseTypeParameterID(ts: TokenStream) {
 }
 
 function parseTypeID(ts: TokenStream, isDef: boolean = false) {
+    if (P.Types.LanguageMap[ts.peek().lexeme]) return parseIDExpr(ts).id;
     const t = ts.nextMustBe(TokenType.TK_TYPE, "TYPE");
     if (isDef && t.lexeme.length <= 1) Errors.Parser.parserError("Single character type names are reserved for type params", t);
     return t.lexeme;
@@ -111,7 +112,7 @@ function parseType(ts: TokenStream, e?: A.IDExpr): P.Type {
 
     const loc = ts.loc();
     const idx = ts.getIndex();
-    const id =  e ? e.id : (ts.nextIs("[") ? P.Types.Array : parseTypeID(ts));
+    const id =  e ? e.id : (ts.nextIs("[") ? P.Types.Compiler.Array.id : parseTypeID(ts));
     return P.Types.newType(id, loc, parseTypeParameters(ts));
 }
 
@@ -167,7 +168,7 @@ function parseLiteral(ts: TokenStream) {
         case TokenType.TK_STRING_LITERAL: return {
             nodeType: NodeType.StringLiteral,
             value: t.lexeme.substring(1, t.lexeme.length - 1),
-            type: P.Types.Language.String,
+            type: P.Types.Language.string,
             loc: loc,
         };
         case TokenType.TK_BOOLEAN_LITERAL: return {
@@ -619,14 +620,7 @@ function parseTypeDef(ts: TokenStream): P.TypeDef {
     ts.nextMustBe("type");
     const id = parseTypeDeclID(ts);
     ts.nextMustBe("=");
-    let type;
-    if (P.Types.LanguageMap[ts.peek().lexeme]) {
-        const ide = parseIDExpr(ts);
-        type = P.Types.newType(ide.id, ide.loc);
-    }
-    else {
-        type = parseType(ts);
-    }
+    const type = parseType(ts);
     return {
         loc: loc,
         id: id,

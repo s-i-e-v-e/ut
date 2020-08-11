@@ -23,24 +23,6 @@ type Stmt = A.Stmt;
 type Expr = A.Expr;
 const NodeType = A.NodeType;
 
-function isValueStructExpr(st: SymbolTable, a: A.Expr) {
-    return a.nodeType === NodeType.IDExpr && st.getStruct(a.type.id);
-}
-
-function copyValueStruct(st: SymbolTable, a: A.Expr, m: P.Variable): [P.Variable[], A.Expr[]]  {
-    const is = clone(st.getStruct(a.type.id)!) as P.StructDef;
-    const ide = a as A.IDExpr;
-    const as: A.Expr[] = [];
-    is.params.forEach(y => {
-        const q = clone(ide) as A.IDExpr;
-        q.rest = [y.id];
-        q.type = y.type;
-        as.push(q);
-    })
-    is.params.forEach(y => `${m.id}.${y.id}`);
-    return [is.params, as];
-}
-
 function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
     switch (e.nodeType) {
         case NodeType.BooleanLiteral:
@@ -71,38 +53,6 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.TypeInstance: {
             const x = e as A.FunctionApplication;
-
-            const fold = (x: A.FunctionApplication): [P.StructDef, P.Variable[], A.Expr[]] => {
-                x.oldStruct = x.oldStruct ? x.oldStruct : st.getStruct(x.type.id)!;
-                const xs: P.Variable[] = [];
-                const as: Expr[] = [];
-                const s = clone(x.oldStruct) as P.StructDef;
-                for (let i = 0; i < x.args.length; i+= 1) {
-                    const a = x.args[i];
-                    const m = s.params[i];
-                    if (a.nodeType === NodeType.TypeInstance) {
-                        // fold members into this
-                        const [ss, xxs, aas] = fold(a as A.FunctionApplication);
-                        xxs.forEach(y => `${m.id}.${y.id}`);
-
-                        as.push(...aas);
-                        xs.push(...xxs);
-                    }
-                    else if (isValueStructExpr(st, a)) {
-                        const [xxs, aas] = copyValueStruct(st, a, m);
-                        as.push(...aas);
-                        xs.push(...xxs);
-                    }
-                    else {
-                        as.push(a);
-                        xs.push(m);
-                    }
-                }
-                return [s, xs, as];
-            };
-            const [q, xs, as] = fold(x);
-            q.params = xs;
-            x.args = as;
             x.args.forEach(y => doExpr(st, block, y));
             break;
         }
@@ -148,9 +98,11 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         }
         case NodeType.NegationExpr: {
             const x = e as A.NegationExpr;
-            if (st.resolver.isBoolean(x.type)) {
-                e.nodeType = NodeType.NotExpr;
-            }
+            doExpr(st, block, x.expr);
+            break;
+        }
+        case NodeType.NotExpr: {
+            const x = e as A.NotExpr;
             doExpr(st, block, x.expr);
             break;
         }
@@ -180,27 +132,6 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         case NodeType.VarAssnStmt: {
             const x = s as A.VarAssnStmt;
             doExpr(st, block, x.lhs);
-            if (isValueStructExpr(st, x.rhs)) {
-                const v = resolveVar(st, x.lhs);
-                const [xxs, aas] = copyValueStruct(st, x.rhs, v);
-
-                const xs: Stmt[] = [];
-                // convert into block stmt
-                aas.forEach((a, i) => {
-                    const z = clone(x) as A.VarAssnStmt;
-                    const y = xxs[i];
-                    z.lhs = {
-                        loc: x.loc,
-                        nodeType: NodeType.IDExpr,
-                        type: y.type,
-                        id: v.id,
-                        rest: [y.id],
-                    } as A.IDExpr;
-                    z.rhs = a;
-                    xs.push(z);
-                });
-                if (!xs.length) return xs;
-            }
             break;
         }
         case NodeType.ReturnStmt: {

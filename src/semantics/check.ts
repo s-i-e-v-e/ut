@@ -392,7 +392,13 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
         case NodeType.NegationExpr: {
             const x = e as A.NegationExpr;
             ty = doExpr(st, block, x.expr);
-            if (!st.resolver.isBits(ty) && !st.resolver.isBoolean(ty)) {
+            if (st.resolver.isBoolean(ty)) {
+                e.nodeType = NodeType.NotExpr;
+            }
+            else if (st.resolver.isBits(ty)) {
+                // ignore
+            }
+            else {
                 return Errors.Checker.raiseNegationOperationError(ty, x.loc);
             }
             break;

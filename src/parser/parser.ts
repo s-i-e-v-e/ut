@@ -19,7 +19,7 @@ import {
     Errors,
     Logger,
     Dictionary,
-    SourceFile, deep_clone,
+    SourceFile, clone, Int,
 } from "../util/mod.ts";
 
 type Location = P.Location;
@@ -74,6 +74,7 @@ function parseTypeParameterID(ts: TokenStream) {
 }
 
 function parseTypeID(ts: TokenStream, isDef: boolean = false) {
+    if (P.Types.LanguageMap[ts.peek().lexeme]) return parseIDExpr(ts).id;
     const t = ts.nextMustBe(TokenType.TK_TYPE, "TYPE");
     if (isDef && t.lexeme.length <= 1) Errors.Parser.parserError("Single character type names are reserved for type params", t);
     return t.lexeme;
@@ -111,7 +112,7 @@ function parseType(ts: TokenStream, e?: A.IDExpr): P.Type {
 
     const loc = ts.loc();
     const idx = ts.getIndex();
-    const id =  e ? e.id : (ts.nextIs("[") ? "Array" : parseTypeID(ts));
+    const id =  e ? e.id : (ts.nextIs("[") ? P.Types.Compiler.Array.id : parseTypeID(ts));
     return P.Types.newType(id, loc, parseTypeParameters(ts));
 }
 
@@ -146,16 +147,16 @@ function parseNumber(n: string, radix: number, loc: Location) {
     const isKilo = n.endsWith("K");
     n = isKilo ? n.substring(0, n.length - 1) : n;
 
-    let sum = BigInt(0);
+    let sum = Int(0);
     for (let i = 0; i < n.length; i += 1) {
         const d = n.charAt(n.length - i - 1);
-        sum += BigInt(NumGrid[d] * (radix ** i));
+        sum += Int(NumGrid[d] * (radix ** i));
     }
-    sum = isKilo ? sum * BigInt(1024) : sum;
+    sum = isKilo ? sum * Int(1024) : sum;
     return {
         nodeType: NodeType.NumberLiteral,
         value: sum,
-        type: P.Types.Compiler.Word,
+        type: P.Types.Language.u64,
         loc: loc,
     };
 }
@@ -167,13 +168,13 @@ function parseLiteral(ts: TokenStream) {
         case TokenType.TK_STRING_LITERAL: return {
             nodeType: NodeType.StringLiteral,
             value: t.lexeme.substring(1, t.lexeme.length - 1),
-            type: P.Types.Compiler.String,
+            type: P.Types.Language.string,
             loc: loc,
         };
         case TokenType.TK_BOOLEAN_LITERAL: return {
             nodeType: NodeType.BooleanLiteral,
             value: t.lexeme === "true",
-            type: P.Types.Compiler.Bool,
+            type: P.Types.Language.bool,
             loc: loc,
         };
         case TokenType.TK_BINARY_NUMBER_LITERAL: return parseNumber(t.lexeme, 2, loc);
@@ -226,6 +227,17 @@ function parseFunctionApplication(ts: TokenStream, block: A.BlockExpr, e: A.IDEx
         expr: e,
         typeParams: ty.typeParams,
         args: xs,
+    };
+}
+
+function parseNegationExpr(ts: TokenStream, block: A.BlockExpr): A.ReferenceExpr {
+    const loc = ts.loc();
+    ts.nextMustBe("!");
+    return {
+        nodeType: NodeType.NegationExpr,
+        expr: parseExpr(ts, block),
+        loc: loc,
+        type: P.Types.Compiler.NotInferred,
     };
 }
 
@@ -356,6 +368,9 @@ function parseExpr(ts: TokenStream, block: A.BlockExpr, le?: Expr, rbp: number =
             case "&": {
                 return parseReferenceExpr(ts, block);
             }
+            case "!": {
+                return parseNegationExpr(ts, block);
+            }
             case "*": {
                 return parseDereferenceExpr(ts);
             }
@@ -468,7 +483,7 @@ function parseReturnStmt(ts: TokenStream, block: A.BlockExpr, loc: Location): A.
 function parseBlockExpr(ts: TokenStream, block?: A.BlockExpr): A.BlockExpr {
     const loc = ts.loc();
     ts.nextMustBe("{");
-    block = buildBlockExpr(loc, block);
+    block = A.buildBlockExpr(loc, block);
     const xs = block.xs;
 
     while (!ts.nextIs("}")) {
@@ -555,16 +570,6 @@ function parseFunctionPrototype(ts: TokenStream): P.FunctionPrototype {
     return P.Types.newFunctionType(id, loc, typeParams.map(x => P.Types.newType(x)), returns, params);
 }
 
-export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr  {
-    return {
-        nodeType: NodeType.BlockExpr,
-        type: P.Types.Compiler.NotInferred,
-        loc: loc,
-        xs: new Array<any>(),
-        parent: parent,
-    };
-}
-
 function parseFunction(ts: TokenStream): P.FunctionDef {
     const f = parseFunctionPrototype(ts) as P.FunctionDef;
     f.body = parseBlockExpr(ts);
@@ -610,37 +615,17 @@ function parseLiteralExprList(ts: TokenStream, block: A.BlockExpr) {
     return xs;
 }
 
-function parseTypeDecl(ts: TokenStream): P.TypeDecl {
+function parseTypeDef(ts: TokenStream): P.TypeDef {
     const loc = ts.loc();
     ts.nextMustBe("type");
     const id = parseTypeDeclID(ts);
-    const typeParams = parseTypeDeclParameters(ts);
     ts.nextMustBe("=");
     const type = parseType(ts);
-    if (ts.consumeIfNextIs("(")) {
-        // is type def
-        const block = buildBlockExpr(loc);
-        const args = parseExprList(ts, block);
-        ts.nextMustBe(")");
-        return {
-            loc: loc,
-            id: id,
-            typeParams: typeParams,
-            type: type,
-            args: args,
-            isDef: true,
-        } as P.TypeDef;
-    }
-    else {
-        // is type alias
-        return {
-            loc: loc,
-            id: id,
-            typeParams: typeParams,
-            type: type,
-            isAlias: true,
-        } as P.TypeAliasDef;
-    }
+    return {
+        loc: loc,
+        id: id,
+        type: type,
+    };
 }
 
 export function parseModule(id: string, ts: TokenStream, path: string): P.Module {
@@ -649,7 +634,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): P.Module
     const xs = new Array<P.ForeignFunctionDef>();
     const ys = new Array<P.FunctionDef>();
     const imports = new Array<P.Import>();
-    const types = new Array<P.TypeDecl>();
+    const types = new Array<P.TypeDef>();
     while (!ts.eof()) {
         if (ts.nextIs("struct")) {
             structs.push(parseStruct(ts));
@@ -664,7 +649,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): P.Module
             imports.push(parseImport(ts));
         }
         else if (ts.nextIs("type")) {
-            types.push(parseTypeDecl(ts));
+            types.push(parseTypeDef(ts));
         }
         else {
             Errors.Parser.raiseExpectedButFound("one of: struct|foreign|fn|type|import", ts.peek());
@@ -674,7 +659,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): P.Module
     // add type instantiation function
     structs.forEach(x => {
         if (!(xs.filter(y => y.id === x.id).length || ys.filter(y => y.id === x.id).length)) {
-            const f = deep_clone(x) as P.FunctionPrototype;
+            const f = clone(x) as P.FunctionPrototype;
             f.returns = x;
             xs.push(f);
         }
@@ -708,47 +693,4 @@ function _parseNative(x: string, name: string) {
 export function parseNative() {
     const native = _parseNative("", P.Types.NativeModule);
     return [native];
-    //return [Native0, Native1].map((x, i) => _parseNative(x, i));
 }
-
-const Native0 =
-`struct UnsignedInt(#bits: Word)
-struct SignedInt(#bits: Word)
-struct Float(#bits: Word, #exp-bits: Word)
-struct Array[A](#a: A*)`;
-
-const Native1 =
-`type Int64 = SignedInt(64) // Needs to be defined first as number literals are Int64
-
-type Bool = UnsignedInt(8)
-
-type Bits8 = UnsignedInt(8)
-type Uint8 = UnsignedInt(8)
-type Int8 = SignedInt(8)
-
-type Bits16 = UnsignedInt(16)
-type Uint16 = UnsignedInt(16)
-type Int16 = SignedInt(16)
-
-type Bits32 = UnsignedInt(32)
-type Uint32 = UnsignedInt(32)
-type Int32 = SignedInt(32)
-
-type Bits64 = UnsignedInt(64)
-type Uint64 = UnsignedInt(64)
-
-type Bits128 = UnsignedInt(128)
-type Uint128 = UnsignedInt(128)
-type Int128 = SignedInt(128)
-
-type Float8 = Float(8, 2)
-type Float16 = Float(16, 5)
-type Float32 = Float(32, 8)
-type Float64 = Float(64, 11)
-type Float80 = Float(80, 15)
-type Float128 = Float(128, 15)
-
-type Pointer = UnsignedInt(64)
-type String = Pointer
-type Void = UnsignedInt(64)
-`;

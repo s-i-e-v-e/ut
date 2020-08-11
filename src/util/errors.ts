@@ -223,6 +223,10 @@ export default class Errors {
             throw new Errors.TypeMismatch(buildErrorString(`Logic ops only defined on Bool, not ${toTypeString(t)}.`, loc));
         }
 
+        static raiseNegationOperationError(t: Type, loc: Location): never {
+            throw new Errors.TypeMismatch(buildErrorString(`Negation op only defined on Bits/Bool, not ${toTypeString(t)}.`, loc));
+        }
+
         static raiseIfConditionError(t: Type, loc: Location): never {
             throw new Errors.TypeMismatch(buildErrorString(`IF condition must evaluate to a Bool, not ${toTypeString(t)}.`, loc));
         }
@@ -276,6 +280,10 @@ export default class Errors {
     static raiseDebug(msgOrNode?: string|NodeType): never {
         const s = msgOrNode ? (typeof msgOrNode === "string" ? msgOrNode as string : NodeTypeEnum[msgOrNode as NodeType]) : "DebugError";
         throw new this.Debug(s);
+    }
+
+    static notImplemented(msg?: string): never {
+        throw new Error(msg || "notImplemented");
     }
 
     static raiseVmError(msg: string) {

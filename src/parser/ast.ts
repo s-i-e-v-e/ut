@@ -10,7 +10,7 @@ import {
     A,
     P,
 } from "./mod.ts";
-import {Logger} from "../util/mod.ts";
+import {int, Logger} from "../util/mod.ts";
 
 type Location = P.Location;
 export enum NodeType {
@@ -37,6 +37,8 @@ export enum NodeType {
     BinaryExpr,
     ReferenceExpr,
     DereferenceExpr,
+    NegationExpr,
+    NotExpr,
 }
 
 export function node_str(n: NodeType) {
@@ -124,6 +126,14 @@ export interface ReferenceExpr extends Expr {
     expr: Expr;
 }
 
+export interface NegationExpr extends Expr {
+    expr: Expr;
+}
+
+export interface NotExpr extends Expr {
+    expr: Expr;
+}
+
 /**
  * note: As function application can return an lvalue, it can
  * be treated as an lvalue. But this can only be decided after
@@ -159,7 +169,7 @@ export interface Literal<T> extends Expr {
 
 export interface StringLiteral extends Literal<string> {}
 export interface BooleanLiteral extends Literal<boolean> {}
-export interface NumberLiteral extends Literal<bigint> {}
+export interface NumberLiteral extends Literal<int> {}
 
 export function buildExprStmt(re: Expr, loc?: Location): ExprStmt {
     return {
@@ -192,7 +202,17 @@ export function buildBinaryExpr(left: Expr, op: string, right: Expr): BinaryExpr
 export function buildVoidExpr(loc: Location) {
     return {
         nodeType: NodeType.VoidExpr,
-        type: P.Types.Compiler.Void,
+        type: P.Types.Language.void,
         loc: loc,
+    };
+}
+
+export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr  {
+    return {
+        nodeType: NodeType.BlockExpr,
+        type: P.Types.Compiler.NotInferred,
+        loc: loc,
+        xs: new Array<any>(),
+        parent: parent,
     };
 }

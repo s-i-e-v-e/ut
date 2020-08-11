@@ -7,7 +7,7 @@
  */
 import { OS } from "./mod.ts";
 
-export enum LogLevel {
+enum LogLevel {
     NONE,
     INFO,
     DEBUG1,
@@ -17,17 +17,13 @@ export enum LogLevel {
 export class Logger {
     private static level = LogLevel.NONE;
 
-    static setLevel(level: LogLevel) {
-        this.level = level;
+    static setLevel(level: number) {
+        this.level = level as LogLevel;
     }
 
     static info(msg: string) {
         if (this.level < LogLevel.INFO) return;
         console.log(msg);
-    }
-
-    static error(e: Error) {
-        return OS.panic(e.message);
     }
 
     static debug(msg: string) {
@@ -36,7 +32,11 @@ export class Logger {
     }
 
     static debug2(msg: string) {
-        if (this.level < LogLevel.DEBUG1) return;
+        if (this.level < LogLevel.DEBUG2) return;
         console.log(msg);
+    }
+
+    static error(e: Error) {
+        return OS.panic(e.message);
     }
 }

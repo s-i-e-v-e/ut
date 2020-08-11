@@ -68,6 +68,11 @@ export default class TokenStream {
         return x;
     }
 
+    back() {
+        Errors.ASSERT(this.index > 0);
+        this.index -= 1;
+    }
+
     nextIs(x: string) {
         return this.peek().lexeme === x;
     }

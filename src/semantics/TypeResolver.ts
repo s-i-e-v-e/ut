@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {P} from "../parser/mod.ts";
-import {deep_clone, Dictionary, Errors, Logger} from "../util/mod.ts";
+import {clone, Dictionary, Errors, Int, Logger} from "../util/mod.ts";
 import {GenericMap} from "./mod.internal.ts";
 import SymbolTable from "./SymbolTable.ts";
 
@@ -20,72 +20,34 @@ export default class TypeResolver {
         return t === P.Types.Compiler.NotInferred;
     }
 
-    rewriteType(t: P.Type, skipWord: boolean = false): P.Type {
+    rewriteType(t: P.Type): P.Type {
         Errors.ASSERT(t !== undefined);
-        const x0 = this.st.getTypeCons(t.id);
-        const x1 = x0 || this.st.getType(t.id)!;
-        const y = x1 ? (this.st.getTypeCons(x1.id) || x1) : (x0 ? x0 : t);
+        return  this.st.getType(t.id) || t;
+    }
 
-        const xs = y.id.split("^");
-        switch (y.typetype) {
-            case P.Types.Word: {
-                if (!skipWord) {
-                    y.id = P.Types.buildTypeID(P.Types.UnsignedInt, [64n]);
-                    y.typetype = P.Types.UnsignedInt;
-                }
-                y.native = P.Types.NativeUint;
-                break;
-            }
-            case P.Types.SignedInt: {
-                y.native = xs[1] ? P.Types.nativeInt(BigInt(xs[1]), xs[0]) : P.Types.NativeInt;
-                break;
-            }
-            case P.Types.UnsignedInt: {
-                y.native = xs[1] ? P.Types.nativeUint(BigInt(xs[1]), xs[0]) : P.Types.NativeUint;
-                break;
-            }
-            case P.Types.Float: {
-                if (xs[1]) {
-                    const ys = xs[1].split("|");
-                    y.native = P.Types.nativeFloat(BigInt(ys[0]), BigInt(ys[1]), xs[0]);
-                }
-                y.native = P.Types.NativeFloat;
-                break;
-            }
-            case P.Types.Array: {
-                break;
-            }
-            default: {
-                y.native = P.Types.NativePointer;
-                Logger.debug2(`rewrite:: ${y.id} ... ${y.typetype} ... ${y.native.id} ... ${y.id} ...`);
-                break;
-            }
-        }
-        return y;
+    isBits(t: Type): boolean {
+        t = this.rewriteType(t);
+        return !!P.Types.BitTypes.filter(x => x.id === t.id).length;
     }
 
     isInteger(t: Type): boolean {
-        const x = this.rewriteType(t, true);
-        switch (x.typetype) {
-            case P.Types.Word:
-            case P.Types.UnsignedInt:
-            case P.Types.SignedInt:
-            {
-                return true;
-            }
-            default: {
-                return false;
-            }
-        }
+        t = this.rewriteType(t);
+        return !!P.Types.IntegerTypes.filter(x => x.id === t.id).length;
     }
 
-    isBoolean(xt: Type): boolean {
-        return xt.id === P.Types.Bool;
+    isBoolean(t: Type): boolean {
+        return t.id === P.Types.Language.bool.id;
+    }
+
+    isString(t: Type): boolean {
+        return t.id === P.Types.Language.string.id;
     }
 
     typesMatch(ot1: Type, ot2: Type, noTypeParams: boolean = false): boolean {
         const filter = (xs: P.Type[]) => xs.filter(x => x.id.length > 1);
         if (this.isInteger(ot1) && this.isInteger(ot2)) return true;
+        if (this.isBoolean(ot1) && this.isBoolean(ot2)) return true;
+        if (this.isString(ot1) && this.isString(ot2)) return true;
 
         let t1 = this.st.getType(ot1.id);
         let t2 = this.st.getType(ot2.id);
@@ -159,7 +121,7 @@ export default class TypeResolver {
                 }
                 const y = P.Types.mangleName(id, [], ys, returns);
                 if (mid === y) {
-                    const ff: P.FunctionPrototype = deep_clone(f) as P.FunctionPrototype;
+                    const ff: P.FunctionPrototype = clone(f) as P.FunctionPrototype;
                     ff.typeParams = [];
                     ff.takes = ys;
                     ff.returns = returns;
@@ -238,7 +200,7 @@ export default class TypeResolver {
                     const argTypes = this.mapGenericTypes(map, pt.typeParams, typeParams);
                     const ys = this.mapTypes(map, argTypes, pt.takes, typeParams);
 
-                    const ppt = deep_clone(pt) as P.Type;
+                    const ppt = clone(pt) as P.Type;
                     ppt.takes = ys;
                     ppt.typeParams = [];
 

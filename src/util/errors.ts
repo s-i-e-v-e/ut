@@ -6,18 +6,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    P,
     A,
 } from "../parser/mod.ts";
 import {
     CharacterStream,
     Token,
 } from "../parser/mod.internal.ts";
-const toTypeString = P.Types.toTypeString;
-type Type = P.Type;
-type Variable = P.Variable;
+const toTypeString = A.toTypeString;
+type Type = A.Type;
+type Variable = A.Variable;
 type NodeType = A.NodeType;
-type Location = P.Location;
+type Location = A.Location;
 const NodeTypeEnum = A.NodeType;
 
 export function buildLocation(loc: Location) {

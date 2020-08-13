@@ -23,7 +23,7 @@ type GenericMap<A> = Dictionary<Dictionary<A>>;
 // size(Array("a)) => size(Array[String])
 interface qGenericMap<A> {
     a: Dictionary<A[]>; // ["size"] = [fn:size[A]]; ["size[$A]"] = [fn:size[A]];  ["size[$String]"] = [fn:size[String]];
-    /*
+    /* todo:
         "size" = {
             "size($String)": fn,
             "size[$A]($Array[$A])": fn,

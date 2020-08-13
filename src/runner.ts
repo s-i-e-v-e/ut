@@ -22,7 +22,7 @@ export interface Config {
 async function runFile(path: string, args: string[], c: Config) {
     const mods = await parseFile(c.base, path);
     const global = check(mods);
-    rewrite(global, mods);
+    //rewrite(global, mods);
 }
 
 export async function run(args: string[], c: Config) {

@@ -9,7 +9,7 @@ import std
 import std.os
 
 fn size(this: String) {
-    return *(this: Pointer[Int64]);
+    return *(this: Pointer[u64]);
 }
 
 fn concat(this: String, that: String) {

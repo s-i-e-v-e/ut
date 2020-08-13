@@ -21,7 +21,7 @@ function parse(x: string) {
     const s = `fn main(){ return ${x}; }\n`;
     const cs = CharacterStream.build(s, "<mem>");
     const ts = lex(cs);
-    return (parseModule("<id>",ts, "<mem>").functions[0].body.xs[0] as A.ReturnStmt).expr;
+    return (parseModule("<id>",ts, "<mem>").functions[0].body!.xs[0] as A.ReturnStmt).expr;
 }
 
 function parseBinary(x: string) {

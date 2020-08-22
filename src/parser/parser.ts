@@ -261,10 +261,10 @@ function parseReferenceExpr(ts: TokenStream, block: A.BlockExpr): A.ReferenceExp
     };
 }
 
-function parseDereferenceExpr(ts: TokenStream): A.DereferenceExpr {
+function parseDereferenceExpr(ts: TokenStream, block: A.BlockExpr): A.DereferenceExpr {
     const loc = ts.loc();
     ts.nextMustBe("*");
-    const e = ts.nextIs("*") ? parseDereferenceExpr(ts) :  parseMultiIDExpr(ts);
+    const e = ts.nextIs("*") ? parseDereferenceExpr(ts, block) : parseExpr(ts, block, OperatorPrecedence["*"]);
     return {
         nodeType: NodeType.DereferenceExpr,
         expr: e,
@@ -314,7 +314,7 @@ const OperatorPrecedence: Dictionary<number> = {
     ";": 0,
 };
 
-function parseExpr(ts: TokenStream, block: A.BlockExpr, le?: Expr, rbp: number = 0): Expr {
+function parseExpr(ts: TokenStream, block: A.BlockExpr, rbp: number = 0, le?: Expr): Expr {
     const operator = (rbp: number): [string, number] => {
         const o1 = ts.peek().lexeme;
         const o2 = o1 ? o1 + ts.peek(1).lexeme : o1;
@@ -372,7 +372,7 @@ function parseExpr(ts: TokenStream, block: A.BlockExpr, le?: Expr, rbp: number =
                 return parseNegationExpr(ts, block);
             }
             case "*": {
-                return parseDereferenceExpr(ts);
+                return parseDereferenceExpr(ts, block);
             }
             case "(": {
                 return parseGroupExpr(ts, block);

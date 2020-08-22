@@ -104,7 +104,7 @@ export interface ArrayExpr extends Expr {
 }
 
 export interface DereferenceExpr extends Expr {
-    expr: IDExpr|DereferenceExpr;
+    expr: Expr|DereferenceExpr;
 }
 
 export interface GroupExpr extends Expr {

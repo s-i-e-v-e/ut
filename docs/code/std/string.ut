@@ -1,64 +1,90 @@
+/*
+ * Copyright (c) 2020 Sieve
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 import std
 import std.os
 
 fn size(this: String) {
-    let p = this : Pointer[Int64];
-    return *p;
+    return *(this: Pointer[Int64]);
 }
 
 fn concat(this: String, that: String) {
-    let na = this.size();
-    let nb = that.size();
-    let n = na + nb;
-    let p = new(na + nb);
+    let n = this.length + that.length;
+    var p = new(n + 8);
 
     // set size
-    var ps = p : Pointer[Int64];
-    *ps = n;
+    *p = n;
 
-    var pa = this : Pointer[Uint8];
-    var pb = that : Pointer[Uint8];
-    var pp = p : Pointer[Uint8];
+    var pa = this : Pointer[u8];
+    let pa_end = pa + this.length;
+    var pb = that : Pointer[u8];
+    let pb_end = pb + that.length;
+    var pp = p : Pointer[u8];
 
-    pa : Int64 += 8;
-    pb : Int64 += 8;
-    pp : Int64 += 8;
+    pa += 8;
+    pb += 8;
+    pp += 8;
 
-    for (var i = 0; i < na; i += 1) {
+    for (;pa < pa_end;) {
         *pp = *pa;
-        pa : Int64 += 1;
-        pp : Int64 += 1;
+        pa += 1;
+        pp += 1;
     };
 
-    for (var i = 0; i < nb; i += 1) {
+    for (;pb < pb_end;) {
         *pp = *pb;
-        pb : Int64 += 1;
-        pp : Int64 += 1;
+        pb += 1;
+        pp += 1;
     };
-    return p : String;
+    return p: String;
 }
 
 fn equals(this: String, that: String) {
-	if (this.size() != that.size()) {
+	if (this.length != that.length) {
 	    return false;
 	}
 	else {
-	    var pa = this : Pointer[Uint8];
-        var pb = that : Pointer[Uint8];
-        pa : Int64 += 8;
-        pb : Int64 += 8;
+	    var pa = this : Pointer[u8];
+        var pb = that : Pointer[u8];
+        pa += 8;
+        pb += 8;
 		var equals = true;
-    	for (var i = 0; i < this.size(); i += 1) {
+    	for (var i = 0; i < this.length; i += 1) {
     		equals &= *pa == *pb;
-    		pa : Int64 += 1;
-            pb : Int64 += 1;
-    		if (equals) {
-    		    equals = equals;
-    		}
-    		else {
-    		    return false;
-    		};
+    		pa += 1;
+            pb += 1;
+    		if (!equals) { return false; } else {};
     	};
     	return true;
 	};
+}
+
+fn byteAt(this: String, index: u64) {
+    return *((this: Pointer[u8]) + index);
+}
+
+fn substring(this: String, start: u64, end: u64) {
+    let n = end - start + 1;
+    var p = new(n + 8);
+
+    // set size
+    *p = n;
+
+    var ps = (this: Pointer[u8]) + 8 + start;
+    let ps_end = ps + n;
+
+    var pp = p;
+    pp += 8;
+
+    for (;ps < ps_end;) {
+        *pp = *ps;
+        ps += 1;
+        pp += 1;
+    };
+
+    return p: String;
 }

@@ -240,7 +240,7 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
                     }
                     else {
                         const ys = s.params.filter(a => a.id === y);
-                        if (!ys.length) return Errors.raiseDebug(y);
+                        if (!ys.length) return Errors.Checker.raiseUnknownIdentifier(y!, x.loc);
                         ty = ys[0].type;
                     }
                 }
@@ -252,38 +252,52 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr): Type {
 
             const ta = doExpr(st, block, x.left);
             const tb = doExpr(st, block, x.right);
-            st.resolver.typesMustMatch(ta, tb, x.loc);
 
-            switch (x.op) {
-                case "%":
-                case "*":
-                case "/":
-                case "+":
-                case "-": {
-                    if (!st.resolver.isInteger(ta)) return Errors.Checker.raiseMathTypeError(ta, x.loc);
+            if (x.op === "+" || x.op === "-") {
+                if (st.resolver.isInteger(ta) && st.resolver.isInteger(tb)) {
                     ty = ta;
-                    break;
                 }
-                case ">":
-                case "<":
-                case ">=":
-                case "<=": {
-                    if (!st.resolver.isInteger(ta)) return Errors.Checker.raiseMathTypeError(ta, x.loc);
-                    ty = P.Types.Language.bool;
-                    break;
+                else if (st.resolver.isInteger(ta) && st.resolver.isPointer(tb)) {
+                    ty = tb;
                 }
-                case "==":
-                case "!=": {
-                    ty = P.Types.Language.bool;
-                    break;
-                }
-                case "|":
-                case "&": {
-                    if (!st.resolver.isBoolean(ta)) return Errors.Checker.raiseLogicalOperationError(ta, x.loc);
+                else if (st.resolver.isPointer(ta) && st.resolver.isInteger(tb)) {
                     ty = ta;
-                    break;
                 }
-                default: return Errors.Checker.error(x.op, x.loc);
+                else {
+                    return Errors.Checker.raiseMathTypeError(ta, x.loc);
+                }
+            }
+            else {
+                st.resolver.typesMustMatch(ta, tb, x.loc);
+                switch (x.op) {
+                    case "%":
+                    case "*":
+                    case "/": {
+                        if (!st.resolver.isInteger(ta)) return Errors.Checker.raiseMathTypeError(ta, x.loc);
+                        ty = ta;
+                        break;
+                    }
+                    case ">":
+                    case "<":
+                    case ">=":
+                    case "<=": {
+                        if (!st.resolver.isInteger(ta) && !st.resolver.isPointer(ta)) return Errors.Checker.raiseMathTypeError(ta, x.loc);
+                        ty = P.Types.Language.bool;
+                        break;
+                    }
+                    case "==":
+                    case "!=": {
+                        ty = P.Types.Language.bool;
+                        break;
+                    }
+                    case "|":
+                    case "&": {
+                        if (!st.resolver.isBoolean(ta)) return Errors.Checker.raiseLogicalOperationError(ta, x.loc);
+                        ty = ta;
+                        break;
+                    }
+                    default: return Errors.Checker.error(x.op, x.loc);
+                }
             }
             break;
         }
@@ -503,7 +517,6 @@ function doFunction(st: SymbolTable, f: P.FunctionDef) {
     doBlock(st, "fn-body", f.body);
     if (st.resolver.typeNotInferred(f.body.type)) f.body.type = P.Types.Language.void;
     f.returns = !f.returns || st.resolver.typeNotInferred(f.returns) ? f.body.type : f.returns;
-    Errors.debug();
     st.resolver.typesMustMatch(f.returns, f.body.type, f.returns.loc);
 }
 

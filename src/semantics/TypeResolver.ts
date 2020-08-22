@@ -25,6 +25,11 @@ export default class TypeResolver {
         return  this.st.getType(t.id) || t;
     }
 
+    isPointer(t: Type): boolean {
+        t = this.rewriteType(t);
+        return t.id === P.Types.Language.ptr.id;
+    }
+
     isBits(t: Type): boolean {
         t = this.rewriteType(t);
         return !!P.Types.BitTypes.filter(x => x.id === t.id).length;

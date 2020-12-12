@@ -9,6 +9,7 @@ Inferno (Dis + Limbo)|[All](http://www.vitanuova.com/inferno/index.html)|
 Julia|[Types](https://docs.julialang.org/en/v1/manual/types/)|primitive, nominal, structural
 Myrddin|[All](https://myrlang.org/spec)|
 Nim|[All](https://nim-lang.org/)|types, syntax
+Odin|[All](https://odin-lang.org/)|
 Pony|[Types](https://tutorial.ponylang.io/types.html)|primitives, aliases
 Potion|[All](http://perl11.org/potion/)|
 Rust|[All](https://doc.rust-lang.org/reference/)|types, syntax

@@ -11,9 +11,10 @@ import {parse, parseNative} from "./mod.internal.ts";
 import {Errors, Logger, OS} from "../util/mod.ts";
 
 async function parseModule(modules: Dictionary<P.Module>, id: string, base: string, path: string) {
-    Logger.info(`base: ${base}, id: ${id}, path: ${path}`);
-    const f = await OS.readSourceFile(path);
-    Logger.info(`Running: ${path} [${f.fsPath}]`);
+    const fp =`${base}/${path[0] === '.' ? path.substring(2) : path}`;
+    Logger.info(`base: ${base}, id: ${id}, path: ${path}, fullPath: ${fp}`);
+    const f = await OS.readSourceFile(fp);
+    Logger.info(`Running: ${fp} [${f.fsPath}]`);
     const m = parse(id, f);
     modules[m.id] = m;
     for (const im of m.imports) {
@@ -22,7 +23,7 @@ async function parseModule(modules: Dictionary<P.Module>, id: string, base: stri
             const ad = `${base}/${mid}`;
             const a1 = `${base}/${mid}/mod.ut`;
             const a2 = `${base}/${mid}.ut`;
-            await parseModule(modules, im.id, base, OS.isDir(ad) ? a1 : a2);
+            await parseModule(modules, im.id, '.', OS.isDir(ad) ? a1 : a2);
         }
     }
 }

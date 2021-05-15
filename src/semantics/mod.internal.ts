@@ -46,5 +46,8 @@ export {
     SymbolTable,
     resolveVar,
     TypeResolver,
-    GenericMap,
 };
+
+export type {
+    GenericMap,
+}

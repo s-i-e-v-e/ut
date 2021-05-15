@@ -5,8 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-type Pointer = ptr
-type Void = Pointer
+type Void = ptr
 
 type Bool = bool
 
@@ -38,12 +37,13 @@ type Float128 = f128
 type Int = Int64
 type Uint = Uint64
 
-struct Array[A](length: Int64, stride: Int64)
+type Pointer = ptr
+struct Array[A](length: u64, stride: u64)
 // => type::Array[$A]
 foreign fn Array[A](xs: A*): Array[A]
 // => ctor::Array[$A](A*)
 
-struct String(length: Int64)
+struct String(length: u64)
 // => type::String
 // => ctor::String(Word)
 

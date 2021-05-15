@@ -5,51 +5,51 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import {P} from "../parser/mod.ts";
+import {A} from "../parser/mod.ts";
 import {clone, Dictionary, Errors, Int, Logger} from "../util/mod.ts";
 import {GenericMap} from "./mod.internal.ts";
 import SymbolTable from "./SymbolTable.ts";
 
-type Type = P.Type;
-type Location = P.Location;
+type Type = A.Type;
+type Location = A.Location;
 
 export default class TypeResolver {
     constructor(private readonly st: SymbolTable) {}
 
     typeNotInferred(t: Type) {
-        return t === P.Types.Compiler.NotInferred;
+        return t === A.Compiler.NotInferred;
     }
 
-    rewriteType(t: P.Type): P.Type {
+    rewriteType(t: Type): Type {
         Errors.ASSERT(t !== undefined);
         return  this.st.getType(t.id) || t;
     }
 
     isPointer(t: Type): boolean {
         t = this.rewriteType(t);
-        return t.id === P.Types.Language.ptr.id;
+        return t.id === A.Language.ptr.id;
     }
 
     isBits(t: Type): boolean {
         t = this.rewriteType(t);
-        return !!P.Types.BitTypes.filter(x => x.id === t.id).length;
+        return !!A.BitTypes.filter(x => x.id === t.id).length;
     }
 
     isInteger(t: Type): boolean {
         t = this.rewriteType(t);
-        return !!P.Types.IntegerTypes.filter(x => x.id === t.id).length;
+        return !!A.IntegerTypes.filter(x => x.id === t.id).length;
     }
 
     isBoolean(t: Type): boolean {
-        return t.id === P.Types.Language.bool.id;
+        return t.id === A.Language.bool.id;
     }
 
     isString(t: Type): boolean {
-        return t.id === P.Types.Language.string.id;
+        return t.id === A.Language.string.id;
     }
 
     typesMatch(ot1: Type, ot2: Type, noTypeParams: boolean = false): boolean {
-        const filter = (xs: P.Type[]) => xs.filter(x => x.id.length > 1);
+        const filter = (xs: Type[]) => xs.filter(x => x.id.length > 1);
         if (this.isInteger(ot1) && this.isInteger(ot2)) return true;
         if (this.isBoolean(ot1) && this.isBoolean(ot2)) return true;
         if (this.isString(ot1) && this.isString(ot2)) return true;
@@ -91,7 +91,7 @@ export default class TypeResolver {
         }
     }
 
-    resolveFunction(id: string, mid: string, typeParams: P.Type[], argTypes: P.Type[], loc: Location, g: GenericMap<P.FunctionPrototype>) {
+    resolveFunction(id: string, mid: string, typeParams: Type[], argTypes: Type[], loc: Location, g: GenericMap<A.FunctionPrototype>) {
         // match arity
         const xs = Object
             .keys(g[id])
@@ -113,7 +113,7 @@ export default class TypeResolver {
         }
 
         for (const f of xs) {
-            const map: Dictionary<P.Type> = {};
+            const map: Dictionary<Type> = {};
             const tp: Dictionary<boolean> = {};
             f.typeParams.forEach(x => tp[x.id] = true);
             const ys = this.mapTypes(map, argTypes, f.params.map(x => x.type), tp);
@@ -124,9 +124,9 @@ export default class TypeResolver {
                 for (const x of f.typeParams) {
                     if (!map[x.id]) break;
                 }
-                const y = P.Types.mangleName(id, [], ys, returns);
+                const y = A.mangleName(id, [], ys, returns);
                 if (mid === y) {
-                    const ff: P.FunctionPrototype = clone(f) as P.FunctionPrototype;
+                    const ff: A.FunctionPrototype = clone(f) as A.FunctionPrototype;
                     ff.typeParams = [];
                     ff.takes = ys;
                     ff.returns = returns;
@@ -135,8 +135,8 @@ export default class TypeResolver {
                         ff.mangledName = y;
                         Errors.ASSERT(f.mangledName !== y);
                         Errors.ASSERT(ff.params !== f.params);
-                        if ((f as P.FunctionDef).body) {
-                            (ff as P.FunctionDef).body = (f as P.FunctionDef).body;
+                        if ((f as A.FunctionDef).body) {
+                            (ff as A.FunctionDef).body = (f as A.FunctionDef).body;
                         }
                         ff.tag = f.tag;
                         Logger.debug(`reified: ${ff.mangledName}`);
@@ -151,7 +151,7 @@ export default class TypeResolver {
         return undefined;
     }
 
-    mapTypes(map: Dictionary<P.Type>, argTypes: P.Type[], paramTypes: P.Type[], typeParams: Dictionary<boolean>): P.Type[] {
+    mapTypes(map: Dictionary<Type>, argTypes: Type[], paramTypes: Type[], typeParams: Dictionary<boolean>): Type[] {
         if (!argTypes.length) return [];
         if (!paramTypes.length) return [];
         const xs = [];
@@ -164,7 +164,7 @@ export default class TypeResolver {
                     map[pt.id] = at;
 
                     const ys = this.mapTypes(map, at.typeParams, pt.typeParams, typeParams);
-                    xs.push(P.Types.newType(at.id, at.loc, ys));
+                    xs.push(A.newType(at.id, at.loc, ys));
                 }
                 else {
                     if (map[pt.id].id !== at.id) return [];
@@ -174,7 +174,7 @@ export default class TypeResolver {
             else {
                 if (at.typeParams.length && pt.typeParams.length) {
                     const ys = this.mapTypes(map, at.typeParams, pt.typeParams, typeParams);
-                    xs.push(P.Types.newType(at.id, at.loc, ys));
+                    xs.push(A.newType(at.id, at.loc, ys));
                 }
                 else {
                     if (!this.typesMatch(at, pt)) return [];
@@ -185,7 +185,7 @@ export default class TypeResolver {
         return xs;
     }
 
-    mapGenericTypes(map: Dictionary<P.Type>, paramTypes: P.Type[], typeParams: Dictionary<boolean>): P.Type[] {
+    mapGenericTypes(map: Dictionary<Type>, paramTypes: Type[], typeParams: Dictionary<boolean>): Type[] {
         if (!paramTypes.length) return [];
         const xs = [];
         for (let i = 0; i < paramTypes.length; i += 1) {
@@ -205,15 +205,15 @@ export default class TypeResolver {
                     const argTypes = this.mapGenericTypes(map, pt.typeParams, typeParams);
                     const ys = this.mapTypes(map, argTypes, pt.takes, typeParams);
 
-                    const ppt = clone(pt) as P.Type;
+                    const ppt = clone(pt) as Type;
                     ppt.takes = ys;
                     ppt.typeParams = [];
 
-                    const q = ppt as P.StructDef;
+                    const q = ppt as A.StructDef;
                     if (q.params) {
                         q.params.forEach((p, i) => p.type = ys[i]);
                     }
-                    ppt.mangledName =  P.Types.mangleName(ppt.id, [], ys);
+                    ppt.mangledName =  A.mangleName(ppt.id, [], ys);
 
                     xs.push(ppt);
                 }

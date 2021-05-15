@@ -10,7 +10,7 @@ import {
     TokenType,
 } from "./mod.internal.ts";
 import {
-    P,
+    A,
 } from "./mod.ts";
 import { Errors } from "../util/mod.ts";
 
@@ -18,7 +18,7 @@ export default class TokenStream {
     private index: number;
     public readonly length: number;
     private readonly EOF: Token = {
-        loc: P.UnknownLoc,
+        loc: A.UnknownLoc,
         type: TokenType.TK_INTERNAL,
         lexeme: "",
         xs: [],

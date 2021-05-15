@@ -6,11 +6,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {Dictionary} from "../util/mod.ts";
-import {P} from "./mod.ts";
+import {A} from "./mod.ts";
 import {parse, parseNative} from "./mod.internal.ts";
 import {Errors, Logger, OS} from "../util/mod.ts";
 
-async function parseModule(modules: Dictionary<P.Module>, id: string, base: string, path: string) {
+async function parseModule(modules: Dictionary<A.Module>, id: string, base: string, path: string) {
     const fp =`${base}/${path[0] === '.' ? path.substring(2) : path}`;
     Logger.info(`base: ${base}, id: ${id}, path: ${path}, fullPath: ${fp}`);
     const f = await OS.readSourceFile(fp);
@@ -36,7 +36,7 @@ function getFileName(path: string) {
 }
 
 async function parseFile(base: string, path: string) {
-    const modules: Dictionary<P.Module> = {};
+    const modules: Dictionary<A.Module> = {};
     const nms = parseNative();
 
     path = path.replaceAll(/\\/g, "/");

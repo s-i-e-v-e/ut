@@ -9,9 +9,9 @@ import CharacterStream from "./CharacterStream.ts";
 import TokenStream from "./TokenStream.ts";
 import lex from "./lexer.ts";
 import { parseNative, parseModule, parse } from "./parser.ts";
-import {P} from "./mod.ts";
+import {A} from "./mod.ts";
 
-type Location = P.Location;
+type Location = A.Location;
 
 export enum TokenType {
     TK_WHITESPACE = 128,
@@ -42,4 +42,4 @@ export {
     parseModule,
     parse,
     parseNative,
-};
+}

@@ -7,4 +7,4 @@
  */
 import check from "./check.ts";
 import rewrite from "./rewrite.ts";
-export { check, rewrite };
+export { check, rewrite }

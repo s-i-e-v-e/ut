@@ -11,26 +11,25 @@ import {
     Logger,
 } from "../util/mod.ts";
 import {
-    P,
     A,
 } from "../parser/mod.ts";
 import {
     TypeResolver,
     GenericMap,
 } from "./mod.internal.ts";
-type Location = P.Location;
+type Location = A.Location;
 
 interface AnalysisState {
     ret?: A.ReturnStmt;
 }
 
 interface Namespaces {
-    import: Dictionary<P.Import>;
-    types: Dictionary<P.Type>;
-    typeDefinitions: Dictionary<P.TypeDef>;
-    structs: GenericMap<P.StructDef>;
-    functions: GenericMap<P.FunctionPrototype>;
-    vars: Dictionary<P.Variable>;
+    import: Dictionary<A.Import>;
+    types: Dictionary<A.Type>;
+    typeDefinitions: Dictionary<A.TypeDef>;
+    structs: GenericMap<A.StructDef>;
+    functions: GenericMap<A.FunctionPrototype>;
+    vars: Dictionary<A.Variable>;
 }
 
 type Resolve<T> = (st: SymbolTable, id: string) => T;
@@ -57,7 +56,7 @@ export default class SymbolTable {
     }
 
     private static add<T>(name: string, ns: Dictionary<T>, x: T) {
-        const q = x as any as P.Primitive;
+        const q = x as any as A.Primitive;
         Errors.ASSERT(!!q.loc);
         if (!!ns[name]) Errors.Checker.raiseDuplicateDef(name, q.loc);
         Errors.ASSERT(!ns[name], name);
@@ -104,11 +103,11 @@ export default class SymbolTable {
         return this.get(id, resolve) !== undefined;
     }
 
-    typeMustExist(t: P.Type, loc?: Location) {
+    typeMustExist(t: A.Type, loc?: Location) {
         if (!this.typeExists(t)) return Errors.Checker.raiseUnknownType(t, loc || t.loc);
     }
 
-    typeExists(t: P.Type) {
+    typeExists(t: A.Type) {
         return this.exists(t.id, (st, id) => st.ns.types[id]);
     }
 
@@ -116,11 +115,11 @@ export default class SymbolTable {
         return this.exists(id, (st, id) => st.ns.vars[id]);
     }
 
-    addImport(im: P.Import) {
+    addImport(im: A.Import) {
         SymbolTable.add(im.id, this.ns.import, im);
     }
 
-    addFunction(x: P.FunctionPrototype) {
+    addFunction(x: A.FunctionPrototype) {
         Logger.debug(`#fn:${x.mangledName}`);
         if (!this.ns.functions[x.id]) {
             this.ns.functions[x.id] = {};
@@ -129,7 +128,7 @@ export default class SymbolTable {
         this.ns.functions[x.id][x.mangledName] = x;
     }
 
-    addStruct(x: P.StructDef) {
+    addStruct(x: A.StructDef) {
         Logger.debug(`#st:${x.mangledName}`);
         if (!this.ns.structs[x.id]) {
             this.ns.structs[x.id] = {};
@@ -138,30 +137,30 @@ export default class SymbolTable {
         this.ns.structs[x.id][x.mangledName] = x;
     }
 
-    addType(t: P.Type) {
+    addType(t: A.Type) {
         SymbolTable.add(t.id, this.ns.types, t);
     }
 
-    addTypeParameter(t: P.Type) {
+    addTypeParameter(t: A.Type) {
         this.addType(t);
     }
 
-    addTypeDef(t: P.TypeDef) {
-        const type = P.Types.newType(t.id, t.loc);
+    addTypeDef(t: A.TypeDef) {
+        const type = A.newType(t.id, t.loc);
         this.addType(type);
         SymbolTable.add(t.id, this.ns.typeDefinitions, t);
     }
 
-    addVar(v: P.Variable) {
+    addVar(v: A.Variable) {
         SymbolTable.add(v.id, this.ns.vars, v);
     }
 
-    getType(id: string): P.Type|undefined {
+    getType(id: string): A.Type|undefined {
         return this.getTypeAlias(id) || this.get(id, (st, id) => st.ns.types[id]);
     }
 
-    private getTypeAlias(id: string): P.Type|undefined {
-        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as P.TypeDef;
+    private getTypeAlias(id: string): A.Type|undefined {
+        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as A.TypeDef;
         if (x) {
             return this.getType(x.type.id) || x.type;
         }
@@ -170,19 +169,19 @@ export default class SymbolTable {
         }
     }
 
-    getVar(id: string): P.Variable|undefined {
+    getVar(id: string): A.Variable|undefined {
         return this.get(id, (st, id) => st.ns.vars[id]);
     }
 
-    getAllFunctions(id: string): P.FunctionPrototype[]|undefined {
+    getAllFunctions(id: string): A.FunctionPrototype[]|undefined {
         const  m = this.getModule();
         return Object.keys(m.ns.functions[id]).map(k => m.ns.functions[id][k]);
     }
 
-    getFunction(id: string, loc: Location, typeParams: P.Type[], argTypes: P.Type[]): P.FunctionPrototype|undefined {
+    getFunction(id: string, loc: Location, typeParams: A.Type[], argTypes: A.Type[]): A.FunctionPrototype|undefined {
         return this.get(id, (st, id) => {
             if (!st.ns.functions[id]) return undefined;
-            const mid = P.Types.mangleName(id, typeParams, argTypes, P.Types.Compiler.NotInferred);
+            const mid = A.mangleName(id, typeParams, argTypes, A.Compiler.NotInferred);
             if (st.ns.functions[id][mid]) return st.ns.functions[id][mid];
             const x = st.resolver.resolveFunction(id, mid, typeParams, argTypes, loc, st.ns.functions);
             if (x) {
@@ -194,13 +193,13 @@ export default class SymbolTable {
         });
     }
 
-    getStruct(id: string, loc?: Location, typeParams?: P.Type[], argTypes?: P.Type[]): P.StructDef|undefined {
+    getStruct(id: string, loc?: Location, typeParams?: A.Type[], argTypes?: A.Type[]): A.StructDef|undefined {
         return this.get(id, (st, id) => {
             typeParams =  typeParams || [];
             argTypes =  argTypes || [];
-            loc = loc || P.UnknownLoc;
+            loc = loc || A.UnknownLoc;
             if (!st.ns.structs[id]) return undefined;
-            const mid = P.Types.mangleName(id, typeParams, argTypes, P.Types.Compiler.NotInferred);
+            const mid = A.mangleName(id, typeParams, argTypes, A.Compiler.NotInferred);
             if (st.ns.structs[id][mid]) return st.ns.structs[id][mid];
             const x = st.resolver.resolveFunction(id, mid, typeParams, argTypes, loc, st.ns.structs);
             if (x) {
@@ -215,7 +214,7 @@ export default class SymbolTable {
         });
     }
 
-    newTable(name: string, tag?: P.Tag) {
+    newTable(name: string, tag?: A.Tag) {
         const x = SymbolTable.build(name, this);
         this.children.push(x);
         if (tag) tag.tag = x;

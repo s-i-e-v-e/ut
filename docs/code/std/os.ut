@@ -6,19 +6,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import std
-foreign fn sys-new(size: Int64): Pointer[Uint8]
+foreign fn sys-new(size: u64): Pointer[Uint8]
 foreign fn sys-free(p: Pointer[Uint8]): Void
-foreign fn sys-size(xs: Pointer): Int64
-foreign fn sys-println(x: Int64): Void
+foreign fn sys-size(xs: Pointer): u64
+foreign fn sys-println(x: u64): Void
 foreign fn sys-println(x: String): Void
 foreign fn sys-println(x: Bool): Void
-foreign fn sys-exit(x: Int64): Void
+foreign fn sys-exit(x: u64): Void
 
-fn exit(code: Int64) {
+fn exit(code: u64) {
     return sys-exit(code);
 }
 
-fn new(size: Int64) {
+fn new(size: u64) {
     return sys-new(size);
 }
 
@@ -27,10 +27,10 @@ fn free(p: Pointer[Uint8]) {
 }
 
 fn println(x: Bits64) {
-    sys-println(x: Int64);
+    sys-println(x: u64);
 }
 
-fn println(x: Int64) {
+fn println(x: u64) {
     sys-println(x);
 }
 

@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {
-    P,
     A,
 } from "../parser/mod.ts";
 import {
@@ -111,13 +110,13 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
     e.type = st.resolver.rewriteType(e.type);
 }
 
-function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: P.Variable) {
+function rewriteVar(st: SymbolTable, block: A.BlockExpr, v: A.Variable) {
     const s = st.getStruct(v.type.id);
     if (s)  {
-        s.params.forEach((a: P.Variable) => rewriteVar(st, block, a));
+        s.params.forEach((a: A.Variable) => rewriteVar(st, block, a));
     }
     v.type = st.resolver.rewriteType(v.type);
-    Errors.ASSERT(P.Types.nativeSizeInBits(v.type) !== 0, v.id);
+    Errors.ASSERT(A.nativeSizeInBits(v.type) !== 0, v.id);
 }
 
 function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
@@ -174,36 +173,36 @@ function doBlock(st: SymbolTable, block: A.BlockExpr) {
     return st;
 }
 
-function doFunctionReturnType(st: SymbolTable, fp: P.FunctionPrototype) {
+function doFunctionReturnType(st: SymbolTable, fp: A.FunctionPrototype) {
     fp.returns = st.resolver.rewriteType(fp.returns!);
 }
 
-function doFunctionPrototype(st: SymbolTable, fp: P.FunctionPrototype) {
+function doFunctionPrototype(st: SymbolTable, fp: A.FunctionPrototype) {
     const block = A.buildBlockExpr(fp.loc);
     fp.params.forEach(p => rewriteVar(st, block, p));
 }
 
-function doFunction(st: SymbolTable, f: P.FunctionDef) {
+function doFunction(st: SymbolTable, f: A.FunctionDef) {
     st = f.tag;
     doFunctionPrototype(st, f);
     doBlock(st, f.body);
 }
 
-function doForeignFunction(st: SymbolTable, f: P.ForeignFunctionDef) {
+function doForeignFunction(st: SymbolTable, f: A.ForeignFunctionDef) {
     st = f.tag;
     doFunctionPrototype(st, f);
 }
 
-function doStruct(st: SymbolTable, s: P.StructDef) {
+function doStruct(st: SymbolTable, s: A.StructDef) {
 
 }
 
-function doTypeDef(st: SymbolTable, t: P.TypeDef) {
-    const x = t as P.TypeDef;
+function doTypeDef(st: SymbolTable, t: A.TypeDef) {
+    const x = t as A.TypeDef;
 
 }
 
-function doModule(st: SymbolTable, m: P.Module) {
+function doModule(st: SymbolTable, m: A.Module) {
     Logger.info(`Type rewriting: ${m.path}`);
 
     m.structs.forEach(x => doStruct(st, x));
@@ -215,7 +214,7 @@ function doModule(st: SymbolTable, m: P.Module) {
 
     const xs = [];
     for (const x of m.functions) {
-        xs.push(...(st.getAllFunctions(x.id) as P.FunctionDef[] || []));
+        xs.push(...(st.getAllFunctions(x.id) as A.FunctionDef[] || []));
     }
     m.functions = xs.filter(f => f.typeParams.length === 0);
 
@@ -233,7 +232,7 @@ function doModule(st: SymbolTable, m: P.Module) {
     }
 }
 
-export default function rewrite(global: SymbolTable, mods: P.Module[]) {
+export default function rewrite(global: SymbolTable, mods: A.Module[]) {
     for (const m of mods) {
         doModule(m.tag, m);
     }

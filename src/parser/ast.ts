@@ -5,14 +5,65 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import {Dictionary, int, Logger, object_values} from "../util/mod.ts";
 
-import {
-    A,
-    P,
-} from "./mod.ts";
-import {int, Logger} from "../util/mod.ts";
+export interface Tag {
+    tag?: any;
+}
 
-type Location = P.Location;
+export interface Location {
+    line: number;
+    character: number;
+    index: number;
+    path: string;
+}
+
+export interface Primitive extends Tag {
+    loc: Location;
+    id: string;
+}
+
+export interface Type extends Primitive {
+    typeParams: Type[];
+    takes: Type[],
+    returns: Type|undefined,
+    mangledName: string;
+}
+
+export interface FunctionType extends Type {
+    params: Variable[];
+}
+export interface StructType extends FunctionType {}
+
+export interface Module extends Primitive {
+    path: string,
+    types: TypeDef[],
+    structs: StructDef[],
+    foreignFunctions: ForeignFunctionDef[],
+    functions: FunctionDef[],
+    imports: Import[],
+}
+
+export interface Import extends Primitive {}
+
+export interface StructDef extends StructType {}
+export interface FunctionPrototype extends FunctionType {}
+export interface ForeignFunctionDef extends FunctionPrototype {}
+export interface FunctionDef extends FunctionPrototype {
+    body: BlockExpr;
+}
+
+export interface TypeDef extends Primitive {
+    type: Type;
+}
+
+export interface Variable extends Primitive {
+    type: Type;
+    isMutable: boolean;
+    isPrivate: boolean;
+    isVararg: boolean;
+}
+
 export enum NodeType {
     ExprStmt,
     VarInitStmt,
@@ -60,7 +111,7 @@ export interface ExprStmt extends Stmt {
 }
 
 export interface VarInitStmt extends Stmt {
-    var: P.Variable;
+    var: Variable;
     expr: Expr;
 }
 
@@ -77,15 +128,15 @@ export interface StmtExpr extends Expr {
     stmt: Stmt;
 }
 
-export interface ForStmt extends Stmt, P.Tag {
+export interface ForStmt extends Stmt, Tag {
     init?: VarInitStmt;
     condition?: Expr;
     update?: VarAssnStmt;
-    body: A.BlockExpr;
+    body: BlockExpr;
 }
 
 export interface Expr extends AstNode {
-    type: P.Type,
+    type: Type,
 }
 
 export interface IDExpr extends Expr {
@@ -93,7 +144,7 @@ export interface IDExpr extends Expr {
     rest: string[];
 }
 
-export interface BlockExpr extends Expr, P.Tag {
+export interface BlockExpr extends Expr, Tag {
     parent?: BlockExpr;
     xs: Stmt[];
 }
@@ -119,7 +170,7 @@ export interface BinaryExpr extends Expr {
 
 export interface CastExpr extends Expr {
     expr: Expr;
-    type: P.Type,
+    type: Type,
 }
 
 export interface ReferenceExpr extends Expr {
@@ -146,16 +197,16 @@ export interface NotExpr extends Expr {
  */
 export interface FunctionApplication extends Expr {
     expr: IDExpr;
-    typeParams: P.Type[];
+    typeParams: Type[];
     args: Expr[];
     mangledName?: string;
-    oldStruct?: P.StructDef;
+    oldStruct?: StructDef;
 }
 
 export interface IfExpr extends Expr {
     condition: Expr;
-    ifBranch: A.BlockExpr;
-    elseBranch: A.BlockExpr;
+    ifBranch: BlockExpr;
+    elseBranch: BlockExpr;
     isStmt: boolean;
 }
 
@@ -195,24 +246,183 @@ export function buildBinaryExpr(left: Expr, op: string, right: Expr): BinaryExpr
         op: op,
         right: right,
         loc: left.loc,
-        type: P.Types.Compiler.NotInferred,
+        type: Compiler.NotInferred,
     };
 }
 
 export function buildVoidExpr(loc: Location) {
     return {
         nodeType: NodeType.VoidExpr,
-        type: P.Types.Language.void,
+        type: Language.void,
         loc: loc,
     };
 }
 
-export function buildBlockExpr(loc: Location, parent?: A.BlockExpr): A.BlockExpr  {
+export function buildBlockExpr(loc: Location, parent?: BlockExpr): BlockExpr  {
     return {
         nodeType: NodeType.BlockExpr,
-        type: P.Types.Compiler.NotInferred,
+        type: Compiler.NotInferred,
         loc: loc,
         xs: new Array<any>(),
         parent: parent,
+    };
+}
+
+export const NativeModule = "<native>";
+
+export const NativeLoc = {
+    index: 0,
+    line: 1,
+    character: 1,
+    path: NativeModule,
+};
+
+export const UnknownLoc = {
+    index: 0,
+    line: 1,
+    character: 1,
+    path: "<unknown>",
+};
+
+export const Compiler = {
+    Array: newType("Array"),
+    NotInferred: newType("NotInferred"),
+};
+
+export const Language = {
+    void: newType("void", NativeLoc),
+    ptr: newType("ptr", NativeLoc),
+    b8: newType("b8", NativeLoc),
+    b16: newType("b16", NativeLoc),
+    b32: newType("b32", NativeLoc),
+    b64: newType("b64", NativeLoc),
+    b128: newType("b128", NativeLoc),
+    u8: newType("u8", NativeLoc),
+    u16: newType("u16", NativeLoc),
+    u32: newType("u32", NativeLoc),
+    u64: newType("u64", NativeLoc),
+    u128: newType("u128", NativeLoc),
+    i8: newType("i8", NativeLoc),
+    i16: newType("i16", NativeLoc),
+    i32: newType("i32", NativeLoc),
+    i64: newType("i64", NativeLoc),
+    i128: newType("i128", NativeLoc),
+    f8: newType("f8", NativeLoc), // 8_2
+    f16: newType("f16", NativeLoc), // 16_5
+    f32: newType("f32", NativeLoc), // 32_8
+    f64: newType("f64", NativeLoc), // 64_11
+    f80: newType("f80", NativeLoc), // 80_15
+    f128: newType("f128", NativeLoc), // 128_15
+    bool: newType("bool"),
+    string: newType("String"), // struct String
+};
+
+export function newType(id: string, loc?: Location, typeParams?: Type[]): Type {
+    typeParams = typeParams || [];
+    return {
+        loc: loc || UnknownLoc,
+        id: id,
+        typeParams: typeParams,
+        takes: [],
+        returns: undefined,
+        mangledName: mangleName(id, typeParams, []),
+    };
+}
+
+
+export function toTypeString(t: Type, xs?: Array<string>) {
+    const g = t;
+    xs = xs ? xs : [""];
+    xs.push(g.id)
+    if (g.typeParams.length) {
+        xs.push("[");
+        for (let i = 0; i < g.typeParams.length; i += 1) {
+            toTypeString(g.typeParams[i], xs);
+        }
+        xs.push("]");
+    }
+    return xs.join("");
+}
+
+export function mangleName(id: string, typeParams: Type[], takes: Type[], returns?: Type) {
+    const mangleTypes = (xs: Type[]): string => {
+        const ys = [];
+        for (const x of xs) {
+            ys.push(`$${x.id}`);
+            if (x.typeParams.length) {
+                ys.push("[");
+                ys.push(mangleTypes(x.typeParams));
+                ys.push("]");
+            }
+        }
+        return ys.join("");
+    };
+
+    const ys = [];
+    ys.push(`${id}`);
+    if (typeParams.length) {
+        ys.push("[");
+        ys.push(mangleTypes(typeParams));
+        ys.push("]");
+    }
+    ys.push("(");
+    ys.push(mangleTypes(takes));
+    ys.push(")");
+    /*if (returns) {
+        ys.push(":");
+        ys.push(mangleTypes([returns]));
+    }*/
+    return ys.join("");
+}
+
+export const LanguageMap: Dictionary<Type> = Language;
+export const IntegerTypes = object_values<Type>(Language).filter(x => x.id.startsWith("i") || x.id.startsWith("u"));
+export const FloatTypes = object_values<Type>(Language).filter(x => x.id.startsWith("f"));
+export const BitTypes = object_values<Type>(Language).filter(x => x.id.startsWith("b") && x.id !== Language.bool.id);
+
+export function nativeSizeInBits(t: Type) {
+    const map: Dictionary<Type> = Language;
+    const x = map[t.id];
+    if (!x) return 64;
+    if (x.id === Language.bool.id) return 8;
+    if (x.id === Language.string.id) return 64;
+    if (x.id === Language.ptr.id) return 64;
+    return Number(x.id.substring(1));
+}
+
+export function newFunctionType(id: string, loc: Location, typeParams: Type[], returns: Type, params: Variable[]): FunctionType {
+    const takes = params.map(x => x.type);
+    return {
+        loc: loc || UnknownLoc,
+        id: id,
+        typeParams: typeParams,
+        takes: takes,
+        returns: returns,
+        params: params,
+        mangledName: mangleName(id, typeParams, takes, returns),
+    };
+}
+
+export function newStructType(id: string, loc: Location, typeParams: Type[], params: Variable[]): StructType {
+    const takes = params.map(x => x.type);
+    return {
+        loc: loc || UnknownLoc,
+        id: id,
+        typeParams: typeParams,
+        takes: takes,
+        returns: Language.void,
+        params: params,
+        mangledName: mangleName(id, typeParams, takes),
+    };
+}
+
+export function buildVar(id: string, type: Type, isMutable: boolean, isVararg: boolean, isPrivate: boolean, loc: Location) {
+    return {
+        id: id,
+        type: type,
+        isMutable: isMutable,
+        isPrivate: isPrivate,
+        isVararg: isVararg,
+        loc: loc,
     };
 }

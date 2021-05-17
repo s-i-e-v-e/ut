@@ -20,6 +20,7 @@ import {
     Dictionary,
     SourceFile, clone, Int,
 } from "../util/mod.ts";
+import {FunctionDef} from "./ast.ts";
 
 type Location = A.Location;
 const NodeType = A.NodeType;
@@ -569,15 +570,10 @@ function parseFunctionPrototype(ts: TokenStream): A.FunctionPrototype {
     return A.newFunctionType(id, loc, typeParams.map(x => A.newType(x)), returns, params);
 }
 
-function parseFunction(ts: TokenStream): A.FunctionDef {
+function parseFunction(ts: TokenStream, isForeign: boolean): A.FunctionDef {
     const f = parseFunctionPrototype(ts) as A.FunctionDef;
-    f.body = parseBlockExpr(ts);
+    f.body = isForeign ? undefined : parseBlockExpr(ts);
     return f;
-}
-
-function parseForeignFunction(ts: TokenStream): A.ForeignFunctionDef {
-    ts.nextMustBe("foreign");
-    return parseFunctionPrototype(ts);
 }
 
 function parseStruct(ts: TokenStream): A.StructDef {
@@ -630,19 +626,18 @@ function parseTypeDef(ts: TokenStream): A.TypeDef {
 export function parseModule(id: string, ts: TokenStream, path: string): A.Module {
     const loc = ts.loc();
     const structs = new Array<A.StructDef>();
-    const xs = new Array<A.ForeignFunctionDef>();
-    const ys = new Array<A.FunctionDef>();
+    const functions = new Array<A.FunctionDef>();
     const imports = new Array<A.Import>();
     const types = new Array<A.TypeDef>();
     while (!ts.eof()) {
         if (ts.nextIs("struct")) {
             structs.push(parseStruct(ts));
         }
-        else if (ts.nextIs("foreign")) {
-            xs.push(parseForeignFunction(ts));
+        else if (ts.consumeIfNextIs("foreign")) {
+            functions.push(parseFunction(ts, true));
         }
         else if (ts.nextIs("fn")) {
-            ys.push(parseFunction(ts));
+            functions.push(parseFunction(ts, false));
         }
         else if (ts.nextIs("import")) {
             imports.push(parseImport(ts));
@@ -657,10 +652,10 @@ export function parseModule(id: string, ts: TokenStream, path: string): A.Module
 
     // add type instantiation function
     structs.forEach(x => {
-        if (!(xs.filter(y => y.id === x.id).length || ys.filter(y => y.id === x.id).length)) {
-            const f = clone(x) as A.FunctionPrototype;
+        if (!functions.filter(y => y.id === x.id).length) {
+            const f = clone(x) as A.FunctionDef;
             f.returns = x;
-            xs.push(f);
+            functions.push(f);
         }
     });
 
@@ -670,8 +665,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): A.Module
         path: path,
         types: types,
         structs: structs,
-        foreignFunctions: xs,
-        functions: ys,
+        functions: functions,
         imports: imports,
     };
 }

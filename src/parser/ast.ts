@@ -39,7 +39,6 @@ export interface Module extends Primitive {
     path: string,
     types: TypeDef[],
     structs: StructDef[],
-    foreignFunctions: ForeignFunctionDef[],
     functions: FunctionDef[],
     imports: Import[],
 }
@@ -48,9 +47,8 @@ export interface Import extends Primitive {}
 
 export interface StructDef extends StructType {}
 export interface FunctionPrototype extends FunctionType {}
-export interface ForeignFunctionDef extends FunctionPrototype {}
 export interface FunctionDef extends FunctionPrototype {
-    body: BlockExpr;
+    body: BlockExpr|undefined;
 }
 
 export interface TypeDef extends Primitive {

@@ -16,6 +16,7 @@ import {
     Errors,
     Logger, object_entries, object_values,
 } from "../util/mod.ts";
+import {FunctionDef} from "../parser/ast.ts";
 
 type Location = A.Location;
 type Type = A.Type;
@@ -510,6 +511,7 @@ function doFunctionPrototype(st: SymbolTable, fp: A.FunctionPrototype) {
 }
 
 function doFunction(st: SymbolTable, f: A.FunctionDef) {
+    if (!f.body) return;
     if (f.id == "main") f.body.type = A.Language.void;
     st = st.newTable(`fn:${f.id}`, f);
     doFunctionPrototype(st, f);
@@ -519,7 +521,7 @@ function doFunction(st: SymbolTable, f: A.FunctionDef) {
     st.resolver.typesMustMatch(f.returns, f.body.type, f.returns.loc);
 }
 
-function doForeignFunction(st: SymbolTable, f: A.ForeignFunctionDef) {
+function doForeignFunction(st: SymbolTable, f: A.FunctionDef) {
     if (st.resolver.typeNotInferred(f.returns!)) {
         f.returns = A.Language.void;
     }
@@ -562,10 +564,6 @@ function doModule(m: A.Module) {
     }
 
     // check return types
-    for (const x of m.foreignFunctions) {
-        doFunctionReturnType(st, x);
-    }
-
     for (const x of m.functions) {
         doFunctionReturnType(st, x);
     }
@@ -589,13 +587,9 @@ function doModuleDefinition(st: SymbolTable, m: A.Module, c: Check) {
 
     doTypes(st, m.types, m.structs);
 
-    for (const x of m.foreignFunctions) {
-        st.addFunction(x);
-        doForeignFunction(st, x);
-    }
-
     for (const x of m.functions) {
         st.addFunction(x);
+        if (!x.body) doForeignFunction(st, x);
     }
     c.xs.push(m);
     Logger.info(`Type checking done [defs]: ${m.path}`);

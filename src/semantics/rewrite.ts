@@ -17,6 +17,7 @@ import {
     Errors,
     Logger,
 } from "../util/mod.ts";
+import {FunctionDef} from "../parser/ast.ts";
 
 type Stmt = A.Stmt;
 type Expr = A.Expr;
@@ -185,12 +186,7 @@ function doFunctionPrototype(st: SymbolTable, fp: A.FunctionPrototype) {
 function doFunction(st: SymbolTable, f: A.FunctionDef) {
     st = f.tag;
     doFunctionPrototype(st, f);
-    doBlock(st, f.body);
-}
-
-function doForeignFunction(st: SymbolTable, f: A.ForeignFunctionDef) {
-    st = f.tag;
-    doFunctionPrototype(st, f);
+    if (f.body) doBlock(st, f.body);
 }
 
 function doStruct(st: SymbolTable, s: A.StructDef) {
@@ -208,8 +204,9 @@ function doModule(st: SymbolTable, m: A.Module) {
     m.structs.forEach(x => doStruct(st, x));
     m.types.forEach(x => doTypeDef(st, x));
 
-    for (const x of m.foreignFunctions) {
-        doForeignFunction(st, x);
+    // foreign functions
+    for (const x of m.functions) {
+        if (!x.body) doFunction(st, x);
     }
 
     const xs = [];
@@ -223,10 +220,6 @@ function doModule(st: SymbolTable, m: A.Module) {
     }
 
     // check return types
-    for (const x of m.foreignFunctions) {
-        doFunctionReturnType(st, x);
-    }
-
     for (const x of m.functions) {
         doFunctionReturnType(st, x);
     }

@@ -138,7 +138,7 @@ export default class TypeResolver {
                         if ((f as A.FunctionDef).body) {
                             (ff as A.FunctionDef).body = (f as A.FunctionDef).body;
                         }
-                        ff.tag = f.tag;
+                        (ff as A.FunctionDef).st = (f as A.FunctionDef).st;
                         Logger.debug(`reified: ${ff.mangledName}`);
                     }
                     else {

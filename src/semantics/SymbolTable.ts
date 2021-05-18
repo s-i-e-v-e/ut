@@ -17,6 +17,7 @@ import {
     TypeResolver,
     GenericMap,
 } from "./mod.internal.ts";
+
 type Location = A.Location;
 
 interface AnalysisState {
@@ -214,10 +215,9 @@ export default class SymbolTable {
         });
     }
 
-    newTable(name: string, tag?: A.Tag) {
+    newTable(name: string) {
         const x = SymbolTable.build(name, this);
         this.children.push(x);
-        if (tag) tag.tag = x;
         return x;
     }
 

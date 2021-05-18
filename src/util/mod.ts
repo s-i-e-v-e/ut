@@ -48,7 +48,7 @@ export function clone<T>(x: T|Array<T>): T|Array<T> {
         const y = Object();
         for (const [k, v] of object_entries(x)) {
             if (k === "body") continue;
-            if (k === "tag") continue;
+            if (k === "st") continue;
             y[k] = clone(v);
         }
         return y;

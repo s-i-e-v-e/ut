@@ -6,10 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import {Dictionary, int, Logger, object_values} from "../util/mod.ts";
-
-export interface Tag {
-    tag?: any;
-}
+import SymbolTable from "../semantics/SymbolTable.ts";
 
 export interface Location {
     line: number;
@@ -18,7 +15,7 @@ export interface Location {
     path: string;
 }
 
-export interface Primitive extends Tag {
+export interface Primitive {
     loc: Location;
     id: string;
 }
@@ -41,6 +38,7 @@ export interface Module extends Primitive {
     structs: StructDef[],
     functions: FunctionDef[],
     imports: Import[],
+    st?: SymbolTable;
 }
 
 export interface Import extends Primitive {}
@@ -49,6 +47,7 @@ export interface StructDef extends StructType {}
 export interface FunctionPrototype extends FunctionType {}
 export interface FunctionDef extends FunctionPrototype {
     body: BlockExpr|undefined;
+    st: SymbolTable;
 }
 
 export interface TypeDef extends Primitive {
@@ -126,11 +125,12 @@ export interface StmtExpr extends Expr {
     stmt: Stmt;
 }
 
-export interface ForStmt extends Stmt, Tag {
+export interface ForStmt extends Stmt {
     init?: VarInitStmt;
     condition?: Expr;
     update?: VarAssnStmt;
     body: BlockExpr;
+    st?: SymbolTable;
 }
 
 export interface Expr extends AstNode {
@@ -142,9 +142,10 @@ export interface IDExpr extends Expr {
     rest: string[];
 }
 
-export interface BlockExpr extends Expr, Tag {
+export interface BlockExpr extends Expr {
     parent?: BlockExpr;
     xs: Stmt[];
+    st?: SymbolTable;
 }
 
 export interface ArrayExpr extends Expr {

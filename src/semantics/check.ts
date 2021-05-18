@@ -14,9 +14,9 @@ import {
 import {
     Dictionary,
     Errors,
-    Logger, object_entries, object_values,
+    Logger,
+    object_values,
 } from "../util/mod.ts";
-import {FunctionDef} from "../parser/ast.ts";
 
 type Location = A.Location;
 type Type = A.Type;
@@ -477,7 +477,8 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         }
         case NodeType.ForStmt: {
             const x = s as A.ForStmt;
-            st = st.newTable("for", x);
+            st = st.newTable("for");
+            x.st = st;
 
             if (x.init) doStmt(st, block, x.init);
             if (x.condition) {
@@ -493,7 +494,8 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
 }
 
 function doBlock(st: SymbolTable, label: string, block: A.BlockExpr) {
-    st = st.newTable(`block: ${label}`, block);
+    st = st.newTable(`block: ${label}`);
+    block.st = st;
     block.xs.forEach(y => doStmt(st, block, y));
     return st;
 }
@@ -513,7 +515,8 @@ function doFunctionPrototype(st: SymbolTable, fp: A.FunctionPrototype) {
 function doFunction(st: SymbolTable, f: A.FunctionDef) {
     if (!f.body) return;
     if (f.id == "main") f.body.type = A.Language.void;
-    st = st.newTable(`fn:${f.id}`, f);
+    st = st.newTable(`fn:${f.id}`);
+    f.st = st;
     doFunctionPrototype(st, f);
     doBlock(st, "fn-body", f.body);
     if (st.resolver.typeNotInferred(f.body.type)) f.body.type = A.Language.void;
@@ -525,7 +528,8 @@ function doForeignFunction(st: SymbolTable, f: A.FunctionDef) {
     if (st.resolver.typeNotInferred(f.returns!)) {
         f.returns = A.Language.void;
     }
-    st = st.newTable(`ffn:${f.id}`, f);
+    st = st.newTable(`ffn:${f.id}`);
+    f.st = st;
     doFunctionPrototype(st, f);
 }
 
@@ -557,7 +561,7 @@ function doTypes(st: SymbolTable, types: A.TypeDef[], structs: A.StructDef[]) {
 
 function doModule(m: A.Module) {
     Logger.info(`Type checking: ${m.path}`);
-    const st = m.tag;
+    const st = m.st!;
 
     for (const x of m.functions) {
         doFunction(st, x);
@@ -576,7 +580,7 @@ function doModuleDefinition(st: SymbolTable, m: A.Module, c: Check) {
     Logger.info(`Type checking [defs]: ${m.path}`);
     const global = st;
     st = st.newTable(m.id);
-    m.tag = st;
+    m.st = st;
 
     // for each import, perform check
     const imports = c.mods.filter(x => m.imports.filter(y => x.id === y.id).length);

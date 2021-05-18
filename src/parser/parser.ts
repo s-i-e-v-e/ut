@@ -20,7 +20,6 @@ import {
     Dictionary,
     SourceFile, clone, Int,
 } from "../util/mod.ts";
-import {FunctionDef} from "./ast.ts";
 
 type Location = A.Location;
 const NodeType = A.NodeType;

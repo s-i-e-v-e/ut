@@ -64,8 +64,8 @@ function doExpr(st: SymbolTable, block: A.BlockExpr, e: Expr) {
         case NodeType.IfExpr: {
             const x = e as A.IfExpr;
             doExpr(st, block, x.condition);
-            doBlock(x.ifBranch.tag, x.ifBranch);
-            doBlock(x.elseBranch.tag, x.elseBranch);
+            doBlock(x.ifBranch.st!, x.ifBranch);
+            doBlock(x.elseBranch.st!, x.elseBranch);
             break;
         }
         case NodeType.CastExpr: {
@@ -154,11 +154,11 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
         }
         case NodeType.ForStmt: {
             const x = s as A.ForStmt;
-            st = x.tag;
+            st = x.st!;
 
             if (x.init) doStmt(st, block, x.init);
             if (x.update) doStmt(st, block, x.update);
-            doBlock(x.body.tag, x.body);
+            doBlock(x.body.st!, x.body);
             break;
         }
         default: Errors.raiseDebug(NodeType[s.nodeType]);
@@ -167,7 +167,7 @@ function doStmt(st: SymbolTable, block: A.BlockExpr, s: Stmt) {
 }
 
 function doBlock(st: SymbolTable, block: A.BlockExpr) {
-    st = block.tag;
+    st = block.st!;
     const ys: Stmt[] = [];
     block.xs.forEach(y => ys.push(...doStmt(st, block, y)));
     block.xs = ys;
@@ -184,7 +184,7 @@ function doFunctionPrototype(st: SymbolTable, fp: A.FunctionPrototype) {
 }
 
 function doFunction(st: SymbolTable, f: A.FunctionDef) {
-    st = f.tag;
+    st = f.st;
     doFunctionPrototype(st, f);
     if (f.body) doBlock(st, f.body);
 }
@@ -227,6 +227,6 @@ function doModule(st: SymbolTable, m: A.Module) {
 
 export default function rewrite(global: SymbolTable, mods: A.Module[]) {
     for (const m of mods) {
-        doModule(m.tag, m);
+        doModule(m.st!, m);
     }
 }

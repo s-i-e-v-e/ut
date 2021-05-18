@@ -189,8 +189,8 @@ function doStruct(st: SymbolTable, s: A.StructDef) {
 
 }
 
-function doTypeDef(st: SymbolTable, t: A.TypeDef) {
-    const x = t as A.TypeDef;
+function doTypeAlias(st: SymbolTable, t: A.TypeAlias) {
+    const x = t as A.TypeAlias;
 
 }
 
@@ -198,7 +198,7 @@ function doModule(st: SymbolTable, m: A.Module) {
     Logger.info(`Type rewriting: ${m.path}`);
 
     m.structs.forEach(x => doStruct(st, x));
-    m.types.forEach(x => doTypeDef(st, x));
+    m.types.forEach(x => doTypeAlias(st, x));
 
     // foreign functions
     for (const x of m.functions) {

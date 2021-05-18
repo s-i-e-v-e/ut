@@ -27,7 +27,7 @@ interface AnalysisState {
 interface Namespaces {
     import: Dictionary<A.Import>;
     types: Dictionary<A.Type>;
-    typeDefinitions: Dictionary<A.TypeDef>;
+    typeAliases: Dictionary<A.TypeAlias>;
     structs: GenericMap<A.StructDef>;
     functions: GenericMap<A.FunctionDef>;
     vars: Dictionary<A.Variable>;
@@ -47,7 +47,7 @@ export default class SymbolTable {
         this.ns = {
             import: {},
             types: {},
-            typeDefinitions: {},
+            typeAliases: {},
             structs: {},
             functions: {},
             vars: {},
@@ -146,10 +146,10 @@ export default class SymbolTable {
         this.addType(t);
     }
 
-    addTypeDef(t: A.TypeDef) {
+    addTypeAlias(t: A.TypeAlias) {
         const type = A.newType(t.id, t.loc);
         this.addType(type);
-        SymbolTable.add(t.id, this.ns.typeDefinitions, t);
+        SymbolTable.add(t.id, this.ns.typeAliases, t);
     }
 
     addVar(v: A.Variable) {
@@ -161,7 +161,7 @@ export default class SymbolTable {
     }
 
     private getTypeAlias(id: string): A.Type|undefined {
-        const x = this.get(id, (st, id) => st.ns.typeDefinitions[id]) as A.TypeDef;
+        const x = this.get(id, (st, id) => st.ns.typeAliases[id]) as A.TypeAlias;
         if (x) {
             return this.getType(x.type.id) || x.type;
         }

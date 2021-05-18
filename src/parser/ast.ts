@@ -29,7 +29,7 @@ export interface Type extends Primitive {
 
 export interface Module extends Primitive {
     path: string,
-    types: TypeDef[],
+    types: TypeAlias[],
     structs: StructDef[],
     functions: FunctionDef[],
     imports: Import[],
@@ -48,7 +48,7 @@ export interface FunctionDef extends Type {
     st?: SymbolTable;
 }
 
-export interface TypeDef extends Primitive {
+export interface TypeAlias extends Primitive {
     type: Type;
 }
 

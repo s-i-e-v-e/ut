@@ -533,9 +533,9 @@ function doForeignFunction(st: SymbolTable, f: A.FunctionDef) {
     doFunctionPrototype(st, f);
 }
 
-function doTypes(st: SymbolTable, types: A.TypeDef[], structs: A.StructDef[]) {
-    const doTypeDef = (t: A.TypeDef) => {
-        st.addTypeDef(t);
+function doTypes(st: SymbolTable, types: A.TypeAlias[], structs: A.StructDef[]) {
+    const doTypeAlias = (t: A.TypeAlias) => {
+        st.addTypeAlias(t);
         st.typeMustExist(t.type);
 
         // get struct
@@ -555,7 +555,7 @@ function doTypes(st: SymbolTable, types: A.TypeDef[], structs: A.StructDef[]) {
     };
 
     structs.forEach(x => st.addType(x));
-    types.forEach(x => doTypeDef(x));
+    types.forEach(x => doTypeAlias(x));
     structs.forEach(x => doStruct(x));
 }
 

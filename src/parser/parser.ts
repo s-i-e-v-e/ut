@@ -605,7 +605,7 @@ function parseLiteralExprList(ts: TokenStream, block: A.BlockExpr) {
     return xs;
 }
 
-function parseTypeDef(ts: TokenStream): A.TypeDef {
+function parseTypeAlias(ts: TokenStream): A.TypeAlias {
     const loc = ts.loc();
     ts.nextMustBe("type");
     const id = parseTypeDeclID(ts);
@@ -623,7 +623,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): A.Module
     const structs = new Array<A.StructDef>();
     const functions = new Array<A.FunctionDef>();
     const imports = new Array<A.Import>();
-    const types = new Array<A.TypeDef>();
+    const types = new Array<A.TypeAlias>();
     while (!ts.eof()) {
         if (ts.nextIs("struct")) {
             structs.push(parseStruct(ts));
@@ -638,7 +638,7 @@ export function parseModule(id: string, ts: TokenStream, path: string): A.Module
             imports.push(parseImport(ts));
         }
         else if (ts.nextIs("type")) {
-            types.push(parseTypeDef(ts));
+            types.push(parseTypeAlias(ts));
         }
         else {
             Errors.Parser.raiseExpectedButFound("one of: struct|foreign|fn|type|import", ts.peek());

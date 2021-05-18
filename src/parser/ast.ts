@@ -27,11 +27,6 @@ export interface Type extends Primitive {
     mangledName: string;
 }
 
-export interface FunctionType extends Type {
-    params: Variable[];
-}
-export interface StructType extends FunctionType {}
-
 export interface Module extends Primitive {
     path: string,
     types: TypeDef[],
@@ -43,11 +38,14 @@ export interface Module extends Primitive {
 
 export interface Import extends Primitive {}
 
-export interface StructDef extends StructType {}
-export interface FunctionPrototype extends FunctionType {}
-export interface FunctionDef extends FunctionPrototype {
-    body: BlockExpr|undefined;
-    st: SymbolTable;
+export interface StructDef extends Type {
+    params: Variable[];
+}
+
+export interface FunctionDef extends Type {
+    params: Variable[];
+    body?: BlockExpr;
+    st?: SymbolTable;
 }
 
 export interface TypeDef extends Primitive {
@@ -389,7 +387,7 @@ export function nativeSizeInBits(t: Type) {
     return Number(x.id.substring(1));
 }
 
-export function newFunctionType(id: string, loc: Location, typeParams: Type[], returns: Type, params: Variable[]): FunctionType {
+export function newFunctionType(id: string, loc: Location, typeParams: Type[], returns: Type, params: Variable[]): FunctionDef {
     const takes = params.map(x => x.type);
     return {
         loc: loc || UnknownLoc,
@@ -402,7 +400,7 @@ export function newFunctionType(id: string, loc: Location, typeParams: Type[], r
     };
 }
 
-export function newStructType(id: string, loc: Location, typeParams: Type[], params: Variable[]): StructType {
+export function newStructType(id: string, loc: Location, typeParams: Type[], params: Variable[]): StructDef {
     const takes = params.map(x => x.type);
     return {
         loc: loc || UnknownLoc,

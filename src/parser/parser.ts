@@ -556,7 +556,7 @@ function parseVarType(ts: TokenStream, force: boolean) {
     }
 }
 
-function parseFunctionPrototype(ts: TokenStream): A.FunctionPrototype {
+function parseFunction(ts: TokenStream, isForeign: boolean): A.FunctionDef {
     const loc = ts.loc();
     ts.nextMustBe("fn");
     const id = ts.nextIsType() ? parseTypeDeclID(ts) : parseIDExpr(ts).id;
@@ -566,11 +566,7 @@ function parseFunctionPrototype(ts: TokenStream): A.FunctionPrototype {
     ts.nextMustBe(")");
     let returns = parseVarType(ts, false);
 
-    return A.newFunctionType(id, loc, typeParams.map(x => A.newType(x)), returns, params);
-}
-
-function parseFunction(ts: TokenStream, isForeign: boolean): A.FunctionDef {
-    const f = parseFunctionPrototype(ts) as A.FunctionDef;
+    const f = A.newFunctionType(id, loc, typeParams.map(x => A.newType(x)), returns, params);
     f.body = isForeign ? undefined : parseBlockExpr(ts);
     return f;
 }

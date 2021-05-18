@@ -174,18 +174,14 @@ function doBlock(st: SymbolTable, block: A.BlockExpr) {
     return st;
 }
 
-function doFunctionReturnType(st: SymbolTable, fp: A.FunctionPrototype) {
+function doFunctionReturnType(st: SymbolTable, fp: A.FunctionDef) {
     fp.returns = st.resolver.rewriteType(fp.returns!);
 }
 
-function doFunctionPrototype(st: SymbolTable, fp: A.FunctionPrototype) {
-    const block = A.buildBlockExpr(fp.loc);
-    fp.params.forEach(p => rewriteVar(st, block, p));
-}
-
 function doFunction(st: SymbolTable, f: A.FunctionDef) {
-    st = f.st;
-    doFunctionPrototype(st, f);
+    st = f.st!;
+    const block = A.buildBlockExpr(f.loc);
+    f.params.forEach(p => rewriteVar(st, block, p));
     if (f.body) doBlock(st, f.body);
 }
 

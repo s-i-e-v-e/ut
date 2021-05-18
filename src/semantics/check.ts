@@ -105,13 +105,13 @@ export function resolveVar(st: SymbolTable, e: Expr): A.Variable {
     }
 }
 
-function getFunction(st: SymbolTable, typeParams: Type[], argTypes: Type[], id: string, loc: Location): A.FunctionPrototype {
+function getFunction(st: SymbolTable, typeParams: Type[], argTypes: Type[], id: string, loc: Location): A.FunctionDef {
     const x = st.getFunction(id, loc, typeParams, argTypes);
     if (!x) return Errors.Checker.raiseUnknownFunction(`${id}(${argTypes.map(x => A.toTypeString(x)).join(", ")})`, loc);
     return x;
 }
 
-function getStruct(st: SymbolTable, t: Type, loc: Location): A.FunctionPrototype {
+function getStruct(st: SymbolTable, t: Type, loc: Location): A.StructDef {
     const x = st.getStruct(t.id, loc, t.typeParams, t.takes);
     if (!x) return Errors.Checker.raiseUnknownType(t.id, loc);
     return x;
@@ -500,11 +500,11 @@ function doBlock(st: SymbolTable, label: string, block: A.BlockExpr) {
     return st;
 }
 
-function doFunctionReturnType(st: SymbolTable, fp: A.FunctionPrototype) {
+function doFunctionReturnType(st: SymbolTable, fp: A.FunctionDef) {
     st.typeMustExist(fp.returns!);
 }
 
-function doFunctionPrototype(st: SymbolTable, fp: A.FunctionPrototype) {
+function doFunctionPrototype(st: SymbolTable, fp: A.FunctionDef) {
     fp.typeParams.forEach(x => st.addTypeParameter(x));
     fp.params.forEach(x => {
         st.typeMustExist(x.type);

@@ -91,7 +91,7 @@ export default class TypeResolver {
         }
     }
 
-    resolveFunction(id: string, mid: string, typeParams: Type[], argTypes: Type[], loc: Location, g: GenericMap<A.FunctionPrototype>) {
+    resolveFunction(id: string, mid: string, typeParams: Type[], argTypes: Type[], loc: Location, g: GenericMap<A.FunctionDef>) {
         // match arity
         const xs = Object
             .keys(g[id])
@@ -126,7 +126,7 @@ export default class TypeResolver {
                 }
                 const y = A.mangleName(id, [], ys, returns);
                 if (mid === y) {
-                    const ff: A.FunctionPrototype = clone(f) as A.FunctionPrototype;
+                    const ff: A.FunctionDef = clone(f) as A.FunctionDef;
                     ff.typeParams = [];
                     ff.takes = ys;
                     ff.returns = returns;
@@ -138,7 +138,7 @@ export default class TypeResolver {
                         if ((f as A.FunctionDef).body) {
                             (ff as A.FunctionDef).body = (f as A.FunctionDef).body;
                         }
-                        (ff as A.FunctionDef).st = (f as A.FunctionDef).st;
+                        ff.st = f.st;
                         Logger.debug(`reified: ${ff.mangledName}`);
                     }
                     else {

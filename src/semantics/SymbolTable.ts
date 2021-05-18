@@ -29,7 +29,7 @@ interface Namespaces {
     types: Dictionary<A.Type>;
     typeDefinitions: Dictionary<A.TypeDef>;
     structs: GenericMap<A.StructDef>;
-    functions: GenericMap<A.FunctionPrototype>;
+    functions: GenericMap<A.FunctionDef>;
     vars: Dictionary<A.Variable>;
 }
 
@@ -120,7 +120,7 @@ export default class SymbolTable {
         SymbolTable.add(im.id, this.ns.import, im);
     }
 
-    addFunction(x: A.FunctionPrototype) {
+    addFunction(x: A.FunctionDef) {
         Logger.debug(`#fn:${x.mangledName}`);
         if (!this.ns.functions[x.id]) {
             this.ns.functions[x.id] = {};
@@ -174,12 +174,12 @@ export default class SymbolTable {
         return this.get(id, (st, id) => st.ns.vars[id]);
     }
 
-    getAllFunctions(id: string): A.FunctionPrototype[]|undefined {
+    getAllFunctions(id: string): A.FunctionDef[]|undefined {
         const  m = this.getModule();
         return Object.keys(m.ns.functions[id]).map(k => m.ns.functions[id][k]);
     }
 
-    getFunction(id: string, loc: Location, typeParams: A.Type[], argTypes: A.Type[]): A.FunctionPrototype|undefined {
+    getFunction(id: string, loc: Location, typeParams: A.Type[], argTypes: A.Type[]): A.FunctionDef|undefined {
         return this.get(id, (st, id) => {
             if (!st.ns.functions[id]) return undefined;
             const mid = A.mangleName(id, typeParams, argTypes, A.Compiler.NotInferred);
